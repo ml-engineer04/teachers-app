@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   BookOpen,
@@ -42,6 +42,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { VisualPdfEditor } from './VisualPdfEditor';
+import { api } from '../services/apiClient';
 
 export type AdminPortalNav =
   | 'dashboard'
@@ -67,69 +68,12 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [globalSearch, setGlobalSearch] = useState('');
 
   // ==========================================
-  // STATE: Books Catalog
+  // STATE: Real Books Catalog from Backend
   // ==========================================
-  const defaultBooks = [
-    {
-      id: 'book-1',
-      title: 'English for 7th Grade',
-      grade: 7,
-      subject: 'English',
-      version: 'v1.0',
-      type: "Student's Book",
-      status: 'Published',
-      pages: 245,
-      size: '128 MB',
-      date: '29.10.2025',
-      coverColor: 'from-blue-600 to-indigo-700',
-      iconEmoji: '🇬🇧',
-    },
-    {
-      id: 'book-2',
-      title: 'Mathematics for 8th Grade',
-      grade: 8,
-      subject: 'Mathematics',
-      version: 'v1.0',
-      type: "Student's Book",
-      status: 'Published',
-      pages: 312,
-      size: '142 MB',
-      date: '24.10.2025',
-      coverColor: 'from-amber-500 to-orange-600',
-      iconEmoji: '📐',
-    },
-    {
-      id: 'book-3',
-      title: 'Science for 9th Grade',
-      grade: 9,
-      subject: 'Science',
-      version: 'v1.0',
-      type: "Student's Book",
-      status: 'Processing',
-      pages: 280,
-      size: '120 MB',
-      date: '23.10.2025',
-      coverColor: 'from-emerald-600 to-teal-700',
-      iconEmoji: '🧬',
-    },
-    {
-      id: 'book-4',
-      title: 'English 7 Teacher’s Book (Javoblar)',
-      grade: 7,
-      subject: 'English',
-      version: 'v1.0',
-      type: "Teacher's Book",
-      status: 'Published',
-      pages: 180,
-      size: '85 MB',
-      date: '22.10.2025',
-      coverColor: 'from-purple-600 to-violet-800',
-      iconEmoji: '💡',
-    },
-  ];
-
-  const [books, setBooks] = useState(defaultBooks);
+  const [books, setBooks] = useState<any[]>([]);
+  const [isLoadingBooks, setIsLoadingBooks] = useState(false);
   const [selectedBookFilter, setSelectedBookFilter] = useState<'All' | "Student's Book" | "Teacher's Book" | 'Workbook'>('All');
+  const [selectedBookIdForEditor, setSelectedBookIdForEditor] = useState<string>('');
 
   // ==========================================
   // STATE: Add Book Form Wizard (Step 1-4)
@@ -138,29 +82,142 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [newBookGrade, setNewBookGrade] = useState('7-sinf');
   const [newBookSubject, setNewBookSubject] = useState('English');
   const [newBookType, setNewBookType] = useState<"Student's Book" | "Teacher's Book" | 'Workbook'>("Student's Book");
-  const [newBookTitle, setNewBookTitle] = useState('English for 7th Grade');
-  const [newBookDesc, setNewBookDesc] = useState('Modern English textbook for 7th grade students.');
-  const [newBookPages, setNewBookPages] = useState('245');
+  const [newBookTitle, setNewBookTitle] = useState('');
+  const [newBookDesc, setNewBookDesc] = useState('');
+  const [newBookPages, setNewBookPages] = useState('1');
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [createdBook, setCreatedBook] = useState<any | null>(null);
 
-  const handleSaveNewBook = () => {
-    const numGrade = parseInt(newBookGrade) || 7;
-    const newEntry = {
-      id: `book-${Date.now()}`,
-      title: newBookTitle || `${newBookSubject} for ${newBookGrade}`,
-      grade: numGrade,
-      subject: newBookSubject,
-      version: 'v1.0',
-      type: newBookType,
-      status: 'Published',
-      pages: parseInt(newBookPages) || 150,
-      size: '95 MB',
-      date: new Date().toLocaleDateString('ru-RU'),
-      coverColor: 'from-blue-600 to-indigo-700',
-      iconEmoji: newBookSubject === 'English' ? '🇬🇧' : newBookSubject === 'Mathematics' ? '📐' : '📚',
-    };
-    setBooks([newEntry, ...books]);
-    alert("Yangi kitob muvaffaqiyatli saqlandi va katalogga qo'shildi!");
-    setActiveNav('my_books');
+  // Database Reset Modal
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const loadCatalogBooks = async () => {
+    setIsLoadingBooks(true);
+    try {
+      const data = await api.getAllBooks();
+      if (Array.isArray(data)) {
+        const mapped = data.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          grade: b.gradeId || b.grade?.gradeNumber || 7,
+          subject: b.subjectId?.includes('math') ? 'Mathematics' : b.subjectId?.includes('phys') ? 'Physics' : 'English',
+          version: `v${b.version || 1}.0`,
+          type: b.type === 'STUDENT_BOOK' ? "Student's Book" : b.type === 'TEACHER_BOOK' ? "Teacher's Book" : 'Workbook',
+          status: b.status === 'PUBLISHED' ? 'Published' : b.status === 'INGESTING' ? 'Processing' : 'Draft',
+          pages: b.totalPages || 0,
+          size: b.totalSizeBytes ? `${(b.totalSizeBytes / (1024 * 1024)).toFixed(1)} MB` : 'PDF',
+          date: new Date(b.createdAt || Date.now()).toLocaleDateString('ru-RU'),
+          coverColor: (b.gradeId || 7) >= 10 ? 'from-indigo-600 to-blue-800' : 'from-blue-600 to-indigo-700',
+          iconEmoji: b.type === 'TEACHER_BOOK' ? '💡' : '📘',
+        }));
+        setBooks(mapped);
+      }
+    } catch (err) {
+      console.warn('Backend books load error:', err);
+    } finally {
+      setIsLoadingBooks(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCatalogBooks();
+  }, []);
+
+  const handleUploadPdfFile = async () => {
+    if (!selectedPdfFile) {
+      alert('Iltimos, avval PDF faylni tanlang!');
+      return;
+    }
+    setIsUploadingPdf(true);
+    try {
+      const numGrade = parseInt(newBookGrade) || 7;
+      const res = await api.uploadBookPdf(selectedPdfFile, {
+        title: newBookTitle || selectedPdfFile.name.replace(/\.[^/.]+$/, ''),
+        gradeId: numGrade,
+        subjectId: newBookSubject === 'English' ? `sub_eng_${numGrade}` : `sub_math_${numGrade}`,
+        bookType: newBookType === "Teacher's Book" ? 'TEACHER_BOOK' : newBookType === 'Workbook' ? 'WORKBOOK' : 'STUDENT_BOOK',
+      });
+      setCreatedBook(res.book);
+      setNewBookPages(String(res.book.totalPages));
+      if (!newBookTitle && res.book.title) {
+        setNewBookTitle(res.book.title);
+      }
+      await loadCatalogBooks();
+      alert(`PDF muvaffaqiyatli yuklandi va ${res.book.totalPages} ta sahifa aniqlandi!`);
+      setWizardStep(3);
+    } catch (err: any) {
+      alert('PDF yuklashda xatolik: ' + err.message);
+    } finally {
+      setIsUploadingPdf(false);
+    }
+  };
+
+  const handleSaveDraftBook = async () => {
+    try {
+      const numGrade = parseInt(newBookGrade) || 7;
+      const res = await api.createBook({
+        title: newBookTitle || `${newBookSubject} ${newBookGrade}`,
+        gradeId: numGrade,
+        subjectId: newBookSubject === 'English' ? `sub_eng_${numGrade}` : `sub_math_${numGrade}`,
+        type: newBookType === "Teacher's Book" ? 'TEACHER_BOOK' : newBookType === 'Workbook' ? 'WORKBOOK' : 'STUDENT_BOOK',
+        totalPages: parseInt(newBookPages) || 1,
+        description: newBookDesc,
+      });
+      setCreatedBook(res);
+      await loadCatalogBooks();
+      alert('Darslik qoralamasi yaratildi!');
+      setWizardStep(3);
+    } catch (err: any) {
+      alert('Kitob yaratishda xatolik: ' + err.message);
+    }
+  };
+
+  const handlePublishCreatedBook = async () => {
+    if (!createdBook?.id) {
+      setActiveNav('my_books');
+      return;
+    }
+    try {
+      await api.togglePublishBook(createdBook.id, true);
+      await loadCatalogBooks();
+      alert('Darslik muvaffaqiyatli nashr qilindi!');
+      setActiveNav('my_books');
+      setWizardStep(1);
+      setSelectedPdfFile(null);
+      setCreatedBook(null);
+    } catch (err: any) {
+      alert('Nashr qilishda xatolik: ' + err.message);
+    }
+  };
+
+  const handleDeleteBook = async (bookId: string) => {
+    if (!window.confirm("Haqiqatan ham ushbu darslikni o'chirib tashlamoqchimisiz?")) {
+      return;
+    }
+    try {
+      await api.deleteBook(bookId);
+      await loadCatalogBooks();
+      alert("Darslik o'chirildi!");
+    } catch (err: any) {
+      alert("O'chirishda xatolik: " + err.message);
+    }
+  };
+
+  const handleResetDatabase = async () => {
+    setIsResetting(true);
+    try {
+      await api.resetDatabase();
+      await loadCatalogBooks();
+      setIsResetConfirmOpen(false);
+      alert("Barcha ma'lumotlar bazasi to'liq tozalandi!");
+      setActiveNav('my_books');
+    } catch (err: any) {
+      alert('Tozalashda xatolik: ' + err.message);
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   // ==========================================
@@ -308,20 +365,11 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // DATA RESET / PURGE (Requested by user)
   // ==========================================
   const handlePurgeAllData = () => {
-    if (confirm("Rostdan ham barcha namunaviy ma'lumotlarni o'chirib, toza holatga keltirmoqchimisiz?")) {
-      setBooks([]);
-      setOrders([]);
-      setAudioTracks([]);
-      setEditorHotspots([]);
-      alert("Hamma data tozalandi! Endi o'zingiz yangi darslik, audio va to'lovlarni 0 dan kiritib test qilishingiz mumkin.");
-    }
+    setIsResetConfirmOpen(true);
   };
 
   const handleRestoreDemoData = () => {
-    setBooks(defaultBooks);
-    setOrders(defaultOrders);
-    setAudioTracks(defaultAudioTracks);
-    alert("Namunaviy ma'lumotlar qaytarildi!");
+    loadCatalogBooks();
   };
 
   // Filtered books
@@ -1006,134 +1054,361 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
               {/* Form & 3D Book Preview Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* Left Form (7 cols) */}
+                {/* Left Form (7 cols) - Interactive 4-step wizard */}
                 <div className="lg:col-span-7 bg-white p-7 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
-                  {/* Grade Dropdown */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                      Grade <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={newBookGrade}
-                      onChange={(e) => setNewBookGrade(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    >
-                      <option value="1-sinf">1-sinf</option>
-                      <option value="2-sinf">2-sinf</option>
-                      <option value="3-sinf">3-sinf</option>
-                      <option value="4-sinf">4-sinf</option>
-                      <option value="5-sinf">5-sinf</option>
-                      <option value="6-sinf">6-sinf</option>
-                      <option value="7-sinf">7-sinf</option>
-                      <option value="8-sinf">8-sinf</option>
-                      <option value="9-sinf">9-sinf</option>
-                      <option value="10-sinf">10-sinf</option>
-                      <option value="11-sinf">11-sinf</option>
-                    </select>
-                  </div>
+                  {wizardStep === 1 && (
+                    <div className="space-y-4 animate-fadeIn">
+                      <div className="border-b border-slate-100 pb-3">
+                        <h3 className="text-sm font-extrabold text-slate-800">1-qadam: Darslik haqida ma'lumot</h3>
+                        <p className="text-[11px] text-slate-400">Sinf, fan, kitob turi va nomini tanlang</p>
+                      </div>
 
-                  {/* Subject Dropdown */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                      Subject <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={newBookSubject}
-                      onChange={(e) => setNewBookSubject(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    >
-                      <option value="English">English (Ingliz tili)</option>
-                      <option value="Mathematics">Mathematics (Matematika)</option>
-                      <option value="Science">Science (Tabiiy fanlar)</option>
-                      <option value="Physics">Physics (Fizika)</option>
-                      <option value="Chemistry">Chemistry (Kimyo)</option>
-                      <option value="Biology">Biology (Biologiya)</option>
-                    </select>
-                  </div>
-
-                  {/* Book Type Pills */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-2">
-                      Book Type <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      {(["Student's Book", "Teacher's Book", 'Workbook'] as const).map((type) => (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setNewBookType(type)}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                            newBookType === type
-                              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
+                      {/* Grade Dropdown */}
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                          Sinf (Grade) <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={newBookGrade}
+                          onChange={(e) => setNewBookGrade(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                         >
-                          {type}
+                          <option value="1-sinf">1-sinf</option>
+                          <option value="2-sinf">2-sinf</option>
+                          <option value="3-sinf">3-sinf</option>
+                          <option value="4-sinf">4-sinf</option>
+                          <option value="5-sinf">5-sinf</option>
+                          <option value="6-sinf">6-sinf</option>
+                          <option value="7-sinf">7-sinf</option>
+                          <option value="8-sinf">8-sinf</option>
+                          <option value="9-sinf">9-sinf</option>
+                          <option value="10-sinf">10-sinf</option>
+                          <option value="11-sinf">11-sinf</option>
+                        </select>
+                      </div>
+
+                      {/* Subject Dropdown */}
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                          Fan (Subject) <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={newBookSubject}
+                          onChange={(e) => setNewBookSubject(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        >
+                          <option value="English">English (Ingliz tili)</option>
+                          <option value="Mathematics">Mathematics (Matematika)</option>
+                          <option value="Science">Science (Tabiiy fanlar)</option>
+                          <option value="Physics">Physics (Fizika)</option>
+                          <option value="Chemistry">Chemistry (Kimyo)</option>
+                          <option value="Biology">Biology (Biologiya)</option>
+                        </select>
+                      </div>
+
+                      {/* Book Type Pills */}
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-2">
+                          Kitob turi <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          {(["Student's Book", "Teacher's Book", 'Workbook'] as const).map((type) => (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => setNewBookType(type)}
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                                newBookType === type
+                                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              {type}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Title Input */}
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                          Darslik nomi <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={newBookTitle}
+                          onChange={(e) => setNewBookTitle(e.target.value)}
+                          placeholder="masalan: English for 7th Grade"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                      </div>
+
+                      {/* Description */}
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                          Tavsif (Description)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={newBookDesc}
+                          onChange={(e) => setNewBookDesc(e.target.value)}
+                          placeholder="Kitob haqida qisqacha ma'lumot..."
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setActiveNav('my_books')}
+                          className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                        >
+                          Bekor qilish
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newBookTitle.trim()) {
+                              setNewBookTitle(`${newBookSubject} ${newBookGrade}`);
+                            }
+                            setWizardStep(2);
+                          }}
+                          className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all flex items-center space-x-1.5"
+                        >
+                          <span>Keyingi: PDF yuklash</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Title Input */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                      Title <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={newBookTitle}
-                      onChange={(e) => setNewBookTitle(e.target.value)}
-                      placeholder="e.g. English for 7th Grade"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    />
-                  </div>
+                  {wizardStep === 2 && (
+                    <div className="space-y-5 animate-fadeIn">
+                      <div className="border-b border-slate-100 pb-3">
+                        <h3 className="text-sm font-extrabold text-slate-800">2-qadam: PDF darslik faylini yuklash</h3>
+                        <p className="text-[11px] text-slate-400">PDF faylni tanlang, sahifalar soni avtomatik aniqlanadi</p>
+                      </div>
 
-                  {/* Description */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                      Description
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={newBookDesc}
-                      onChange={(e) => setNewBookDesc(e.target.value)}
-                      placeholder="Kitob haqida qisqacha ma'lumot..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    />
-                  </div>
+                      {/* PDF Dropzone */}
+                      <div className="border-2 border-dashed border-blue-200 hover:border-blue-400 bg-blue-50/30 rounded-2xl p-6 text-center cursor-pointer transition-all relative">
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setSelectedPdfFile(file);
+                              if (!newBookTitle) {
+                                setNewBookTitle(file.name.replace(/\.[^/.]+$/, ''));
+                              }
+                            }
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 mx-auto flex items-center justify-center mb-2">
+                          <UploadCloud className="w-6 h-6" />
+                        </div>
+                        <p className="text-xs font-bold text-slate-800">
+                          {selectedPdfFile ? selectedPdfFile.name : 'PDF faylni tanlash yoki bu yerga tashlash'}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {selectedPdfFile
+                            ? `${(selectedPdfFile.size / (1024 * 1024)).toFixed(2)} MB • PDF format`
+                            : 'Faqat .pdf formatidagi fayllar (maksimal 300MB)'}
+                        </p>
+                      </div>
 
-                  {/* Page Count */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                      Umumiy Sahifalar Soni
-                    </label>
-                    <input
-                      type="number"
-                      value={newBookPages}
-                      onChange={(e) => setNewBookPages(e.target.value)}
-                      placeholder="180"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    />
-                  </div>
+                      {selectedPdfFile && (
+                        <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+                          <div className="flex items-center space-x-2.5">
+                            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <div>
+                              <p className="text-xs font-extrabold text-emerald-900">{selectedPdfFile.name}</p>
+                              <p className="text-[10px] text-emerald-700">Yuklashga tayyor</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleUploadPdfFile}
+                            disabled={isUploadingPdf}
+                            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all flex items-center space-x-1"
+                          >
+                            {isUploadingPdf ? (
+                              <span>Yuklanmoqda...</span>
+                            ) : (
+                              <>
+                                <UploadCloud className="w-3.5 h-3.5" />
+                                <span>Yuklash va Saqlash</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
 
-                  {/* Action Buttons */}
-                  <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setActiveNav('my_books')}
-                      className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveNewBook}
-                      className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all flex items-center space-x-1.5"
-                    >
-                      <span>Next Step</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                      <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(1)}
+                          className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                        >
+                          ← Orqaga
+                        </button>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={handleSaveDraftBook}
+                            className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all"
+                          >
+                            PDF siz qoralama yaratish
+                          </button>
+                          {createdBook && (
+                            <button
+                              type="button"
+                              onClick={() => setWizardStep(3)}
+                              className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all"
+                            >
+                              Keyingi qadam →
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {wizardStep === 3 && (
+                    <div className="space-y-5 animate-fadeIn">
+                      <div className="border-b border-slate-100 pb-3">
+                        <h3 className="text-sm font-extrabold text-slate-800">3-qadam: Kontent va Media sozlash</h3>
+                        <p className="text-[11px] text-slate-400">Sahifalarga audio, video va javoblar kalitini bog'lang</p>
+                      </div>
+
+                      <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200">
+                        <p className="text-xs font-extrabold text-blue-900">
+                          🎉 Darslik yaratildi: {createdBook?.title || newBookTitle}
+                        </p>
+                        <p className="text-[11px] text-blue-700 mt-0.5">
+                          Jami sahifalar: {createdBook?.totalPages || newBookPages} ta • Holati: Qoralama (Draft)
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3">
+                        <div
+                          onClick={() => {
+                            if (createdBook?.id) setSelectedBookIdForEditor(createdBook.id);
+                            setActiveNav('page_editor');
+                          }}
+                          className="p-4 rounded-2xl border border-slate-200 hover:border-blue-400 bg-white hover:bg-blue-50/40 cursor-pointer transition-all flex items-center justify-between"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                              📍
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-extrabold text-slate-900">Visual Hotspot Editor</h4>
+                              <p className="text-[11px] text-slate-500">Sahifalar ustiga interaktiv audio/video havolalar chizish</p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </div>
+
+                        <div
+                          onClick={() => setActiveNav('manage_content')}
+                          className="p-4 rounded-2xl border border-slate-200 hover:border-blue-400 bg-white hover:bg-blue-50/40 cursor-pointer transition-all flex items-center justify-between"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                              💡
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-extrabold text-slate-900">Teacher's Book Answer Key Mapping</h4>
+                              <p className="text-[11px] text-slate-500">Mashqlar javoblari va metodik ko'rsatmalarni bog'lash</p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </div>
+                      </div>
+
+                      <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(2)}
+                          className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                        >
+                          ← Orqaga
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(4)}
+                          className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all flex items-center space-x-1.5"
+                        >
+                          <span>Keyingi: Nashr qilish</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {wizardStep === 4 && (
+                    <div className="space-y-5 animate-fadeIn">
+                      <div className="border-b border-slate-100 pb-3">
+                        <h3 className="text-sm font-extrabold text-slate-800">4-qadam: Ko'rib chiqish va Nashr qilish</h3>
+                        <p className="text-[11px] text-slate-400">Tayyor darslikni o'qituvchilar uchun faollashtiring</p>
+                      </div>
+
+                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Kitob nomi:</span>
+                          <span className="font-extrabold text-slate-900">{createdBook?.title || newBookTitle}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Sinf va Fan:</span>
+                          <span className="font-extrabold text-slate-900">{newBookGrade} • {newBookSubject}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Turi:</span>
+                          <span className="font-extrabold text-slate-900">{newBookType}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Sahifalar soni:</span>
+                          <span className="font-extrabold text-slate-900">{createdBook?.totalPages || newBookPages} bet</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Hozirgi holati:</span>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">
+                            Qoralama (Draft)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setWizardStep(3)}
+                          className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                        >
+                          ← Orqaga
+                        </button>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveNav('my_books')}
+                            className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all"
+                          >
+                            Qoralama holda saqlash
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handlePublishCreatedBook}
+                            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all flex items-center space-x-1.5"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Nashr qilish (Publish)</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right 3D Book Cover Preview (5 cols, exact match to screenshot) */}
@@ -1301,13 +1576,21 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       {/* Right Action Menu */}
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => setActiveNav('page_editor')}
-                          className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-all"
+                          onClick={() => {
+                            setSelectedBookIdForEditor(book.id);
+                            setActiveNav('page_editor');
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-all flex items-center space-x-1"
                         >
-                          Page Editor
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>Visual Editor</span>
                         </button>
-                        <button className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700">
-                          <MoreVertical className="w-4 h-4" />
+                        <button
+                          onClick={() => handleDeleteBook(book.id)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all"
+                          title="Darslikni o'chirish"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -1593,7 +1876,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           {activeNav === 'page_editor' && (
             <div className="h-full w-full">
               <VisualPdfEditor
-                initialBookId={books[0]?.id || 'book_grade11_english_sb'}
+                initialBookId={selectedBookIdForEditor || books[0]?.id || ''}
                 onOpenMobilePreview={() => setActiveNav('mobile_sim')}
               />
             </div>
@@ -1861,17 +2144,82 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           {(activeNav === 'system_logs' || activeNav === 'settings') && (
             <div className="space-y-6 animate-fadeIn">
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                {activeNav === 'system_logs' ? 'System Audit Logs' : 'Platform Settings'}
+                {activeNav === 'system_logs' ? 'System Audit Logs' : 'Platform Sozlamalari'}
               </h2>
               <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 text-xs font-mono">
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-emerald-600 font-bold">[AUTH]</span> OTP Code delivered to mlrahmonjon@gmail.com via Google SMTP
+                  <span className="text-emerald-600 font-bold">[AUTH]</span> OTP Code delivered via Gmail SMTP (Ready)
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-blue-600 font-bold">[SECURITY]</span> Android Keystore hardware AES-256-GCM envelope key active
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-purple-600 font-bold">[CLOCK]</span> Monotonic anchor synchronized (Tamper protection 100%)
+                </div>
+              </div>
+
+              {/* Danger Zone: Database Reset */}
+              <div className="bg-red-50/70 p-6 rounded-3xl border border-red-200 shadow-sm space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-red-900 flex items-center space-x-1.5">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      <span>Ma'lumotlar Bazasini Tozalash (0 dan boshlash)</span>
+                    </h3>
+                    <p className="text-xs text-red-700 mt-1 max-w-xl">
+                      Barcha yuklangan kitoblar, sahifalar, media fayllar, foydalanuvchilar va so'rovlar bazadan butunlay o'chiriladi. Admin hisobingiz saqlanib qoladi va kitoblarni noldan yuklashingiz mumkin.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsResetConfirmOpen(true)}
+                    className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/30 transition-all flex items-center space-x-1.5 shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Bazani Tozalash</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reset Database Confirmation Modal */}
+          {isResetConfirmOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
+                <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div className="text-center space-y-1">
+                  <h3 className="text-base font-black text-slate-900">Bazasini Tozalashni Tasdiqlaysizmi?</h3>
+                  <p className="text-xs text-slate-500">
+                    Barcha kitoblar, sahifalar, audio/video fayllar va so'rovlar to'liq o'chiriladi. Bu amalni qaytarib bo'lmaydi.
+                  </p>
+                </div>
+                <div className="flex items-center space-x-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={isResetting}
+                    onClick={() => setIsResetConfirmOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isResetting}
+                    onClick={handleResetDatabase}
+                    className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition-all flex items-center justify-center space-x-1"
+                  >
+                    {isResetting ? (
+                      <span>Tozalanmoqda...</span>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Ha, butunlay tozalash</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>

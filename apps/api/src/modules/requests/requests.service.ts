@@ -13,60 +13,13 @@ import {
 export class RequestsService {
   private readonly logger = new Logger(RequestsService.name);
 
-  // In-memory fallback demo requests
-  private requestsStore: AccessRequest[] = [
-    {
-      id: 'req_001',
-      userId: 'user_1',
-      userEmail: 'malika.karimova@maktab.uz',
-      gradeId: 11,
-      gradeNumber: 11,
-      subjectId: 'sub_eng_11',
-      subjectName: 'English (Ingliz tili)',
-      plan: SubscriptionPlan.MONTHLY,
-      phoneNumber: '+998 90 123 45 67',
-      status: AccessRequestStatus.PENDING,
-      priceUzs: 119000,
-      internalNote: 'Yangi so‘rov qoldirdi',
-      createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-      updatedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    },
-    {
-      id: 'req_002',
-      userId: 'user_2',
-      userEmail: 'jasur.bek@maktab.uz',
-      gradeId: 10,
-      gradeNumber: 10,
-      subjectId: 'sub_math_10',
-      subjectName: 'Algebra & Geometriya',
-      plan: SubscriptionPlan.THREE_MONTHS,
-      phoneNumber: '+998 93 987 65 43',
-      status: AccessRequestStatus.AWAITING_PAYMENT,
-      priceUzs: 272000,
-      internalNote: 'Qo‘ng‘iroq qilindi, to‘lov chekini kutyapmiz',
-      callLoggedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      updatedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-    },
-    {
-      id: 'req_003',
-      userId: 'user_3',
-      userEmail: 'aziza.rahimova@maktab.uz',
-      gradeId: 9,
-      gradeNumber: 9,
-      subjectId: 'sub_phys_9',
-      subjectName: 'Fizika',
-      plan: SubscriptionPlan.YEARLY,
-      phoneNumber: '+998 97 555 12 34',
-      status: AccessRequestStatus.PAID_APPROVED,
-      priceUzs: 792000,
-      internalNote: 'To‘lov tasdiqlandi va ruxsat berildi',
-      callLoggedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-      resolvedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-      createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-      updatedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    },
-  ];
+  // Clean in-memory requests store (starts empty, populated by incoming requests)
+  private requestsStore: AccessRequest[] = [];
+
+  clearAll() {
+    this.requestsStore = [];
+    this.logger.log('🧹 Requests store cleared completely.');
+  }
 
   constructor(
     private readonly prisma: PrismaService,

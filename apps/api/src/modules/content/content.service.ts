@@ -84,57 +84,8 @@ export interface MediaItem {
 export class ContentService {
   private readonly logger = new Logger(ContentService.name);
 
-  // In-memory store for books
-  private booksStore: Book[] = [
-    {
-      id: 'book_grade11_english_sb',
-      gradeId: 11,
-      subjectId: 'sub_eng_11',
-      type: BookType.STUDENT_BOOK,
-      title: "English 11 Student's Book",
-      totalPages: 6,
-      version: 1,
-      status: BookStatus.PUBLISHED,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'book_grade11_english_tb',
-      gradeId: 11,
-      subjectId: 'sub_eng_11',
-      type: BookType.TEACHER_BOOK,
-      title: "English 11 Teacher's Book (Answer Key & Methodics)",
-      totalPages: 14,
-      version: 1,
-      status: BookStatus.PUBLISHED,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'book_grade7_english_sb',
-      gradeId: 7,
-      subjectId: 'sub_eng_7',
-      type: BookType.STUDENT_BOOK,
-      title: "English for 7th Grade (Student's Book)",
-      totalPages: 18,
-      version: 1,
-      status: BookStatus.PUBLISHED,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'book_grade7_english_tb',
-      gradeId: 7,
-      subjectId: 'sub_eng_7',
-      type: BookType.TEACHER_BOOK,
-      title: "English for 7th Grade (Teacher's Book & Answers)",
-      totalPages: 24,
-      version: 1,
-      status: BookStatus.PUBLISHED,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ];
+  // Clean in-memory store for books (starts empty, user uploads their own)
+  private booksStore: Book[] = [];
 
   // Ingestion results cache
   private ingestionReportsStore: Map<string, IngestionJobResult> = new Map();
@@ -158,11 +109,7 @@ export class ContentService {
     private readonly prisma: PrismaService,
     private readonly ingestionWorker: IngestionWorkerService,
   ) {
-    this.seedDemoPages();
-    this.seedDemoHotspots();
-    this.seedDemoMedia();
-    this.seedDemoAnswers();
-    this.initDemoIngestion();
+    this.logger.log('✨ ContentService initialized with clean empty database.');
   }
 
   private seedDemoMedia() {
@@ -619,6 +566,126 @@ export class ContentService {
       }
     }
     return this.booksStore.find((b) => b.id === bookId);
+  }
+
+  async createBook(data: {
+    title: string;
+    gradeId: number;
+    subjectId: string;
+    type?: BookType;
+    totalPages?: number;
+    description?: string;
+  }): Promise<Book> {
+    const bookId = `book_custom_${Date.now()}`;
+    const totalPages = Number(data.totalPages) || 1;
+    const gradeId = Number(data.gradeId) || 7;
+    const subjectId = data.subjectId || 'sub_eng_7';
+    const bookType = data.type || BookType.STUDENT_BOOK;
+    const title = data.title || 'Yangi darslik';
+
+    const newBook: Book = {
+      id: bookId,
+      gradeId,
+      subjectId,
+      type: bookType,
+      title,
+      totalPages,
+      version: 1,
+      status: BookStatus.DRAFT,
+      totalSizeBytes: 1024 * 1024,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Generate initial blank pages for visual editor
+    const pagesInfo: VisualEditorPageInfo[] = Array.from({ length: totalPages }, (_, idx) => ({
+      id: `page_${bookId}_${idx + 1}`,
+      bookId,
+      pageNumber: idx + 1,
+      width: 1200,
+      height: 1600,
+      rotation: 0,
+      audioHotspotsCount: 0,
+      videoHotspotsCount: 0,
+      answerHotspotsCount: 0,
+      hasHotspots: false,
+      titleSnippet: `Page ${idx + 1}`,
+    }));
+
+    this.booksStore.unshift(newBook);
+    this.pagesStore.set(bookId, pagesInfo);
+
+    if (this.prisma.isConnected) {
+      try {
+        await this.prisma.book.create({
+          data: {
+            id: bookId,
+            gradeId,
+            subjectId,
+            type: bookType as any,
+            title,
+            totalPages,
+            status: 'DRAFT',
+          },
+        });
+      } catch (err) {
+        this.logger.warn(`Could not save book to Prisma: ${err}`);
+      }
+    }
+
+    this.logger.log(`📚 Created new textbook: ${title} (${bookId})`);
+    return newBook;
+  }
+
+  async deleteBook(bookId: string): Promise<boolean> {
+    const idx = this.booksStore.findIndex((b) => b.id === bookId);
+    if (idx === -1) {
+      // Check prisma
+      if (this.prisma.isConnected) {
+        try {
+          await this.prisma.book.delete({ where: { id: bookId } });
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    }
+
+    this.booksStore.splice(idx, 1);
+    this.pagesStore.delete(bookId);
+    this.pdfBuffersStore.delete(bookId);
+    this.hotspotsStore.delete(bookId);
+    this.ingestionReportsStore.delete(bookId);
+
+    // Remove associated answers
+    for (const [id, ans] of this.answerKeysStore.entries()) {
+      if (ans.studentBookId === bookId || ans.teacherBookId === bookId) {
+        this.answerKeysStore.delete(id);
+      }
+    }
+
+    if (this.prisma.isConnected) {
+      try {
+        await this.prisma.book.delete({ where: { id: bookId } });
+      } catch (err) {
+        this.logger.warn(`Prisma book delete error: ${err}`);
+      }
+    }
+
+    this.logger.log(`🗑️ Successfully deleted book and all assets: ${bookId}`);
+    return true;
+  }
+
+  clearAllData() {
+    this.booksStore = [];
+    this.pagesStore.clear();
+    this.pdfBuffersStore.clear();
+    this.hotspotsStore.clear();
+    this.mediaStore.clear();
+    this.answerKeysStore.clear();
+    this.ingestionReportsStore.clear();
+    this.logger.log('🧹 All content database stores cleared completely.');
   }
 
   async getBookPages(bookId: string): Promise<VisualEditorPageInfo[]> {

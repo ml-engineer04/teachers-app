@@ -1,16 +1,40 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { RequestsService } from '../requests/requests.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { UsersService } from '../users/users.service';
+import { ContentService } from '../content/content.service';
+import { AnswerMappingsService } from '../answer-mappings/answer-mappings.service';
+import { AuditService } from '../audit/audit.service';
 import { AccessRequestStatus } from '@smartteacherbook/shared';
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(
     private readonly requestsService: RequestsService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly usersService: UsersService,
+    private readonly contentService: ContentService,
+    private readonly answerMappingsService: AnswerMappingsService,
+    private readonly auditService: AuditService,
   ) {}
+
+  async resetDatabase() {
+    this.logger.log('🚨 RESET DATABASE requested. Wiping all content and user data stores clean...');
+    this.contentService.clearAllData();
+    this.requestsService.clearAll();
+    this.subscriptionsService.clearAll();
+    this.usersService.clearAll();
+    this.answerMappingsService.clearAll();
+    this.auditService.clearAll();
+
+    return {
+      success: true,
+      message: 'Barcha ma‘lumotlar bazasi to‘liq tozalandi. 0 dan yangi ma‘lumotlarni yuklashingiz mumkin.',
+      timestamp: new Date().toISOString(),
+    };
+  }
 
   async getStats() {
     const users = await this.usersService.findAll();

@@ -12,98 +12,13 @@ export interface UserWithDetails extends User {
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  // Fallback demo users store
-  private usersStore: Array<UserWithDetails> = [
-    {
-      id: 'user_1',
-      email: 'malika.karimova@maktab.uz',
-      fullName: 'Malika Karimova',
-      avatarUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=200',
-      isActive: true,
-      isBlocked: false,
-      lastLoginAt: new Date(Date.now() - 3600000).toISOString(),
-      createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-      updatedAt: new Date().toISOString(),
-      activeDevicesCount: 1,
-      activeSubscriptionsCount: 1,
-      devices: [
-        {
-          id: 'dev_1',
-          userId: 'user_1',
-          deviceId: 'sec_dev_samsung_s23',
-          deviceModel: 'Samsung Galaxy S23 (SM-S911B)',
-          osVersion: 'Android 14 (API 34)',
-          appVersion: '1.0.0 (6)',
-          lastActiveAt: new Date().toISOString(),
-          isActive: true,
-          createdAt: new Date(Date.now() - 86400000 * 20).toISOString(),
-        },
-      ],
-    },
-    {
-      id: 'user_2',
-      email: 'jasur.bek@maktab.uz',
-      fullName: 'Jasurbek Omonov',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-      isActive: true,
-      isBlocked: false,
-      lastLoginAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-      createdAt: new Date(Date.now() - 86400000 * 60).toISOString(),
-      updatedAt: new Date().toISOString(),
-      activeDevicesCount: 2,
-      activeSubscriptionsCount: 1,
-      devices: [
-        {
-          id: 'dev_2a',
-          userId: 'user_2',
-          deviceId: 'sec_dev_xiaomi_13',
-          deviceModel: 'Xiaomi Redmi Note 13 Pro',
-          osVersion: 'Android 13 (API 33)',
-          appVersion: '1.0.0 (6)',
-          lastActiveAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-          isActive: true,
-          createdAt: new Date(Date.now() - 86400000 * 45).toISOString(),
-        },
-        {
-          id: 'dev_2b',
-          userId: 'user_2',
-          deviceId: 'sec_dev_tab_a9',
-          deviceModel: 'Samsung Galaxy Tab A9+ (Tablet)',
-          osVersion: 'Android 14 (API 34)',
-          appVersion: '1.0.0 (6)',
-          lastActiveAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-          isActive: true,
-          createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-        },
-      ],
-    },
-    {
-      id: 'user_3',
-      email: 'aziza.rahimova@maktab.uz',
-      fullName: 'Aziza Rahimova',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-      isActive: true,
-      isBlocked: false,
-      lastLoginAt: new Date(Date.now() - 86400000).toISOString(),
-      createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-      updatedAt: new Date().toISOString(),
-      activeDevicesCount: 1,
-      activeSubscriptionsCount: 1,
-      devices: [
-        {
-          id: 'dev_3',
-          userId: 'user_3',
-          deviceId: 'sec_dev_honor_90',
-          deviceModel: 'Honor 90 5G',
-          osVersion: 'Android 14 (API 34)',
-          appVersion: '1.0.0 (6)',
-          lastActiveAt: new Date(Date.now() - 86400000).toISOString(),
-          isActive: true,
-          createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-        },
-      ],
-    },
-  ];
+  // Clean in-memory users store (starts empty, populated when real users register)
+  private usersStore: Array<UserWithDetails> = [];
+
+  clearAll() {
+    this.usersStore = [];
+    this.logger.log('🧹 Users store cleared completely.');
+  }
 
   constructor(private readonly prisma: PrismaService) {}
 

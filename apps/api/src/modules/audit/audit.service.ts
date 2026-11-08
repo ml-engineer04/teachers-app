@@ -17,42 +17,13 @@ export interface AuditLogItem {
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  // In-memory demo store
-  private logsStore: AuditLogItem[] = [
-    {
-      id: 'log_01',
-      adminId: 'admin_1',
-      adminEmail: 'superadmin@smartteacherbook.com',
-      action: 'GRANT_ACCESS',
-      entityType: 'AccessRequest',
-      entityId: 'req_003',
-      payload: { gradeId: 9, plan: 'YEARLY', durationDays: 365 },
-      ipAddress: '127.0.0.1',
-      createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    },
-    {
-      id: 'log_02',
-      adminId: 'admin_1',
-      adminEmail: 'superadmin@smartteacherbook.com',
-      action: 'INGEST_BOOK_CONTENT',
-      entityType: 'Book',
-      entityId: 'book_grade11_english_sb',
-      payload: { totalPages: 160, matchedHotspots: 3 },
-      ipAddress: '127.0.0.1',
-      createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    },
-    {
-      id: 'log_03',
-      adminId: 'admin_1',
-      adminEmail: 'superadmin@smartteacherbook.com',
-      action: 'UPDATE_GRADE_PRICING',
-      entityType: 'Grade',
-      entityId: '11',
-      payload: { priceMonthlyUzs: 119000, priceQuarterlyUzs: 299000 },
-      ipAddress: '127.0.0.1',
-      createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
-    },
-  ];
+  // Clean in-memory audit logs store
+  private logsStore: AuditLogItem[] = [];
+
+  clearAll() {
+    this.logsStore = [];
+    this.logger.log('🧹 Audit logs store cleared completely.');
+  }
 
   constructor(private readonly prisma: PrismaService) {}
 

@@ -7,33 +7,13 @@ import { Subscription, SubscriptionPlan, SignedLicense } from '@smartteacherbook
 export class SubscriptionsService {
   private readonly logger = new Logger(SubscriptionsService.name);
 
-  // In-memory cache/fallback store
-  private subscriptionsStore: Subscription[] = [
-    {
-      id: 'sub_demo_1',
-      userId: 'user_1',
-      gradeId: 11,
-      subjectId: 'sub_eng_11',
-      plan: SubscriptionPlan.MONTHLY,
-      startsAt: new Date(Date.now() - 5 * 86400 * 1000).toISOString(),
-      expiresAt: new Date(Date.now() + 25 * 86400 * 1000).toISOString(),
-      grantedById: 'admin_1',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'sub_demo_2',
-      userId: 'user_2',
-      gradeId: 10,
-      subjectId: 'sub_math_10',
-      plan: SubscriptionPlan.THREE_MONTHS,
-      startsAt: new Date(Date.now() - 40 * 86400 * 1000).toISOString(),
-      expiresAt: new Date(Date.now() + 50 * 86400 * 1000).toISOString(),
-      grantedById: 'admin_1',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  // Clean in-memory subscriptions store (starts empty)
+  private subscriptionsStore: Subscription[] = [];
+
+  clearAll() {
+    this.subscriptionsStore = [];
+    this.logger.log('🧹 Subscriptions store cleared completely.');
+  }
 
   constructor(
     private readonly prisma: PrismaService,

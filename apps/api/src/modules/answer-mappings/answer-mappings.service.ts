@@ -7,38 +7,13 @@ export class AnswerMappingsService {
   private readonly logger = new Logger(AnswerMappingsService.name);
 
   // In-memory fallback demo mappings
-  private mappingsStore: AnswerMapping[] = [
-    {
-      id: 'map_1',
-      gradeId: 11,
-      subjectId: 'sub_eng_11',
-      studentExerciseLabel: 'Ex. 1 (p. 2)',
-      studentPageNumber: 2,
-      teacherPageNumber: 14,
-      teacherExerciseLabel: 'Unit 1 Answers: Reading & Vocab',
-      notes: 'Contains full script and grammar explanations',
-    },
-    {
-      id: 'map_2',
-      gradeId: 11,
-      subjectId: 'sub_eng_11',
-      studentExerciseLabel: 'Ex. 3 Listening (p. 4)',
-      studentPageNumber: 4,
-      teacherPageNumber: 16,
-      teacherExerciseLabel: 'Unit 1 Listening Transcript & Key',
-      notes: 'Track 1 transcript with highlighted answers',
-    },
-    {
-      id: 'map_3',
-      gradeId: 11,
-      subjectId: 'sub_eng_11',
-      studentExerciseLabel: 'Ex. 4 Grammar (p. 6)',
-      studentPageNumber: 6,
-      teacherPageNumber: 18,
-      teacherExerciseLabel: 'Conditionals type 3 answer key',
-      notes: 'Common student misconceptions noted',
-    },
-  ];
+  // Clean in-memory answer mappings store
+  private mappingsStore: AnswerMapping[] = [];
+
+  clearAll() {
+    this.mappingsStore = [];
+    this.logger.log('🧹 Answer mappings store cleared completely.');
+  }
 
   constructor(private readonly prisma: PrismaService) {}
 

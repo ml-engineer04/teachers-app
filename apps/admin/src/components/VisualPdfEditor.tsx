@@ -174,69 +174,9 @@ export function VisualPdfEditor({
   // STATE: Phase 2 Hotspots & Authoring Engine
   // ==========================================
   const [activeTool, setActiveTool] = useState<EditorToolMode>('SELECT');
-  const [hotspots, setHotspots] = useState<HotspotItem[]>([
-    {
-      id: 'hs-1',
-      pageNumber: 2,
-      type: 'AUDIO',
-      rect: { x: 0.1, y: 0.82, w: 0.38, h: 0.08 },
-      label: '🎧 Audio Track 2.1 — Listening',
-      targetFile: 'unit1_track1.mp3',
-      exerciseLabel: 'Task 2.1',
-      unitLesson: 'Unit 1, Lesson 2',
-      description: 'Listening comprehension audio for classroom lesson.',
-    },
-    {
-      id: 'hs-2',
-      pageNumber: 2,
-      type: 'ANSWER_LINK',
-      rect: { x: 0.54, y: 0.82, w: 0.38, h: 0.08 },
-      label: '💡 Answers (Teacher p. 14)',
-      targetFile: 'teacher_key_p14.pdf',
-      targetPageNumber: 14,
-      targetTeacherBookId: 'book_grade11_english_tb',
-      targetTeacherBookTitle: "English 11 Teacher's Book (Answer Key & Methodics)",
-      exerciseLabel: 'Task 2.1: Interactive Vocabulary',
-      unitLesson: 'Unit 1: Digital Future',
-      solutionText:
-        '1. Digital Classrooms — C (Interactive learning spaces)\n2. AI Tutors — A (Adaptive automated support)\n3. Pedagogy — D (Art and science of teaching)\n4. Active Speaking — B (Participatory oral practice)',
-      methodologyNotes:
-        'Tavsiya: O‘quvchilarga avval 3 daqiqa mustaqil ishlashga ruxsat bering. So‘ngra juftliklarda tekshirtirib, dars audio yozuvi orqali javoblarni tasdiqlang.',
-      multiAnswers: [
-        {
-          id: 'sub_ans_1',
-          exerciseNumber: 'Task 2.1 (A)',
-          exerciseTitle: 'Vocabulary Match',
-          solutionKey: '1 - C, 2 - A, 3 - D, 4 - B',
-          teacherPageNumber: 14,
-          notes: 'Lug‘at atamalarining to‘g‘ri ma’nosini darslik kontekstida tushuntiring.',
-        },
-        {
-          id: 'sub_ans_2',
-          exerciseNumber: 'Task 2.1 (B)',
-          exerciseTitle: 'Sentence Completion',
-          solutionKey: '1. Pedagogy, 2. AI Tutors, 3. Digital Classroom',
-          teacherPageNumber: 14,
-          notes: 'O‘quvchilar javoblarini daftarga to‘liq yozishini nazorat qiling.',
-        },
-      ],
-      description: 'Official Teacher’s Book answers for Task 2.1.',
-    },
-    {
-      id: 'hs-3',
-      pageNumber: 4,
-      type: 'VIDEO',
-      rect: { x: 0.25, y: 0.82, w: 0.5, h: 0.08 },
-      label: '🎬 Video Lesson — Grammar Focus',
-      targetFile: 'unit1_grammar.mp4',
-      exerciseLabel: 'Grammar Section',
-      unitLesson: 'Unit 1, Lesson 4',
-      description: 'Animated grammar video explaining Conditionals Type 3.',
-    },
-  ]);
-
-  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>('hs-1');
-  const [selectedHotspotIds, setSelectedHotspotIds] = useState<string[]>(['hs-1']);
+  const [hotspots, setHotspots] = useState<HotspotItem[]>([]);
+  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [selectedHotspotIds, setSelectedHotspotIds] = useState<string[]>([]);
 
   // Interaction tracking (Drawing, Moving, Resizing)
   const [isDrawing, setIsDrawing] = useState<boolean>(false);

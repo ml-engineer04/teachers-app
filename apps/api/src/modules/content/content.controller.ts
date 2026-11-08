@@ -31,6 +31,29 @@ export class ContentController {
     return this.contentService.getAllBooks();
   }
 
+  @Post('books')
+  @ApiOperation({ summary: 'Create a new book entry (Admin)' })
+  async createBook(@Body() body: any) {
+    return this.contentService.createBook(body);
+  }
+
+  @Delete('books/:bookId')
+  @ApiOperation({ summary: 'Delete a book and all associated pages & hotspots (Admin)' })
+  async deleteBook(@Param('bookId') bookId: string) {
+    const ok = await this.contentService.deleteBook(bookId);
+    if (!ok) {
+      throw new NotFoundException(`Book ${bookId} not found`);
+    }
+    return { success: true, message: `Book ${bookId} deleted` };
+  }
+
+  @Post('reset-all')
+  @ApiOperation({ summary: 'Wipe all books, media, hotspots, and answer keys clean (Admin)' })
+  async resetAllContent() {
+    this.contentService.clearAllData();
+    return { success: true, message: 'All content database stores wiped clean' };
+  }
+
   @Get('books/:bookId')
   @ApiOperation({ summary: 'Get book details by id' })
   async getBookById(@Param('bookId') bookId: string) {
