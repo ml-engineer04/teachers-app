@@ -144,6 +144,7 @@ export function VisualPdfEditor({
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
   const [pages, setPages] = useState<VisualPage[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(2);
+  const [pageJumpInput, setPageJumpInput] = useState<string>('2');
   const [isLoadingPages, setIsLoadingPages] = useState<boolean>(true);
 
   // ==========================================
@@ -1478,6 +1479,7 @@ export function VisualPdfEditor({
   const handleNavigatePage = (newPageNumber: number) => {
     if (newPageNumber >= 1 && newPageNumber <= totalPagesCount) {
       setCurrentPage(newPageNumber);
+      setPageJumpInput(String(newPageNumber));
       setSelectedHotspotId(null);
       setSelectedHotspotIds([]);
     }
@@ -1579,28 +1581,55 @@ export function VisualPdfEditor({
 
         {/* Center: Page Controls & Zoom */}
         <div className="flex items-center space-x-3">
-          {/* Page Previous / Next */}
-          <div className="flex items-center space-x-1 bg-slate-800/90 border border-slate-700 px-2 py-1 rounded-xl shadow-inner">
+          {/* Page Previous / Next with Direct Jump */}
+          <div className="flex items-center space-x-2 bg-slate-900/90 border border-slate-700/80 px-2.5 py-1.5 rounded-2xl shadow-inner">
             <button
               onClick={() => handleNavigatePage(currentPage - 1)}
               disabled={currentPage <= 1}
               title="Oldingi sahifa"
-              className="p-1 rounded-lg hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold disabled:opacity-30 disabled:hover:bg-slate-800 flex items-center space-x-1 transition-all"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Oldingi</span>
             </button>
 
-            <span className="text-xs font-mono font-bold px-2 text-white">
-              Page <span className="text-blue-400">{currentPage}</span> / {totalPagesCount}
-            </span>
+            <div className="flex items-center space-x-1.5 px-2">
+              <span className="text-xs text-slate-400 font-medium">Sahifa</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPagesCount}
+                value={pageJumpInput}
+                onChange={(e) => setPageJumpInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const p = parseInt(pageJumpInput);
+                    if (p >= 1 && p <= totalPagesCount) handleNavigatePage(p);
+                  }
+                }}
+                className="w-14 px-1.5 py-0.5 rounded-lg bg-slate-800 border border-blue-500/50 text-center font-mono font-bold text-xs text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              />
+              <span className="text-xs text-slate-400 font-mono font-bold">/ {totalPagesCount}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = parseInt(pageJumpInput);
+                  if (p >= 1 && p <= totalPagesCount) handleNavigatePage(p);
+                }}
+                className="px-2 py-0.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black transition-all"
+              >
+                O‘tish
+              </button>
+            </div>
 
             <button
               onClick={() => handleNavigatePage(currentPage + 1)}
               disabled={currentPage >= totalPagesCount}
               title="Keyingi sahifa"
-              className="p-1 rounded-lg hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="px-2.5 py-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold disabled:opacity-30 disabled:hover:bg-blue-600 flex items-center space-x-1 transition-all"
             >
-              <ChevronRight className="w-4 h-4" />
+              <span>Keyingi</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -2393,23 +2422,40 @@ export function VisualPdfEditor({
           </div>
 
           {/* Quick Floating Zoom / Page Bar at Bottom Center */}
-          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md border border-slate-700 px-4 py-2 rounded-2xl shadow-2xl flex items-center space-x-4 text-xs font-bold text-slate-300">
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-4 py-2 rounded-2xl shadow-2xl flex items-center space-x-3 text-xs font-bold text-slate-300 z-30">
             <button
               onClick={() => handleNavigatePage(currentPage - 1)}
               disabled={currentPage <= 1}
-              className="hover:text-white disabled:opacity-30"
+              className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-30 flex items-center space-x-1 transition-all"
             >
-              ← Oldingi
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Oldingi</span>
             </button>
-            <span className="text-white">
-              Sahifa {currentPage} / {totalPagesCount}
-            </span>
+            <div className="flex items-center space-x-1.5 px-1 font-mono">
+              <span className="text-slate-400">Sahifa:</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPagesCount}
+                value={pageJumpInput}
+                onChange={(e) => setPageJumpInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const p = parseInt(pageJumpInput);
+                    if (p >= 1 && p <= totalPagesCount) handleNavigatePage(p);
+                  }
+                }}
+                className="w-12 px-1 py-0.5 rounded bg-slate-800 border border-blue-500/50 text-center text-xs font-bold text-blue-400 focus:outline-none"
+              />
+              <span className="text-white font-bold">/ {totalPagesCount}</span>
+            </div>
             <button
               onClick={() => handleNavigatePage(currentPage + 1)}
               disabled={currentPage >= totalPagesCount}
-              className="hover:text-white disabled:opacity-30"
+              className="px-2.5 py-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-30 flex items-center space-x-1 transition-all"
             >
-              Keyingi →
+              <span>Keyingi</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </>

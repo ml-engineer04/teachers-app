@@ -18,7 +18,7 @@ import { secureStorage } from '../services/storage/secureStorage';
 import { DeviceLimitModal } from '../components/DeviceLimitModal';
 
 interface WelcomeScreenProps {
-  onGoogleSignIn: (user: { email: string; name: string; avatar: string }) => void;
+  onGoogleSignIn: (user: { email: string; name: string; avatar?: string; photoUrl?: string }) => void;
 }
 
 // Official Google 'G' 4-color Vector Logo
@@ -69,7 +69,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
   const [pendingUser, setPendingUser] = useState<{
     email: string;
     name: string;
-    avatar: string;
+    avatar?: string;
+    photoUrl?: string;
   } | null>(null);
 
   // Google OAuth loading state
@@ -152,7 +153,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         const userObj = {
           email: res.user.email,
           name: res.user.fullName || res.user.email.split('@')[0],
-          avatar: '👩‍🏫',
+          avatar: '',
+          photoUrl: (res.user as any)?.photoUrl || undefined,
         };
 
         // Check if device already has a 4-digit PIN code configured
@@ -267,7 +269,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         const userObj = {
           email: result.tokens.user.email,
           name: result.tokens.user.fullName || (userEmail ? userEmail.split('@')[0] : 'O‘qituvchi'),
-          avatar: '👩‍🏫',
+          avatar: '',
+          photoUrl: (result.tokens.user as any)?.photoUrl || undefined,
         };
 
         const hasPin = await secureStorage.hasPinCode();
@@ -365,7 +368,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
 
           <View style={styles.avatarCard}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarEmoji}>👩‍🏫</Text>
+              <Text style={styles.avatarEmoji}>🎓</Text>
             </View>
             <View style={styles.floatingBadge}>
               <Text style={styles.floatingBadgeText}>✨ O‘qituvchi Portali</Text>

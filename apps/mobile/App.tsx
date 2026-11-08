@@ -25,10 +25,11 @@ type ScreenState =
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('WELCOME');
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
-  const [userProfile, setUserProfile] = useState<{ email: string; name: string; avatar: string }>({
+  const [userProfile, setUserProfile] = useState<{ email: string; name: string; avatar?: string; photoUrl?: string }>({
     email: '',
     name: '',
-    avatar: '👩‍🏫',
+    avatar: '',
+    photoUrl: undefined,
   });
   const [activeGrade, setActiveGrade] = useState<number>(11);
   const [activeSubject, setActiveSubject] = useState<string>('ENG');
@@ -45,7 +46,7 @@ export default function App() {
           setUserProfile({
             email: profile.email,
             name: profile.fullName || profile.name || (profile.email ? profile.email.split('@')[0] : 'O‘qituvchi'),
-            avatar: '👨‍🏫',
+            photoUrl: (profile as any).photoUrl || undefined,
           });
 
           // If a 4-digit PIN is configured, show fast PIN Lock screen!
@@ -62,18 +63,21 @@ export default function App() {
   const handleLogout = async () => {
     await googleAuthService.signOut();
     await secureStorage.clearPinCode();
-    setUserProfile({ email: '', name: '', avatar: '👩‍🏫' });
+    setUserProfile({ email: '', name: '', avatar: '', photoUrl: undefined });
     setCurrentScreen('WELCOME');
   };
 
   const handleResetPinAndRelogin = async () => {
     await secureStorage.clearPinCode();
     await secureStorage.clearAuthTokens();
-    setUserProfile({ email: '', name: '', avatar: '👩‍🏫' });
+    setUserProfile({ email: '', name: '', avatar: '', photoUrl: undefined });
     setCurrentScreen('WELCOME');
   };
 
-  const showBottomDock = currentScreen !== 'WELCOME' && currentScreen !== 'PIN_LOCK';
+  const showBottomDock =
+    currentScreen !== 'WELCOME' &&
+    currentScreen !== 'PIN_LOCK' &&
+    currentScreen !== 'READER';
 
   return (
     <View style={[styles.root, currentScreen === 'READER' && { backgroundColor: '#0F172A' }]}>
@@ -175,7 +179,7 @@ export default function App() {
       {/* Persistent Floating Bottom Navigation Dock across all main screens */}
       {showBottomDock && (
         <BottomNavigationDock
-          currentTab={currentScreen === 'READER' ? 'GRADE_DETAIL' : (currentScreen as BottomNavTab)}
+          currentTab={currentScreen as BottomNavTab}
           onSelectTab={(tab) => setCurrentScreen(tab)}
         />
       )}

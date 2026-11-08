@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -37,18 +37,45 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
   const [requestSubmitted, setRequestSubmitted] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const subjects = [
+  const [pricingPlans, setPricingPlans] = useState<any[]>([
+    { id: 'MONTHLY', name: '1 Oylik (30 kun)', durationDays: 30, priceUzs: selectedGrade === 11 ? 119000 : 99000, sub: 'Sinov uchun qulay' },
+    { id: 'THREE_MONTHS', name: '3 Oylik (90 kun)', durationDays: 90, priceUzs: selectedGrade === 11 ? 299000 : 249000, sub: 'Choraklik eng ommabop' },
+    { id: 'YEARLY', name: '1 Yillik (365 kun)', durationDays: 365, priceUzs: selectedGrade === 11 ? 890000 : 799000, sub: 'Butun o‘quv yili uchun' },
+  ]);
+
+  const [subjects, setSubjects] = useState<any[]>([
     { code: 'ENG', name: 'Ingliz tili', icon: '🇬🇧' },
     { code: 'MATH', name: 'Matematika', icon: '📐' },
     { code: 'PHYS', name: 'Fizika', icon: '⚛️' },
     { code: 'CHEM', name: 'Kimyo', icon: '🧪' },
     { code: 'BIO', name: 'Biologiya', icon: '🧬' },
-  ];
+    { code: 'UZB', name: 'Ona tili', icon: '📖' },
+  ]);
+
+  useEffect(() => {
+    mobileApi.getPricingPlans().then((data) => {
+      if (Array.isArray(data) && data.length > 0) setPricingPlans(data);
+    }).catch(() => {});
+
+    mobileApi.getSubjects().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setSubjects(data.map((s) => ({
+          code: s.code,
+          name: s.name,
+          icon: s.icon || '📚',
+        })));
+      }
+    }).catch(() => {});
+  }, []);
 
   const getPrice = () => {
-    if (selectedPlan === SubscriptionPlan.MONTHLY) return selectedGrade === 11 ? '119,000 UZS' : '99,000 UZS';
-    if (selectedPlan === SubscriptionPlan.THREE_MONTHS) return selectedGrade === 11 ? '299,000 UZS' : '249,000 UZS';
-    return selectedGrade === 11 ? '890,000 UZS' : '799,000 UZS';
+    const found = pricingPlans.find((p) => p.id === selectedPlan);
+    if (found && found.priceUzs) {
+      return `${Number(found.priceUzs).toLocaleString('uz-UZ')} UZS`;
+    }
+    if (selectedPlan === SubscriptionPlan.MONTHLY) return '119,000 UZS';
+    if (selectedPlan === SubscriptionPlan.THREE_MONTHS) return '299,000 UZS';
+    return '890,000 UZS';
   };
 
   const handleSubmit = async () => {
@@ -149,41 +176,24 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
             {/* Select Plan */}
             <Text style={styles.inputLabel}>TARIF REJASI</Text>
             <View style={styles.plansContainer}>
-              <TouchableOpacity
-                style={[styles.planOption, selectedPlan === SubscriptionPlan.MONTHLY && styles.planOptionActive]}
-                onPress={() => setSelectedPlan(SubscriptionPlan.MONTHLY)}
-              >
-                <View style={[styles.radioCircle, selectedPlan === SubscriptionPlan.MONTHLY && styles.radioCircleActive]} />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.planTitle}>1 Oylik (30 kun)</Text>
-                  <Text style={styles.planSub}>Sinov uchun qulay</Text>
-                </View>
-                <Text style={styles.planPriceText}>{selectedGrade === 11 ? '119,000' : '99,000'} UZS</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.planOption, selectedPlan === SubscriptionPlan.THREE_MONTHS && styles.planOptionActive]}
-                onPress={() => setSelectedPlan(SubscriptionPlan.THREE_MONTHS)}
-              >
-                <View style={[styles.radioCircle, selectedPlan === SubscriptionPlan.THREE_MONTHS && styles.radioCircleActive]} />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.planTitle}>3 Oylik (90 kun)</Text>
-                  <Text style={styles.planSub}>Choraklik eng ommabop</Text>
-                </View>
-                <Text style={styles.planPriceText}>{selectedGrade === 11 ? '299,000' : '249,000'} UZS</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.planOption, selectedPlan === SubscriptionPlan.YEARLY && styles.planOptionActive]}
-                onPress={() => setSelectedPlan(SubscriptionPlan.YEARLY)}
-              >
-                <View style={[styles.radioCircle, selectedPlan === SubscriptionPlan.YEARLY && styles.radioCircleActive]} />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.planTitle}>1 Yillik (365 kun)</Text>
-                  <Text style={styles.planSub}>Butun o‘quv yili uchun</Text>
-                </View>
-                <Text style={styles.planPriceText}>{selectedGrade === 11 ? '890,000' : '799,000'} UZS</Text>
-              </TouchableOpacity>
+              {pricingPlans.map((plan) => {
+                const planKey = (plan.id || 'MONTHLY') as SubscriptionPlan;
+                const isSelected = selectedPlan === planKey;
+                return (
+                  <TouchableOpacity
+                    key={plan.id}
+                    style={[styles.planOption, isSelected && styles.planOptionActive]}
+                    onPress={() => setSelectedPlan(planKey)}
+                  >
+                    <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={styles.planTitle}>{plan.name || `${plan.durationDays} kunlik`}</Text>
+                      <Text style={styles.planSub}>{plan.sub || (plan.badge ? `⭐ ${plan.badge}` : `${plan.durationDays} kun litsenziya`)}</Text>
+                    </View>
+                    <Text style={styles.planPriceText}>{(plan.priceUzs || 0).toLocaleString('uz-UZ')} UZS</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Phone Input */}

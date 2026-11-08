@@ -60,9 +60,12 @@ export type AdminPortalNav =
   | 'my_books'
   | 'audio_video'
   | 'manage_content'
+  | 'subjects'
   | 'page_editor'
   | 'users'
+  | 'admins'
   | 'subscriptions'
+  | 'pricing'
   | 'analytics'
   | 'system_logs'
   | 'settings'
@@ -159,6 +162,53 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [manualSubject, setManualSubject] = useState('Ingliz tili');
   const [manualDurationDays, setManualDurationDays] = useState(30);
 
+  // ==========================================
+  // STATE: Dynamic Subjects Management
+  // ==========================================
+  const [subjectsList, setSubjectsList] = useState<any[]>([
+    { id: 'sub_eng', name: 'Ingliz tili', code: 'ENG', icon: '🇬🇧', color: '#2563EB' },
+    { id: 'sub_uzb', name: 'Ona tili', code: 'UZB', icon: '📖', color: '#EA580C' },
+    { id: 'sub_math', name: 'Matematika', code: 'MATH', icon: '📐', color: '#059669' },
+    { id: 'sub_phys', name: 'Fizika', code: 'PHYS', icon: '⚛️', color: '#7C3AED' },
+    { id: 'sub_chem', name: 'Kimyo', code: 'CHEM', icon: '🧪', color: '#DB2777' },
+    { id: 'sub_bio', name: 'Biologiya', code: 'BIO', icon: '🧬', color: '#0D9488' },
+  ]);
+  const [isAddSubjectModalOpen, setIsAddSubjectModalOpen] = useState(false);
+  const [newSubjName, setNewSubjName] = useState('');
+  const [newSubjCode, setNewSubjCode] = useState('');
+  const [newSubjIcon, setNewSubjIcon] = useState('📚');
+  const [newSubjColor, setNewSubjColor] = useState('#2563EB');
+
+  // ==========================================
+  // STATE: Pricing & Tariffs Management
+  // ==========================================
+  const [pricingPlans, setPricingPlans] = useState<any[]>([
+    { id: 'MONTHLY', name: '1 Oylik Obuna', durationDays: 30, priceUzs: 119000, badge: '' },
+    { id: 'THREE_MONTHS', name: '3 Oylik Obuna', durationDays: 90, priceUzs: 299000, badge: 'TEJAMKOR' },
+    { id: 'YEARLY', name: '1 Yillik Obuna', durationDays: 365, priceUzs: 890000, badge: 'ENG FOYDALI' },
+  ]);
+  const [isSavingPricing, setIsSavingPricing] = useState(false);
+
+  // ==========================================
+  // STATE: Super Admin & Admin Team Management
+  // ==========================================
+  const [adminsList, setAdminsList] = useState<any[]>([
+    {
+      id: 'admin_super_mlrahmonjon',
+      email: 'mlrahmonjon@gmail.com',
+      fullName: 'Rahmonjon (Super Admin)',
+      role: 'SUPER_ADMIN',
+      isActive: true,
+      createdAt: '2026-01-01',
+    },
+  ]);
+  const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
+  const [newAdminFullName, setNewAdminFullName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState<'ADMIN' | 'SUPER_ADMIN'>('ADMIN');
+  const [isSavingAdmin, setIsSavingAdmin] = useState(false);
+
   // Database Reset Modal
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -246,6 +296,27 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     }
   };
 
+  const loadSubjects = async () => {
+    try {
+      const data = await api.getSubjects();
+      if (Array.isArray(data) && data.length > 0) setSubjectsList(data);
+    } catch {}
+  };
+
+  const loadPricingPlans = async () => {
+    try {
+      const data = await api.getPricingPlans();
+      if (Array.isArray(data) && data.length > 0) setPricingPlans(data);
+    } catch {}
+  };
+
+  const loadAdmins = async () => {
+    try {
+      const data = await api.getAdmins();
+      if (Array.isArray(data) && data.length > 0) setAdminsList(data);
+    } catch {}
+  };
+
   const loadAllPortalData = async () => {
     await Promise.all([
       loadCatalogBooks(),
@@ -253,6 +324,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       loadAnswerMappings(),
       loadRequests(),
       loadUsers(),
+      loadSubjects(),
+      loadPricingPlans(),
+      loadAdmins(),
     ]);
   };
 
@@ -299,13 +373,18 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     setIsUploadingPdf(true);
     try {
       let createdBookId = '';
+      const matchingSubject = subjectsList.find(
+        (s) => s.name?.toLowerCase() === newBookSubject.toLowerCase()
+      );
+      const resolvedSubjectId = matchingSubject
+        ? matchingSubject.id
+        : `sub_${newBookSubject.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 10)}_${numGrade}`;
+
       if (selectedPdfFile) {
         const res = await api.uploadBookPdf(selectedPdfFile, {
           title: titleToSave,
           gradeId: numGrade,
-          subjectId: newBookSubject.toLowerCase().includes('mat')
-            ? `sub_math_${numGrade}`
-            : `sub_eng_${numGrade}`,
+          subjectId: resolvedSubjectId,
           bookType:
             newBookType === "Teacher's Book"
               ? 'TEACHER_BOOK'
@@ -319,9 +398,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         const res = await api.createBook({
           title: titleToSave,
           gradeId: numGrade,
-          subjectId: newBookSubject.toLowerCase().includes('mat')
-            ? `sub_math_${numGrade}`
-            : `sub_eng_${numGrade}`,
+          subjectId: resolvedSubjectId,
           type:
             newBookType === "Teacher's Book"
               ? 'TEACHER_BOOK'
@@ -598,6 +675,95 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     }
   };
 
+  // Handlers: Subjects Management
+  const handleSaveSubject = async () => {
+    if (!newSubjName.trim() || !newSubjCode.trim()) {
+      alert('Iltimos, fan nomi va kodini kiriting!');
+      return;
+    }
+    try {
+      await api.createSubject({
+        name: newSubjName.trim(),
+        code: newSubjCode.trim().toUpperCase(),
+        icon: newSubjIcon,
+        color: newSubjColor,
+      });
+      await loadSubjects();
+      setIsAddSubjectModalOpen(false);
+      setNewSubjName('');
+      setNewSubjCode('');
+      showToast('🎉 Yangi fan muvaffaqiyatli qo‘shildi!');
+    } catch (err: any) {
+      alert('Fanni qo‘shishda xatolik: ' + err.message);
+    }
+  };
+
+  const handleDeleteSubject = async (id: string) => {
+    if (!window.confirm("Haqiqatan ham ushbu fanni o'chirmoqchimisiz?")) return;
+    try {
+      await api.deleteSubject(id);
+      await loadSubjects();
+      showToast('Fan o‘chirildi!');
+    } catch (err: any) {
+      alert('Xatolik: ' + err.message);
+    }
+  };
+
+  // Handlers: Pricing Management
+  const handleSavePricing = async () => {
+    setIsSavingPricing(true);
+    try {
+      await api.updatePricingPlans(pricingPlans);
+      showToast('🎉 Yangi tarif narxlari muvaffaqiyatli saqlandi!');
+    } catch (err: any) {
+      alert('Narxlarni saqlashda xatolik: ' + err.message);
+    } finally {
+      setIsSavingPricing(false);
+    }
+  };
+
+  // Handlers: Admin Management
+  const handleSaveAdmin = async () => {
+    if (!newAdminEmail.trim() || !newAdminPassword.trim()) {
+      alert('Iltimos, admin email va parolini kiriting!');
+      return;
+    }
+    setIsSavingAdmin(true);
+    try {
+      await api.createAdmin({
+        fullName: newAdminFullName.trim() || 'Administrator',
+        email: newAdminEmail.trim(),
+        password: newAdminPassword.trim(),
+        role: newAdminRole,
+      });
+      await loadAdmins();
+      setIsAddAdminModalOpen(false);
+      setNewAdminFullName('');
+      setNewAdminEmail('');
+      setNewAdminPassword('');
+      showToast('🎉 Yangi administrator muvaffaqiyatli yaratildi!');
+    } catch (err: any) {
+      alert('Admin yaratishda xatolik: ' + err.message);
+    } finally {
+      setIsSavingAdmin(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string) => {
+    if (id === 'admin_super_mlrahmonjon') {
+      alert('Asosiy Super Admin hisobini o‘chirib bo‘lmaydi!');
+      return;
+    }
+    if (!window.confirm("Haqiqatan ham ushbu administratorni o'chirmoqchimisiz?")) return;
+    try {
+      await api.deleteAdmin(id);
+      await loadAdmins();
+      showToast('Administrator hisobi o‘chirildi!');
+    } catch (err: any) {
+      alert('Xatolik: ' + err.message);
+    }
+  };
+
   // ==========================================
   // HANDLERS: Reset Entire Database
   // ==========================================
@@ -780,6 +946,20 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   </button>
 
                   <button
+                    onClick={() => setActiveNav('subjects')}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-between ${
+                      activeNav === 'subjects'
+                        ? 'text-blue-400 bg-blue-950/60 font-bold'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                    }`}
+                  >
+                    <span>🏷️ Fanlar Boshqaruvi</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-blue-300 font-mono">
+                      {subjectsList.length}
+                    </span>
+                  </button>
+
+                  <button
                     onClick={() => setActiveNav('page_editor')}
                     className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                       activeNav === 'page_editor'
@@ -811,6 +991,24 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               </span>
             </button>
 
+            {/* Nav: Admins Management */}
+            <button
+              onClick={() => setActiveNav('admins')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                activeNav === 'admins'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <Crown className="w-4 h-4 shrink-0 text-purple-400" />
+                <span>Adminlar Boshqaruvi</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-purple-300 font-mono">
+                {adminsList.length}
+              </span>
+            </button>
+
             {/* Nav: Subscriptions */}
             <button
               onClick={() => setActiveNav('subscriptions')}
@@ -833,6 +1031,19 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   {requestsList.length}
                 </span>
               )}
+            </button>
+
+            {/* Nav: Pricing & Tariffs */}
+            <button
+              onClick={() => setActiveNav('pricing')}
+              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                activeNav === 'pricing'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span>Tariflar & Narxlar</span>
             </button>
 
             {/* Nav: Analytics */}
@@ -896,8 +1107,8 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 <Crown className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-black text-white leading-none truncate">Super Admin</p>
-                <p className="text-[10px] text-slate-400 truncate mt-1">admin@smartteacherbook.uz</p>
+                <p className="text-xs font-black text-white leading-none truncate">Super Admin Rahmonjon</p>
+                <p className="text-[10px] text-amber-400 font-mono truncate mt-1">mlrahmonjon@gmail.com</p>
               </div>
             </div>
             <button
@@ -1181,32 +1392,33 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
                   {/* 2. Fan (Subject) Selection */}
                   <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-2">
-                      2. Fanni tanlang (Subject) <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-extrabold text-slate-700">
+                        2. Fanni tanlang <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddSubjectModalOpen(true)}
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>+ Yangi fan qo‘shish</span>
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {[
-                        { id: 'Ingliz tili', label: '🇬🇧 Ingliz tili' },
-                        { id: 'Matematika', label: '📐 Matematika' },
-                        { id: 'Fizika', label: '⚡ Fizika' },
-                        { id: 'Kimyo', label: '🧪 Kimyo' },
-                        { id: 'Biologiya', label: '🧬 Biologiya' },
-                        { id: 'Tabiiy fanlar', label: '🌿 Tabiiy fanlar' },
-                        { id: 'Ona tili', label: '📖 Ona tili va adabiyot' },
-                        { id: 'Informatika', label: '💻 Informatika' },
-                        { id: 'Tarix', label: '🏛️ Tarix' },
-                      ].map((subj) => (
+                      {subjectsList.map((subj) => (
                         <button
-                          key={subj.id}
+                          key={subj.id || subj.code}
                           type="button"
-                          onClick={() => setNewBookSubject(subj.id)}
-                          className={`px-3 py-2.5 rounded-xl text-xs font-bold text-left transition-all border ${
-                            newBookSubject === subj.id
+                          onClick={() => setNewBookSubject(subj.name)}
+                          className={`px-3 py-2.5 rounded-xl text-xs font-bold text-left transition-all border flex items-center space-x-2 ${
+                            newBookSubject === subj.name
                               ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500'
                               : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                           }`}
                         >
-                          {subj.label}
+                          <span className="text-base">{subj.icon || '📚'}</span>
+                          <span className="truncate">{subj.name}</span>
                         </button>
                       ))}
                     </div>
@@ -2685,6 +2897,264 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           )}
 
           {/* =================================================================== */}
+          {/* VIEW: FANLAR BOSHQARUVI (Dynamic Subjects Management)               */}
+          {/* =================================================================== */}
+          {activeNav === 'subjects' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                    🏷️ Fanlar Boshqaruvi
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Ona tili, Matematika, Ingliz tili, Tarix va boshqa barcha fanlarni erkin qo‘shish va boshqarish
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddSubjectModalOpen(true)}
+                  className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Yangi Fan Qo‘shish</span>
+                </button>
+              </div>
+
+              {/* Grid of subjects */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {subjectsList.map((subj) => (
+                  <div
+                    key={subj.id || subj.code}
+                    className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex items-center justify-between group"
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner"
+                        style={{ backgroundColor: `${subj.color || '#2563EB'}15` }}
+                      >
+                        {subj.icon || '📚'}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900">{subj.name}</h3>
+                        <div className="flex items-center space-x-2 mt-0.5">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                            {subj.code}
+                          </span>
+                          <span
+                            className="w-2.5 h-2.5 rounded-full inline-block"
+                            style={{ backgroundColor: subj.color || '#2563EB' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSubject(subj.id)}
+                      title="Fanni o‘chirish"
+                      className="w-9 h-9 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Quick helper notice */}
+              <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 text-xs text-blue-800 flex items-center space-x-3">
+                <span className="text-base">💡</span>
+                <p>
+                  Bu yerda qo‘shilgan har bir fan avtomatik tarzda <strong>«Kitob Qo‘shish»</strong> bo‘limida va <strong>mobil ilovada</strong> o‘qituvchilar uchun aks etadi.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================== */}
+          {/* VIEW: TARIFLAR VA NARXLAR (Pricing Management)                     */}
+          {/* =================================================================== */}
+          {activeNav === 'pricing' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                    💳 Tariflar & Obuna Narxlari Boshqaruvi
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Mobil ilovadagi obuna narxlarini to‘g‘ridan-to‘g‘ri o‘zgartiring va saqlang
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSavePricing}
+                  disabled={isSavingPricing}
+                  className="px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 flex items-center space-x-2 transition-all shrink-0"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isSavingPricing ? 'Saqlanmoqda...' : '💾 Barcha Narxlarni Saqlash'}</span>
+                </button>
+              </div>
+
+              {/* Pricing Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {pricingPlans.map((plan, idx) => (
+                  <div
+                    key={plan.id || idx}
+                    className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4 hover:shadow-md transition-all relative overflow-hidden"
+                  >
+                    {plan.badge && (
+                      <div className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase tracking-wider">
+                        ⭐ {plan.badge}
+                      </div>
+                    )}
+
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold">
+                      {plan.id === 'MONTHLY' ? '📅' : plan.id === 'THREE_MONTHS' ? '🎯' : '👑'}
+                    </div>
+
+                    <div>
+                      <h3 className="text-base font-black text-slate-900">{plan.name}</h3>
+                      <p className="text-xs text-slate-400 font-medium mt-0.5">
+                        Davomiyligi: {plan.durationDays} kun litsenziya
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                      <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
+                        Obuna Narxi (so‘mda)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={plan.priceUzs}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setPricingPlans((prev) =>
+                              prev.map((p, i) => (i === idx ? { ...p, priceUzs: val } : p))
+                            );
+                          }}
+                          className="w-full pl-3 pr-14 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-black text-base focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        />
+                        <span className="absolute right-3.5 top-3 text-xs font-bold text-slate-400">
+                          UZS
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-600 font-bold">
+                        {(plan.priceUzs || 0).toLocaleString('uz-UZ')} so‘m
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-2">
+                      <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
+                        Tarif Nomi (Mobil ekranda)
+                      </label>
+                      <input
+                        type="text"
+                        value={plan.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPricingPlans((prev) =>
+                            prev.map((p, i) => (i === idx ? { ...p, name: val } : p))
+                          );
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Notice */}
+              <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-xs text-emerald-800 flex items-center space-x-3">
+                <span className="text-base">✅</span>
+                <p>
+                  Bu yerda kiritilgan har qanday narx o‘zgarishi «Saqlash» tugmasi bosilishi bilan mobil ilovaning barcha sinflari va so‘rovlar ekranida darhol aks etadi.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================== */}
+          {/* VIEW: ADMINLAR BOSHQARUVI (Super Admin & Team)                      */}
+          {/* =================================================================== */}
+          {activeNav === 'admins' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                    👑 Administratorlar Boshqaruvi
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Platformaga yangi adminlarni biriktirish, ularning parollarini belgilash va nazorat qilish
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddAdminModalOpen(true)}
+                  className="px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-lg shadow-purple-600/30 flex items-center space-x-2 transition-all shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Yangi Admin Qo‘shish</span>
+                </button>
+              </div>
+
+              {/* Admins Table / List */}
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden divide-y divide-slate-100">
+                {adminsList.map((admin) => (
+                  <div key={admin.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-all">
+                    <div className="flex items-center space-x-3.5">
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-base shadow-inner ${
+                          admin.role === 'SUPER_ADMIN'
+                            ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                            : 'bg-purple-100 text-purple-700 border border-purple-200'
+                        }`}
+                      >
+                        {admin.role === 'SUPER_ADMIN' ? '👑' : '🛡️'}
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="text-xs font-extrabold text-slate-900">{admin.fullName}</h4>
+                          <span
+                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                              admin.role === 'SUPER_ADMIN'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-purple-100 text-purple-800'
+                            }`}
+                          >
+                            {admin.role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : 'ADMIN'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{admin.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {admin.createdAt ? new Date(admin.createdAt).toLocaleDateString('uz-UZ') : 'Bugun'}
+                      </span>
+                      {admin.email !== 'mlrahmonjon@gmail.com' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAdmin(admin.id)}
+                          className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 flex items-center justify-center transition-all"
+                          title="Adminni o‘chirish"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <span className="text-[11px] font-extrabold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
+                          Asosiy Super Admin
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================== */}
           {/* VIEW 10: AUDIT LOGS & SETTINGS                                      */}
           {/* =================================================================== */}
           {(activeNav === 'system_logs' || activeNav === 'settings') && (
@@ -2811,6 +3281,241 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   </div>
 
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/40 rounded-full pointer-events-none" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Subject Modal */}
+          {isAddSubjectModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-base font-black text-slate-900 flex items-center space-x-2">
+                    <span className="text-xl">🏷️</span>
+                    <span>Yangi Fan Qo‘shish</span>
+                  </h3>
+                  <button
+                    onClick={() => setIsAddSubjectModalOpen(false)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Fan Nomi <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Masalan: Ona tili, Tarix, Geografiya"
+                      value={newSubjName}
+                      onChange={(e) => setNewSubjName(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Fan Kodi (qisqartma) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="UZB, HIST, GEO, MATH..."
+                      value={newSubjCode}
+                      onChange={(e) => setNewSubjCode(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-800 uppercase focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Belgisi (Emoji)
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {['🇬🇧', '📖', '📐', '⚛️', '🧪', '🧬', '💻', '🏛️', '🌍', '🎨', '🎵', '⚽', '🌿', '📚'].map(
+                        (emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setNewSubjIcon(emoji)}
+                            className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all ${
+                              newSubjIcon === emoji
+                                ? 'bg-blue-100 border-2 border-blue-600 scale-105'
+                                : 'bg-slate-100 hover:bg-slate-200 border border-slate-200'
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        )
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={newSubjIcon}
+                      onChange={(e) => setNewSubjIcon(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-center font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Rang tanlang
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      {[
+                        '#2563EB',
+                        '#EA580C',
+                        '#059669',
+                        '#7C3AED',
+                        '#DB2777',
+                        '#0D9488',
+                        '#D97706',
+                        '#475569',
+                      ].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setNewSubjColor(c)}
+                          className={`w-7 h-7 rounded-full transition-all ${
+                            newSubjColor === c ? 'ring-2 ring-offset-2 ring-slate-800 scale-110' : ''
+                          }`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddSubjectModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveSubject}
+                    className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all"
+                  >
+                    Qo‘shish
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Admin Modal */}
+          {isAddAdminModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-base font-black text-slate-900 flex items-center space-x-2">
+                    <span className="text-xl">👑</span>
+                    <span>Yangi Administrator Qo‘shish</span>
+                  </h3>
+                  <button
+                    onClick={() => setIsAddAdminModalOpen(false)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      To‘liq Ismi
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Masalan: Sardor Aliyev"
+                      value={newAdminFullName}
+                      onChange={(e) => setNewAdminFullName(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Email (Login uchun) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="admin@smartteacher.uz"
+                      value={newAdminEmail}
+                      onChange={(e) => setNewAdminEmail(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Parol <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Kamida 6 ta belgi"
+                      value={newAdminPassword}
+                      onChange={(e) => setNewAdminPassword(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Ruxsat darajasi (Rol)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNewAdminRole('ADMIN')}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          newAdminRole === 'ADMIN'
+                            ? 'bg-purple-50 border-purple-500 text-purple-900 ring-1 ring-purple-500'
+                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <p className="text-xs font-black">🛡️ Admin</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Kitoblar va audiolarni boshqarish</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setNewAdminRole('SUPER_ADMIN')}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          newAdminRole === 'SUPER_ADMIN'
+                            ? 'bg-amber-50 border-amber-500 text-amber-900 ring-1 ring-amber-500'
+                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <p className="text-xs font-black">👑 Super Admin</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">To‘liq ruxsat (baza, narx, adminlar)</p>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddAdminModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingAdmin}
+                    onClick={handleSaveAdmin}
+                    className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-lg shadow-purple-600/30 transition-all"
+                  >
+                    {isSavingAdmin ? 'Saqlanmoqda...' : 'Admin Yaratish'}
+                  </button>
                 </div>
               </div>
             </div>

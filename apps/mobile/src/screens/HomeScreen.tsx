@@ -16,6 +16,7 @@ import { SubscriptionManager, GradeAccessInfo } from '../services/subscription/s
 import { ExpiredAccessModal } from '../components/ExpiredAccessModal';
 import { mobileApi } from '../services/api/mobileApi';
 import { Book } from '@smartteacherbook/shared';
+import { UserAvatar } from '../components/common/UserAvatar';
 
 interface HomeScreenProps {
   userEmail: string;
@@ -53,18 +54,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const grades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
-  const subjects = [
+  const [subjects, setSubjects] = useState<any[]>([
     { code: 'ENG', name: 'Ingliz tili', icon: '🇬🇧', color: '#2563EB', bg: '#EFF6FF' },
     { code: 'MATH', name: 'Matematika', icon: '📐', color: '#059669', bg: '#ECFDF5' },
     { code: 'PHYS', name: 'Fizika', icon: '⚛️', color: '#7C3AED', bg: '#F5F3FF' },
     { code: 'CHEM', name: 'Kimyo', icon: '🧪', color: '#DB2777', bg: '#FDF2F8' },
     { code: 'BIO', name: 'Biologiya', icon: '🧬', color: '#0D9488', bg: '#F0FDFA' },
     { code: 'UZB', name: 'Ona tili', icon: '📖', color: '#EA580C', bg: '#FFF7ED' },
-  ];
+  ]);
 
-  const currentSubjectObj = subjects.find((s) => s.code === selectedSubject) || subjects[0];
+  const currentSubjectObj = subjects.find((s) => s.code === selectedSubject) || subjects[0] || {
+    code: 'ENG',
+    name: 'Ingliz tili',
+    icon: '🇬🇧',
+    color: '#2563EB',
+    bg: '#EFF6FF',
+  };
 
   useEffect(() => {
+    // Load dynamic subjects from API
+    mobileApi.getSubjects().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setSubjects(
+          data.map((s) => ({
+            code: s.code,
+            name: s.name,
+            icon: s.icon || '📚',
+            color: s.color || '#2563EB',
+            bg: `${s.color || '#2563EB'}15`,
+          }))
+        );
+      }
+    }).catch(() => {});
+
     // Check download state for selected grade & subject
     setIsDownloaded(DownloadsManager.isBundleDownloaded(selectedGrade, selectedSubject));
 
@@ -235,9 +257,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
 
           <TouchableOpacity style={styles.avatarButton} onPress={onOpenSettings} activeOpacity={0.7}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>👩‍🏫</Text>
-            </View>
+            <UserAvatar name={userName} email={userEmail} size={42} />
           </TouchableOpacity>
         </View>
 

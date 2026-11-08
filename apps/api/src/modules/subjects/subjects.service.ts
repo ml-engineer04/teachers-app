@@ -28,8 +28,8 @@ export class SubjectsService {
 
   async create(dto: CreateSubjectDto): Promise<Subject> {
     const newSubject: Subject = {
-      id: `sub_${Date.now()}`,
-      gradeId: dto.gradeId,
+      id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      gradeId: dto.gradeId || 0,
       name: dto.name,
       code: dto.code.toUpperCase(),
       icon: dto.icon || '📚',
@@ -54,5 +54,14 @@ export class SubjectsService {
     if (dto.description !== undefined) subject.description = dto.description;
     if (dto.isActive !== undefined) subject.isActive = dto.isActive;
     return subject;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const idx = this.subjectsStore.findIndex((s) => s.id === id);
+    if (idx !== -1) {
+      this.subjectsStore.splice(idx, 1);
+      return true;
+    }
+    return false;
   }
 }

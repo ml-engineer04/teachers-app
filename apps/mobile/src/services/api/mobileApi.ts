@@ -249,6 +249,33 @@ export const mobileApi = {
     }
   },
 
+  async getPricingPlans(): Promise<any[]> {
+    try {
+      return await request<any[]>('/grades/pricing/plans');
+    } catch {
+      return [
+        { id: 'MONTHLY', name: '1 Oylik Obuna', durationDays: 30, priceUzs: 119000, badge: '' },
+        { id: 'THREE_MONTHS', name: '3 Oylik Obuna', durationDays: 90, priceUzs: 299000, badge: 'TEJAMKOR' },
+        { id: 'YEARLY', name: '1 Yillik Obuna', durationDays: 365, priceUzs: 890000, badge: 'ENG FOYDALI' },
+      ];
+    }
+  },
+
+  async getSubjects(): Promise<any[]> {
+    try {
+      return await request<any[]>('/subjects');
+    } catch {
+      return [
+        { id: 'sub_eng', name: 'Ingliz tili', code: 'ENG', icon: '🇬🇧', color: '#2563EB' },
+        { id: 'sub_uzb', name: 'Ona tili', code: 'UZB', icon: '📖', color: '#EA580C' },
+        { id: 'sub_math', name: 'Matematika', code: 'MATH', icon: '📐', color: '#059669' },
+        { id: 'sub_phys', name: 'Fizika', code: 'PHYS', icon: '⚛️', color: '#7C3AED' },
+        { id: 'sub_chem', name: 'Kimyo', code: 'CHEM', icon: '🧪', color: '#DB2777' },
+        { id: 'sub_bio', name: 'Biologiya', code: 'BIO', icon: '🧬', color: '#0D9488' },
+      ];
+    }
+  },
+
   async getBooksByGrade(gradeId: number): Promise<Book[]> {
     try {
       return await request<Book[]>(`/content/grades/${gradeId}/books`);

@@ -3,6 +3,12 @@ import { Grade, UpdateGradeDto } from '@smartteacherbook/shared';
 
 @Injectable()
 export class GradesService {
+  private generalPricing = [
+    { id: 'MONTHLY', name: '1 Oylik Obuna', durationDays: 30, priceUzs: 119000, badge: null as string | null },
+    { id: 'THREE_MONTHS', name: '3 Oylik Obuna', durationDays: 90, priceUzs: 299000, badge: 'TEJAMKOR' },
+    { id: 'YEARLY', name: '1 Yillik Obuna', durationDays: 365, priceUzs: 890000, badge: 'ENG FOYDALI' },
+  ];
+
   private gradesStore: Grade[] = [
     { id: 1, gradeNumber: 1, title: '1-sinf', priceMonthlyUzs: 69000, priceQuarterlyUzs: 172000, priceYearlyUzs: 552000, isActive: true },
     { id: 2, gradeNumber: 2, title: '2-sinf', priceMonthlyUzs: 69000, priceQuarterlyUzs: 172000, priceYearlyUzs: 552000, isActive: true },
@@ -35,5 +41,23 @@ export class GradesService {
     if (dto.priceYearlyUzs !== undefined) grade.priceYearlyUzs = dto.priceYearlyUzs;
     if (dto.isActive !== undefined) grade.isActive = dto.isActive;
     return grade;
+  }
+
+  getGeneralPricing() {
+    return this.generalPricing;
+  }
+
+  updateGeneralPricing(plans: Array<{ id: string; name?: string; durationDays?: number; priceUzs: number; badge?: string }>) {
+    if (Array.isArray(plans)) {
+      plans.forEach((p) => {
+        const existing = this.generalPricing.find((item) => item.id === p.id);
+        if (existing) {
+          if (p.priceUzs !== undefined) existing.priceUzs = Number(p.priceUzs);
+          if (p.name !== undefined) existing.name = p.name;
+          if (p.badge !== undefined) existing.badge = p.badge;
+        }
+      });
+    }
+    return this.generalPricing;
   }
 }

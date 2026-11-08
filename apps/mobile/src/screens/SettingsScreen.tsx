@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { DownloadsManager } from '../services/storage/downloadsManager';
 import { mobileApi } from '../services/api/mobileApi';
+import { UserAvatar } from '../components/common/UserAvatar';
 
 interface DeviceItem {
   id: string;
@@ -133,9 +134,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* User Card */}
         <View style={styles.profileCard}>
-          <View style={styles.profileAvatar}>
-            <Text style={{ fontSize: 28 }}>👩‍🏫</Text>
-          </View>
+          <UserAvatar name={userName} email={userEmail} size={54} />
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={styles.profileName}>{userName}</Text>
             <Text style={styles.profileEmail}>{userEmail}</Text>

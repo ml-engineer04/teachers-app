@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Hotspot, HotspotType, PageTurnStyle } from '@smartteacherbook/shared';
 import { PageCurlEngine } from '../components/reader/PageCurlEngine';
@@ -276,76 +277,34 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ userEmail, onExit })
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top Professional Reader Toolbar */}
+    <View style={styles.container}>
+      {/* Top Professional Reader Toolbar with Safe Camera Cutout Clearance */}
       <View style={styles.topToolbar}>
-        <View style={styles.toolbarLeft}>
-          <TouchableOpacity style={styles.iconBtn} onPress={onExit} activeOpacity={0.7}>
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <View style={{ marginLeft: 6, flexShrink: 1 }}>
-            <Text style={styles.bookTitle} numberOfLines={1} ellipsizeMode="tail">
-              11-sinf English Student's Book
-            </Text>
-            <Text style={styles.pageTracker}>Sahifa {currentPage} / 6</Text>
-          </View>
+        <TouchableOpacity style={styles.iconBtn} onPress={onExit} activeOpacity={0.7}>
+          <Text style={styles.backIcon}>←</Text>
+          <Text style={styles.backLabel}>Chiqish</Text>
+        </TouchableOpacity>
+
+        <View style={styles.titleCenter}>
+          <Text style={styles.bookTitle} numberOfLines={1} ellipsizeMode="tail">
+            11-sinf English Student's Book
+          </Text>
         </View>
 
-        <View style={styles.toolbarRight}>
-          {/* TOC / Search */}
-          <TouchableOpacity
-            style={styles.toolIconBtn}
-            onPress={() => setTocDrawerVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.toolIcon}>📑</Text>
-          </TouchableOpacity>
-
-          {/* Bookmarks / Notes */}
-          <TouchableOpacity
-            style={styles.toolIconBtn}
-            onPress={() => setBookmarksDrawerVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.toolIcon}>🔖</Text>
-          </TouchableOpacity>
-
-          {/* Media Library */}
-          <TouchableOpacity
-            style={styles.toolIconBtn}
-            onPress={() => setMediaDrawerVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.toolIcon}>🎧</Text>
-          </TouchableOpacity>
-
-          {/* Drawing / Highlighter Tool Toggle */}
-          <TouchableOpacity
-            style={[styles.toolIconBtn, activeDrawingTool !== 'OFF' && styles.toolIconBtnActive]}
-            onPress={() =>
-              setActiveDrawingTool(activeDrawingTool === 'OFF' ? 'HIGHLIGHTER' : 'OFF')
-            }
-            activeOpacity={0.7}
-          >
-            <Text style={styles.toolIcon}>✏️</Text>
-          </TouchableOpacity>
-
-          {/* Turn Style (Curl vs Slide) */}
-          <TouchableOpacity
-            style={styles.stylePill}
-            onPress={() =>
-              setTurnStyle(turnStyle === PageTurnStyle.CURL ? PageTurnStyle.SLIDE : PageTurnStyle.CURL)
-            }
-            activeOpacity={0.7}
-          >
-            <Text style={styles.stylePillText}>
-              {turnStyle === PageTurnStyle.CURL ? '3D' : 'Slide'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.stylePill}
+          onPress={() =>
+            setTurnStyle(turnStyle === PageTurnStyle.CURL ? PageTurnStyle.SLIDE : PageTurnStyle.CURL)
+          }
+          activeOpacity={0.7}
+        >
+          <Text style={styles.stylePillText}>
+            {turnStyle === PageTurnStyle.CURL ? '3D' : 'Slide'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Main Page Curl Reader Engine Canvas */}
+      {/* Main Full-Bleed Page Canvas Container */}
       <View style={styles.readerCanvas}>
         <PageCurlEngine
           totalPages={6}
@@ -355,6 +314,95 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ userEmail, onExit })
           isTabletSpread={isTabletSpread}
           renderPageContent={renderPage}
         />
+
+        {/* Floating Bottom Ergonomic Reader Action Dock (Immune to Camera Notch & Dock) */}
+        <View style={styles.floatingBottomDock}>
+          {/* Previous page button */}
+          <TouchableOpacity
+            onPress={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
+            disabled={currentPage <= 1}
+            style={[styles.floatingNavBtn, currentPage <= 1 && styles.floatingNavBtnDisabled]}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.floatingNavIcon}>‹</Text>
+          </TouchableOpacity>
+
+          {/* Page Indicator Pill */}
+          <View style={styles.floatingPagePill}>
+            <Text style={styles.floatingPageText}>
+              {currentPage} / 6
+            </Text>
+          </View>
+
+          {/* Quick Tool: Audio */}
+          <TouchableOpacity
+            style={styles.floatingToolBtn}
+            onPress={() => {
+              setActiveAudioTrack({
+                title: `Unit ${Math.ceil(currentPage / 2)}: Track ${currentPage} — Listening`,
+                unit: `Unit ${Math.ceil(currentPage / 2)}`,
+              });
+              setAudioModalVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.floatingToolIcon}>🎧</Text>
+            <Text style={styles.floatingToolLabel}>Audio</Text>
+          </TouchableOpacity>
+
+          {/* Quick Tool: Teacher's Answer Key */}
+          <TouchableOpacity
+            style={styles.floatingToolBtn}
+            onPress={() => {
+              setActiveAnswerData({
+                exerciseLabel: `Task ${currentPage}.1 Answers (p. ${currentPage + 12})`,
+                studentPage: currentPage,
+                teacherPage: currentPage + 12,
+                answerContent:
+                  '1. True — Artificial intelligence transforms interactive language lessons.\n2. False — Teachers maintain vital mentorship and communication roles.\n3. Not Given — Specific curriculum budget not stated.\n4. Paired dialogue practice promotes student confidence.',
+                notes:
+                  'Metodik eslatma: Ushbu mashq bo‘yicha o‘quvchilar juftlikda 5 daqiqa gaplashib, keyin javoblar kalitini tekshirishi tavsiya etiladi.',
+              });
+              setAnswerSheetVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.floatingToolIcon}>💡</Text>
+            <Text style={styles.floatingToolLabel}>Kalit</Text>
+          </TouchableOpacity>
+
+          {/* Quick Tool: Highlighter */}
+          <TouchableOpacity
+            style={[styles.floatingToolBtn, activeDrawingTool !== 'OFF' && styles.floatingToolBtnActive]}
+            onPress={() =>
+              setActiveDrawingTool(activeDrawingTool === 'OFF' ? 'HIGHLIGHTER' : 'OFF')
+            }
+            activeOpacity={0.7}
+          >
+            <Text style={styles.floatingToolIcon}>✏️</Text>
+            <Text style={styles.floatingToolLabel}>Chizish</Text>
+          </TouchableOpacity>
+
+          {/* Quick Tool: Table of Contents */}
+          <TouchableOpacity
+            style={styles.floatingToolBtn}
+            onPress={() => setTocDrawerVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.floatingToolIcon}>📑</Text>
+            <Text style={styles.floatingToolLabel}>Mundarija</Text>
+          </TouchableOpacity>
+
+          {/* Next page button */}
+          <TouchableOpacity
+            onPress={() => currentPage < 6 && setCurrentPage(currentPage + 1)}
+            disabled={currentPage >= 6}
+            style={[styles.floatingNavBtnAccent, currentPage >= 6 && styles.floatingNavBtnDisabled]}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.floatingNavIconAccent}>›</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Audio Player Sheet */}
@@ -417,7 +465,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ userEmail, onExit })
           }
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -434,88 +482,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: '#1E293B',
+    paddingHorizontal: 14,
+    paddingTop: Platform.OS === 'ios' ? 48 : Platform.OS === 'android' ? 42 : 36,
+    paddingBottom: 10,
+    backgroundColor: '#0F172A',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     width: '100%',
-    overflow: 'hidden',
-  },
-  toolbarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 6,
+    zIndex: 30,
   },
   iconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   backIcon: {
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: 'bold',
+    marginRight: 4,
+  },
+  backLabel: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  titleCenter: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
   },
   bookTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
     color: '#FFFFFF',
-  },
-  pageTracker: {
-    fontSize: 9,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  toolbarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flexShrink: 0,
-  },
-  toolIconBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  toolIconBtnActive: {
-    backgroundColor: '#2563EB',
-  },
-  toolIcon: {
-    fontSize: 12,
+    textAlign: 'center',
   },
   stylePill: {
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   stylePillText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     color: '#F59E0B',
   },
   readerCanvas: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 12,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    padding: 0,
+    margin: 0,
+    position: 'relative',
+    overflow: 'hidden',
   },
   pageContent: {
     width: '100%',
     height: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 0,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 76,
     justifyContent: 'space-between',
     position: 'relative',
     overflow: 'hidden',
@@ -571,56 +607,86 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
-  bottomNav: {
+  floatingBottomDock: {
+    position: 'absolute',
+    bottom: 14,
+    left: 12,
+    right: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+    borderRadius: 22,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 10,
-    paddingBottom: 76,
-    backgroundColor: '#1E293B',
-    gap: 16,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 10,
+    zIndex: 50,
   },
-  navArrowBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  floatingNavBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  navArrow: {
-    fontSize: 22,
+  floatingNavBtnAccent: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  floatingNavBtnDisabled: {
+    opacity: 0.2,
+  },
+  floatingNavIcon: {
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
-    fontWeight: 'bold',
     marginTop: -2,
   },
-  navArrowDisabled: {
-    opacity: 0.3,
+  floatingNavIconAccent: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: -2,
   },
-  dotsTrack: {
-    flexDirection: 'row',
-    gap: 6,
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  floatingPagePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
-  pageDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
+  floatingPageText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#E2E8F0',
+  },
+  floatingToolBtn: {
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
   },
-  pageDotActive: {
+  floatingToolBtnActive: {
     backgroundColor: '#2563EB',
   },
-  pageDotText: {
-    fontSize: 10,
+  floatingToolIcon: {
+    fontSize: 14,
+  },
+  floatingToolLabel: {
+    fontSize: 9,
     fontWeight: '700',
     color: '#94A3B8',
-  },
-  pageDotTextActive: {
-    color: '#FFFFFF',
+    marginTop: 1,
   },
 });

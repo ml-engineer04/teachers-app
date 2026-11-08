@@ -3,7 +3,7 @@ import { BookOpen, Lock, Mail, ArrowRight, ShieldCheck, Sparkles, CheckCircle2 }
 import { api } from '../services/apiClient';
 
 interface AdminLoginScreenProps {
-  onLoginSuccess: (adminData: { email: string; name: string }) => void;
+  onLoginSuccess: (adminData: { email: string; name: string; role?: string }) => void;
 }
 
 export function AdminLoginScreen({ onLoginSuccess }: AdminLoginScreenProps) {
@@ -22,7 +22,8 @@ export function AdminLoginScreen({ onLoginSuccess }: AdminLoginScreenProps) {
       setIsLoading(false);
       onLoginSuccess({
         email: res.admin.email,
-        name: res.admin.role === 'SUPER_ADMIN' ? 'Bosh Administrator' : 'Administrator',
+        name: res.admin.email === 'mlrahmonjon@gmail.com' ? 'Super Admin Rahmonjon' : 'Administrator',
+        role: res.admin.role,
       });
     } catch (err: any) {
       setIsLoading(false);
@@ -30,9 +31,9 @@ export function AdminLoginScreen({ onLoginSuccess }: AdminLoginScreenProps) {
     }
   };
 
-  const handleFillDemo = () => {
-    setEmail('admin@smartteacherbook.uz');
-    setPassword('Admin123!@#');
+  const handleFillSuperAdmin = () => {
+    setEmail('mlrahmonjon@gmail.com');
+    setPassword('Qriadmin7$');
     setError(null);
   };
 
@@ -72,7 +73,7 @@ export function AdminLoginScreen({ onLoginSuccess }: AdminLoginScreenProps) {
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@smartteacherbook.uz"
+                placeholder="mlrahmonjon@gmail.com"
                 required
                 className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-2xl text-white text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-500"
               />
@@ -89,7 +90,7 @@ export function AdminLoginScreen({ onLoginSuccess }: AdminLoginScreenProps) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
+                placeholder="Qriadmin7$"
                 required
                 className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-2xl text-white text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-500"
               />
@@ -106,22 +107,22 @@ export function AdminLoginScreen({ onLoginSuccess }: AdminLoginScreenProps) {
           </button>
         </form>
 
-        {/* Quick Demo Credentials Helper */}
+        {/* Quick Super Admin Credentials Helper */}
         <div className="mt-6 pt-6 border-t border-slate-700/60">
           <button
             type="button"
-            onClick={handleFillDemo}
-            className="w-full py-2.5 px-3 rounded-xl bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center justify-center space-x-2"
+            onClick={handleFillSuperAdmin}
+            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-blue-500/20 hover:from-amber-500/30 hover:to-blue-500/30 border border-amber-500/30 text-white text-xs font-bold transition-all flex items-center justify-center space-x-2"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>1-Bosishda Kirish (Demo Parol)</span>
+            <span>👑 Super Admin Bilan Kirish (1-bosishda)</span>
           </button>
-          <div className="mt-3 text-center">
+          <div className="mt-3 text-center space-y-0.5">
             <p className="text-[11px] text-slate-400 font-mono">
-              Login: <span className="text-blue-400">admin@smartteacherbook.uz</span>
+              Super Admin: <span className="text-amber-400 font-bold">mlrahmonjon@gmail.com</span>
             </p>
             <p className="text-[11px] text-slate-400 font-mono">
-              Parol: <span className="text-amber-400">Admin123!@#</span>
+              Parol: <span className="text-emerald-400 font-bold">Qriadmin7$</span>
             </p>
           </div>
         </div>

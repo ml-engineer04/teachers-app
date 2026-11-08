@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { secureStorage } from '../services/storage/secureStorage';
+import { UserAvatar } from '../components/common/UserAvatar';
 
 interface PinLockScreenProps {
   userEmail: string;
@@ -69,9 +70,7 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
       {/* Main Center Area */}
       <View style={styles.centerContent}>
         {/* User Badge */}
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarEmoji}>👩‍🏫</Text>
-        </View>
+        <UserAvatar name={userName} email={userEmail} size={68} style={{ marginBottom: 12 }} />
 
         <Text style={styles.welcomeText}>Xush kelibsiz, {userName}!</Text>
         {userEmail ? <Text style={styles.emailText}>{userEmail}</Text> : null}

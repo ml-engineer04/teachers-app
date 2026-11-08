@@ -14,6 +14,7 @@ import { SubscriptionManager, GradeAccessInfo } from '../services/subscription/s
 import { ExpiredAccessModal } from '../components/ExpiredAccessModal';
 import { mobileApi } from '../services/api/mobileApi';
 import { Book } from '@smartteacherbook/shared';
+import { UserAvatar } from '../components/common/UserAvatar';
 
 interface GradeDetailScreenProps {
   grade: number;
@@ -43,18 +44,48 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
   });
   const [expiredModalVisible, setExpiredModalVisible] = useState<boolean>(false);
   const [liveBooks, setLiveBooks] = useState<Book[]>([]);
+  const [pricingPlans, setPricingPlans] = useState<any[]>([
+    { id: 'MONTHLY', name: '1 Oylik', durationDays: 30, priceUzs: grade === 11 ? 119000 : 99000, badge: '' },
+    { id: 'THREE_MONTHS', name: '3 Oylik', durationDays: 90, priceUzs: grade === 11 ? 299000 : 249000, badge: 'TEJAMKOR' },
+    { id: 'YEARLY', name: '1 Yillik', durationDays: 365, priceUzs: grade === 11 ? 890000 : 799000, badge: 'ENG FOYDALI' },
+  ]);
 
-  const subjects = [
+  const [subjects, setSubjects] = useState<any[]>([
     { code: 'ENG', name: 'Ingliz tili', icon: '🇬🇧', color: '#2563EB' },
     { code: 'MATH', name: 'Matematika', icon: '📐', color: '#059669' },
     { code: 'PHYS', name: 'Fizika', icon: '⚛️', color: '#7C3AED' },
     { code: 'CHEM', name: 'Kimyo', icon: '🧪', color: '#DB2777' },
     { code: 'BIO', name: 'Biologiya', icon: '🧬', color: '#0D9488' },
-  ];
+    { code: 'UZB', name: 'Ona tili', icon: '📖', color: '#EA580C' },
+  ]);
 
-  const currentSubject = subjects.find((s) => s.code === selectedSubject) || subjects[0];
+  const currentSubject = subjects.find((s) => s.code === selectedSubject) || subjects[0] || {
+    code: 'ENG',
+    name: 'Ingliz tili',
+    icon: '🇬🇧',
+    color: '#2563EB',
+  };
 
   useEffect(() => {
+    // Dynamic subjects
+    mobileApi.getSubjects().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setSubjects(data.map((s) => ({
+          code: s.code,
+          name: s.name,
+          icon: s.icon || '📚',
+          color: s.color || '#2563EB',
+        })));
+      }
+    }).catch(() => {});
+
+    // Dynamic pricing plans
+    mobileApi.getPricingPlans().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setPricingPlans(data);
+      }
+    }).catch(() => {});
+
     // Check download state
     setIsDownloaded(DownloadsManager.isBundleDownloaded(grade, selectedSubject));
 
@@ -228,9 +259,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
 
           {/* Teacher Profile / Status */}
           <View style={styles.teacherRow}>
-            <View style={styles.teacherAvatarCircle}>
-              <Text style={styles.teacherAvatarEmoji}>👩‍🏫</Text>
-            </View>
+            <UserAvatar name={userName} size={42} />
             <View style={styles.teacherDetails}>
               <Text style={styles.teacherName}>{userName}</Text>
               <Text style={styles.teacherRole}>Oliy toifali o‘qituvchi</Text>
@@ -290,41 +319,27 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
         <View style={styles.plansSection}>
           <Text style={styles.sectionTitle}>Obuna Rejalari (Plans)</Text>
           <View style={styles.plansRow}>
-            {/* 1 Month */}
-            <TouchableOpacity
-              style={[styles.planCard, selectedPlan === 'MONTHLY' && styles.planCardActive]}
-              onPress={() => setSelectedPlan('MONTHLY')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.planDuration}>1 Oylik</Text>
-              <Text style={styles.planDays}>30 kun</Text>
-              <Text style={styles.planPrice}>{grade === 11 ? '119,000' : '99,000'} UZS</Text>
-            </TouchableOpacity>
-
-            {/* 3 Months */}
-            <TouchableOpacity
-              style={[styles.planCard, selectedPlan === 'THREE_MONTHS' && styles.planCardActive]}
-              onPress={() => setSelectedPlan('THREE_MONTHS')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.badgePopular}>
-                <Text style={styles.badgePopularText}>TEJAMKOR</Text>
-              </View>
-              <Text style={styles.planDuration}>3 Oylik</Text>
-              <Text style={styles.planDays}>90 kun</Text>
-              <Text style={styles.planPrice}>{grade === 11 ? '299,000' : '249,000'} UZS</Text>
-            </TouchableOpacity>
-
-            {/* 1 Year */}
-            <TouchableOpacity
-              style={[styles.planCard, selectedPlan === 'YEARLY' && styles.planCardActive]}
-              onPress={() => setSelectedPlan('YEARLY')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.planDuration}>1 Yillik</Text>
-              <Text style={styles.planDays}>365 kun</Text>
-              <Text style={styles.planPrice}>{grade === 11 ? '890,000' : '799,000'} UZS</Text>
-            </TouchableOpacity>
+            {pricingPlans.map((plan) => {
+              const planKey = (plan.id || 'MONTHLY') as 'MONTHLY' | 'THREE_MONTHS' | 'YEARLY';
+              const isSelected = selectedPlan === planKey;
+              return (
+                <TouchableOpacity
+                  key={plan.id}
+                  style={[styles.planCard, isSelected && styles.planCardActive]}
+                  onPress={() => setSelectedPlan(planKey)}
+                  activeOpacity={0.8}
+                >
+                  {plan.badge ? (
+                    <View style={styles.badgePopular}>
+                      <Text style={styles.badgePopularText}>{plan.badge}</Text>
+                    </View>
+                  ) : null}
+                  <Text style={styles.planDuration}>{plan.name || (planKey === 'MONTHLY' ? '1 Oylik' : planKey === 'THREE_MONTHS' ? '3 Oylik' : '1 Yillik')}</Text>
+                  <Text style={styles.planDays}>{plan.durationDays || (planKey === 'MONTHLY' ? 30 : planKey === 'THREE_MONTHS' ? 90 : 365)} kun</Text>
+                  <Text style={styles.planPrice}>{(plan.priceUzs || 0).toLocaleString('uz-UZ')} UZS</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <TouchableOpacity

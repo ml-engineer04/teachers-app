@@ -14,6 +14,19 @@ export class GradesController {
     return this.gradesService.findAll();
   }
 
+  @Get('pricing/plans')
+  @ApiOperation({ summary: 'Get global subscription plans & pricing' })
+  async getGeneralPricing() {
+    return this.gradesService.getGeneralPricing();
+  }
+
+  @Put('pricing/plans')
+  @ApiOperation({ summary: 'Admin update global subscription plans & pricing' })
+  async updateGeneralPricing(@Body() body: any) {
+    const plans = Array.isArray(body) ? body : body?.plans || [];
+    return this.gradesService.updateGeneralPricing(plans);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get single grade by number' })
   async getGradeById(@Param('id', ParseIntPipe) id: number) {

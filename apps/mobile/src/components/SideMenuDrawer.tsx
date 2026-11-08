@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   Dimensions,
 } from 'react-native';
+import { UserAvatar } from './common/UserAvatar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -117,9 +118,7 @@ export const SideMenuDrawer: React.FC<SideMenuDrawerProps> = ({
             {/* Header: User Profile Card */}
             <View style={styles.profileHeader}>
               <View style={styles.headerTopRow}>
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarEmoji}>👩‍🏫</Text>
-                </View>
+                <UserAvatar name={userName} email={userEmail} size={50} />
 
                 <TouchableOpacity
                   style={styles.closeButton}

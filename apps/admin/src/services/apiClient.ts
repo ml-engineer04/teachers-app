@@ -396,4 +396,62 @@ export const api = {
       method: 'POST',
     });
   },
+
+  // Super Admin & Admin Management
+  async getAdmins() {
+    return fetchJson<any[]>('/admin/auth/admins');
+  },
+
+  async createAdmin(data: { email: string; fullName: string; password: string; role?: string }) {
+    return fetchJson<any>('/admin/auth/admins', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteAdmin(id: string) {
+    return fetchJson<any>(`/admin/auth/admins/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Subjects Management
+  async createSubject(data: { name: string; code: string; icon?: string; color?: string; description?: string }) {
+    return fetchJson<any>('/subjects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateSubject(id: string, data: any) {
+    return fetchJson<any>(`/subjects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteSubject(id: string) {
+    return fetchJson<any>(`/subjects/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Pricing & Tariffs Management
+  async getPricingPlans() {
+    return fetchJson<any[]>('/grades/pricing/plans');
+  },
+
+  async updatePricingPlans(plans: Array<{ id: string; name?: string; priceUzs: number; badge?: string }>) {
+    return fetchJson<any[]>('/grades/pricing/plans', {
+      method: 'PUT',
+      body: JSON.stringify(plans),
+    });
+  },
+
+  async updateGradePricing(gradeId: number, dto: { priceMonthlyUzs?: number; priceQuarterlyUzs?: number; priceYearlyUzs?: number }) {
+    return fetchJson<any>(`/grades/${gradeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    });
+  },
 };
