@@ -1,0 +1,499 @@
+// Prisma Schema for SmartTeacherBook Backend
+// Spec: Educational Content Hierarchy: Grade -> Subject -> Book -> Pages -> Hotspots & Media
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
+enum UserRole {
+  TEACHER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum SubscriptionPlan {
+  MONTHLY       // 30 days
+  THREE_MONTHS  // 90 days
+  YEARLY        // 365 days
+}
+
+enum BookType {
+  STUDENT_BOOK
+  TEACHER_BOOK
+  WORKBOOK
+}
+
+enum BookStatus {
+  DRAFT
+  INGESTING
+  VALIDATION_FAILED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum HotspotType {
+  AUDIO
+  VIDEO
+  EXTERNAL_URL
+  INTERNAL_PAGE
+  ANSWER_LINK
+}
+
+enum MediaType {
+  AUDIO
+  VIDEO
+}
+
+enum AccessRequestStatus {
+  PENDING
+  AWAITING_PAYMENT
+  PAID_APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum PaymentProvider {
+  MANUAL_TELEPHONE
+  CLICK
+  PAYME
+  GOOGLE_PLAY_BILLING
+}
+
+// -------------------------------------------------------------
+// USER & DEVICE MANAGEMENT (§7 Authentication: Google Sign-In)
+// -------------------------------------------------------------
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  googleId      String?   @unique
+  fullName      String?
+  avatarUrl     String?
+  emailVerified Boolean   @default(true)
+  authProvider  String    @default("GOOGLE")
+  role          UserRole  @default(TEACHER)
+  isActive      Boolean   @default(true)
+  isBlocked     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  devices          Device[]
+  externalAccounts ExternalAccount[]
+  accessRequests   AccessRequest[]
+  subscriptions    Subscription[]
+  licenses         LicenseToken[]
+  bookmarks        UserBookmark[]
+  notes            UserNote[]
+  drawings         UserDrawing[]
+  readingProgress  UserReadingProgress[]
+
+  @@map("users")
+}
+
+model ExternalAccount {
+  id              String   @id @default(uuid())
+  userId          String
+  provider        String   // "GOOGLE" | "APPLE" etc.
+  providerSubject String   // Provider stable `sub` ID
+  email           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@map("external_accounts")
+}
+
+model Device {
+  id               String    @id @default(uuid())
+  userId           String
+  deviceId         String    // Hardware / installation UUID
+  deviceModel      String    // e.g. "Samsung Galaxy Tab S7"
+  osVersion        String    // e.g. "Android 14"
+  appVersion       String    // e.g. "1.0.0"
+  platform         String?   // "ANDROID" | "IOS" | "WEB"
+  refreshTokenHash String?   @db.Text
+  pushToken        String?   // FCM token
+  lastActiveAt     DateTime  @default(now())
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  licenses     LicenseToken[]
+
+  @@unique([userId, deviceId])
+  @@index([userId, isActive])
+  @@map("devices")
+}
+
+// -------------------------------------------------------------
+// ADMIN MANAGEMENT & AUDITING (§15 Admin Panel)
+// -------------------------------------------------------------
+model Admin {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  role         AdminRole @default(ADMIN)
+  totpSecret   String?
+  totpEnabled  Boolean   @default(false)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  handledRequests AccessRequest[]
+  grantedSubs     Subscription[]
+  auditLogs       AuditLog[]
+
+  @@map("admins")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String?
+  action     String   // e.g. "GRANT_ACCESS", "CREATE_SUBJECT", "PUBLISH_BOOK"
+  entityType String   // e.g. "AccessRequest", "Subject", "Book"
+  entityId   String?
+  payload    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  admin      Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([adminId, createdAt])
+  @@map("audit_logs")
+}
+
+// -------------------------------------------------------------
+// EDUCATIONAL HIERARCHY: Grade -> Subject -> Book -> Page
+// -------------------------------------------------------------
+model Grade {
+  id                 Int      @id // 1 to 11
+  gradeNumber        Int      @unique
+  title              String   // "11-sinf" / "Grade 11"
+  description        String?
+  priceMonthlyUzs    Int      @default(99000)
+  priceQuarterlyUzs  Int      @default(249000)
+  priceYearlyUzs     Int      @default(799000)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  subjects       Subject[]
+  books          Book[]
+  accessRequests AccessRequest[]
+  subscriptions  Subscription[]
+  answerMappings AnswerMapping[]
+
+  @@map("grades")
+}
+
+model Subject {
+  id          String   @id @default(uuid())
+  gradeId     Int
+  name        String   // "Ingliz tili", "Matematika", "Fizika"
+  code        String   // "ENG", "MATH", "PHYS"
+  icon        String   // Emoji or icon name
+  color       String   @default("#2563EB")
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  grade          Grade           @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  books          Book[]
+  accessRequests AccessRequest[]
+  subscriptions  Subscription[]
+  answerMappings AnswerMapping[]
+
+  @@unique([gradeId, code])
+  @@map("subjects")
+}
+
+model Book {
+  id             String     @id @default(uuid())
+  gradeId        Int
+  subjectId      String
+  type           BookType
+  title          String
+  version        Int        @default(1)
+  status         BookStatus @default(DRAFT)
+  totalPages     Int        @default(0)
+  coverImageKey  String?
+  manifestS3Key  String?
+  manifestSha256 String?
+  totalSizeBytes BigInt?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  grade           Grade                 @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  subject         Subject               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  pages           Page[]
+  mediaFiles      Media[]
+  tocItems        TocItem[]
+  bookmarks       UserBookmark[]
+  notes           UserNote[]
+  drawings        UserDrawing[]
+  readingProgress UserReadingProgress[]
+
+  @@unique([gradeId, subjectId, type])
+  @@map("books")
+}
+
+model Page {
+  id               String   @id @default(uuid())
+  bookId           String
+  pageNumber       Int
+  imageNormalS3Key String
+  imageHighS3Key   String
+  width            Int      @default(1200)
+  height           Int      @default(1600)
+  textContent      String?  @db.Text
+  createdAt        DateTime @default(now())
+
+  book             Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  hotspots         Hotspot[]
+
+  @@unique([bookId, pageNumber])
+  @@index([bookId])
+  @@map("pages")
+}
+
+model Hotspot {
+  id               String      @id @default(uuid())
+  pageId           String
+  type             HotspotType
+  rectX            Float       // 0.0 to 1.0 (normalized)
+  rectY            Float       // 0.0 to 1.0 (normalized)
+  rectW            Float       // 0.0 to 1.0 (normalized)
+  rectH            Float       // 0.0 to 1.0 (normalized)
+  targetMediaId    String?
+  targetUrl        String?
+  targetPageNumber Int?
+  exerciseLabel    String?     // e.g. "Ex. 3"
+  createdAt        DateTime    @default(now())
+
+  page             Page        @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  targetMedia      Media?      @relation(fields: [targetMediaId], references: [id], onDelete: SetNull)
+
+  @@index([pageId])
+  @@map("hotspots")
+}
+
+model Media {
+  id              String    @id @default(uuid())
+  bookId          String
+  type            MediaType
+  filename        String
+  title           String?   // e.g. "Unit 1: Technology Dialogue"
+  unitLabel       String?   // e.g. "Unit 1, Track 2"
+  sizeBytes       BigInt
+  checksumSha256  String
+  s3Key           String
+  durationSeconds Int?
+  createdAt       DateTime  @default(now())
+
+  book            Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  hotspots        Hotspot[]
+
+  @@unique([bookId, filename])
+  @@map("media")
+}
+
+model TocItem {
+  id         String    @id @default(uuid())
+  bookId     String
+  title      String
+  pageNumber Int
+  parentId   String?
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  book       Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  parent     TocItem?  @relation("TocHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children   TocItem[] @relation("TocHierarchy")
+
+  @@index([bookId, sortOrder])
+  @@map("toc_items")
+}
+
+model AnswerMapping {
+  id                   String   @id @default(uuid())
+  gradeId              Int
+  subjectId            String
+  studentExerciseLabel String   // e.g. "Exercise 1"
+  studentPageNumber    Int
+  teacherPageNumber    Int
+  teacherExerciseLabel String?
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  grade                Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  subject              Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@index([gradeId, subjectId, studentPageNumber])
+  @@map("answer_mappings")
+}
+
+// -------------------------------------------------------------
+// SUBSCRIPTIONS & MANUAL TELEPHONE SALES WORKFLOW (§8)
+// -------------------------------------------------------------
+model AccessRequest {
+  id           String              @id @default(uuid())
+  userId       String
+  gradeId      Int
+  subjectId    String?
+  plan         SubscriptionPlan    @default(MONTHLY)
+  phoneNumber  String              // "+998 90 123 45 67"
+  status       AccessRequestStatus @default(PENDING)
+  priceUzs     Int
+  adminId      String?
+  internalNote String?             @db.Text
+  callLoggedAt DateTime?
+  resolvedAt   DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grade        Grade               @relation(fields: [gradeId], references: [id], onDelete: Restrict)
+  subject      Subject?            @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  admin        Admin?              @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId, gradeId])
+  @@map("access_requests")
+}
+
+model Subscription {
+  id          String           @id @default(uuid())
+  userId      String
+  gradeId     Int
+  subjectId   String?
+  plan        SubscriptionPlan @default(MONTHLY)
+  startsAt    DateTime
+  expiresAt   DateTime
+  grantedById String
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grade       Grade            @relation(fields: [gradeId], references: [id], onDelete: Restrict)
+  subject     Subject?         @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  grantedBy   Admin            @relation(fields: [grantedById], references: [id], onDelete: Restrict)
+
+  @@unique([userId, gradeId, subjectId])
+  @@index([expiresAt, isActive])
+  @@map("subscriptions")
+}
+
+model LicenseToken {
+  id          String   @id @default(uuid())
+  userId      String
+  deviceId    String
+  gradeId     Int
+  subjectId   String?
+  tokenString String   @db.Text
+  signature   String   @db.Text
+  issuedAt    DateTime @default(now())
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, deviceId, gradeId])
+  @@map("license_tokens")
+}
+
+// -------------------------------------------------------------
+// USER SYNCED DATA (Local First + Cloud Sync)
+// -------------------------------------------------------------
+model UserBookmark {
+  id         String   @id @default(uuid())
+  userId     String
+  bookId     String
+  pageNumber Int
+  label      String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId, pageNumber])
+  @@map("user_bookmarks")
+}
+
+model UserNote {
+  id         String   @id @default(uuid())
+  userId     String
+  bookId     String
+  pageNumber Int
+  posX       Float
+  posY       Float
+  content    String   @db.Text
+  color      String   @default("#FDE047")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([userId, bookId, pageNumber])
+  @@map("user_notes")
+}
+
+model UserDrawing {
+  id          String   @id @default(uuid())
+  userId      String
+  bookId      String
+  pageNumber  Int
+  strokesJson Json     // Serialized vector strokes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId, pageNumber])
+  @@map("user_drawings")
+}
+
+model UserReadingProgress {
+  id             String   @id @default(uuid())
+  userId         String
+  bookId         String
+  lastPageNumber Int      @default(1)
+  lastOpenedAt   DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book           Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@map("user_reading_progress")
+}
+
+model AppSetting {
+  key         String   @id
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("app_settings")
+}
