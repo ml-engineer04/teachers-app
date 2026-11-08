@@ -145,6 +145,13 @@ export const api = {
     });
   },
 
+  async updateBook(bookId: string, updates: any) {
+    return fetchJson<any>(`/content/books/${bookId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  },
+
   async getBooksByGrade(gradeId: number) {
     return fetchJson<any[]>(`/content/grades/${gradeId}/books`);
   },
@@ -173,6 +180,39 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+
+  async uploadMediaFile(
+    file: File,
+    metadata?: {
+      title?: string;
+      type?: 'AUDIO' | 'VIDEO';
+      bookId?: string;
+      unitLabel?: string;
+      durationSeconds?: number;
+    },
+  ) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (metadata?.title) formData.append('title', metadata.title);
+    if (metadata?.type) formData.append('type', metadata.type);
+    if (metadata?.bookId) formData.append('bookId', metadata.bookId);
+    if (metadata?.unitLabel) formData.append('unitLabel', metadata.unitLabel);
+    if (metadata?.durationSeconds) formData.append('durationSeconds', String(metadata.durationSeconds));
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem(ADMIN_TOKEN_KEY) : null;
+    const res = await fetch(`${API_BASE}/content/media/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Media yuklashda xatolik: ${err}`);
+    }
+    return res.json();
   },
 
   async deleteMedia(id: string) {

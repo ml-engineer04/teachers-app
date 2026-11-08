@@ -220,6 +220,74 @@ export class ContentController {
     return this.contentService.createOrRegisterMedia(body);
   }
 
+  @Post('media/upload')
+  @ApiOperation({ summary: 'Upload real audio (MP3/WAV/M4A) or video (MP4/MOV) file' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadMediaFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Body()
+    body: {
+      title?: string;
+      type?: 'AUDIO' | 'VIDEO';
+      bookId?: string;
+      unitLabel?: string;
+      durationSeconds?: string;
+    },
+  ) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Media fayli yuklanmadi');
+    }
+
+    return this.contentService.uploadAndSaveMediaFile(file, {
+      title: body.title,
+      type: body.type,
+      bookId: body.bookId,
+      unitLabel: body.unitLabel,
+      durationSeconds: body.durationSeconds ? parseInt(body.durationSeconds) : undefined,
+    });
+  }
+
+  @Get('media/:id/file')
+  @ApiOperation({ summary: 'Stream uploaded media audio or video file' })
+  async streamMediaFile(@Param('id') id: string, @Res() res: Response) {
+    const media = this.contentService.getMediaById(id);
+    if (!media) {
+      throw new NotFoundException(`Media ${id} topilmadi`);
+    }
+
+    const fileData = this.contentService.getMediaFileBuffer(id);
+    if (!fileData) {
+      if (media.url && media.url.startsWith('http') && !media.url.includes('/api/v1/content/media/')) {
+        return res.redirect(media.url);
+      }
+      throw new NotFoundException(`Media ${id} fayli serverda topilmadi`);
+    }
+
+    const mime =
+      fileData.mimeType ||
+      (media.type === 'AUDIO' ? 'audio/mpeg' : 'video/mp4');
+
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Length', fileData.buffer.length);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Disposition', `inline; filename="${media.filename}"`);
+    res.send(fileData.buffer);
+  }
+
+  @Patch('books/:bookId')
+  @ApiOperation({ summary: 'Update book details (title, description, pages, status)' })
+  async updateBookDetails(
+    @Param('bookId') bookId: string,
+    @Body() body: any,
+  ) {
+    const updated = this.contentService.updateBook(bookId, body);
+    if (!updated) {
+      throw new NotFoundException(`Book ${bookId} not found`);
+    }
+    return updated;
+  }
+
   @Delete('media/:id')
   @ApiOperation({ summary: 'Delete a media file from library (Phase 3)' })
   async deleteMedia(@Param('id') id: string) {

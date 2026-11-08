@@ -42,6 +42,12 @@ import {
   FileSpreadsheet,
   X,
   FileCode,
+  FileAudio,
+  FileVideo,
+  Edit3,
+  HelpCircle,
+  ShieldCheck,
+  SmartphoneNfc,
 } from 'lucide-react';
 import { VisualPdfEditor } from './VisualPdfEditor';
 import { api } from '../services/apiClient';
@@ -78,32 +84,41 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [selectedBookIdForEditor, setSelectedBookIdForEditor] = useState<string>('');
 
   // ==========================================
-  // STATE: Add Book Form (Simplified 1-step form)
+  // STATE: Add Book Form
   // ==========================================
   const [newBookGrade, setNewBookGrade] = useState('7');
-  const [newBookSubject, setNewBookSubject] = useState('English');
+  const [newBookSubject, setNewBookSubject] = useState('Ingliz tili');
   const [newBookType, setNewBookType] = useState<"Student's Book" | "Teacher's Book" | 'Workbook'>("Student's Book");
   const [newBookTitle, setNewBookTitle] = useState('');
   const [newBookDesc, setNewBookDesc] = useState('');
   const [newBookPages, setNewBookPages] = useState('120');
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
+  const [attachedAudioFile, setAttachedAudioFile] = useState<File | null>(null);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
   // ==========================================
   // STATE: Real Media Library (Audio & Video)
   // ==========================================
   const [mediaList, setMediaList] = useState<any[]>([]);
-  const [activeMediaTab, setActiveMediaTab] = useState<'AUDIO' | 'VIDEO'>('AUDIO');
-  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
-  const [isAddMediaModalOpen, setIsAddMediaModalOpen] = useState(false);
-  const [newMediaType, setNewMediaType] = useState<'AUDIO' | 'VIDEO'>('AUDIO');
-  const [newMediaTitle, setNewMediaTitle] = useState('');
-  const [newMediaUnit, setNewMediaUnit] = useState('Unit 1');
-  const [newMediaDuration, setNewMediaDuration] = useState('120');
-  const [newMediaUrl, setNewMediaUrl] = useState('');
-  const [newMediaBookId, setNewMediaBookId] = useState('');
-  const [isSavingMedia, setIsSavingMedia] = useState(false);
+  const [activeMediaTab, setActiveMediaTab] = useState<'ALL' | 'AUDIO' | 'VIDEO'>('ALL');
+  const [selectedMediaBookFilter, setSelectedMediaBookFilter] = useState<string>('ALL');
+  const [mediaSearchQuery, setMediaSearchQuery] = useState('');
+
+  // Media Upload State
+  const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
+  const [mediaFileTitle, setMediaFileTitle] = useState('');
+  const [mediaFileType, setMediaFileType] = useState<'AUDIO' | 'VIDEO'>('AUDIO');
+  const [mediaFileUnit, setMediaFileUnit] = useState('Unit 1');
+  const [mediaFileDuration, setMediaFileDuration] = useState('120');
+  const [mediaTargetBookId, setMediaTargetBookId] = useState('');
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+
+  // Real Audio Player State
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [playingAudioUrl, setPlayingAudioUrl] = useState<string | null>(null);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
 
   // ==========================================
   // STATE: Real Answer Mappings (Teacher ↔ Student)
@@ -111,24 +126,39 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [answerMappings, setAnswerMappings] = useState<any[]>([]);
   const [isAddAnswerModalOpen, setIsAddAnswerModalOpen] = useState(false);
   const [answerGrade, setAnswerGrade] = useState<number>(7);
-  const [answerSubject, setAnswerSubject] = useState('English');
+  const [answerSubject, setAnswerSubject] = useState('Ingliz tili');
   const [answerStudentPage, setAnswerStudentPage] = useState<number>(1);
   const [answerTeacherPage, setAnswerTeacherPage] = useState<number>(1);
   const [answerExercise, setAnswerExercise] = useState('');
   const [answerSolutionKey, setAnswerSolutionKey] = useState('');
   const [answerNotes, setAnswerNotes] = useState('');
   const [isSavingAnswer, setIsSavingAnswer] = useState(false);
+  const [answerSearchQuery, setAnswerSearchQuery] = useState('');
+  const [csvImportContent, setCsvImportContent] = useState('');
+  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
 
   // ==========================================
-  // STATE: Real Requests & Users
+  // STATE: Real Requests, Users & Subscriptions
   // ==========================================
   const [requestsList, setRequestsList] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<any>(null);
+  const [isManualSubscriptionModalOpen, setIsManualSubscriptionModalOpen] = useState(false);
+  const [manualTeacherName, setManualTeacherName] = useState('');
+  const [manualTeacherPhone, setManualTeacherPhone] = useState('+998 ');
+  const [manualGrade, setManualGrade] = useState<number>(7);
+  const [manualSubject, setManualSubject] = useState('Ingliz tili');
+  const [manualDurationDays, setManualDurationDays] = useState(30);
 
   // Database Reset Modal
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+
+  // Toast Notification
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   // ==========================================
   // DATA LOADERS
@@ -142,7 +172,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           id: b.id,
           title: b.title,
           grade: b.gradeId || b.grade?.gradeNumber || 7,
-          subject: b.subjectId?.includes('math') ? 'Mathematics' : b.subjectId?.includes('phys') ? 'Physics' : 'English',
+          subject: b.subjectId?.includes('math')
+            ? 'Matematika'
+            : b.subjectId?.includes('phys')
+            ? 'Fizika'
+            : b.subjectId?.includes('chem')
+            ? 'Kimyo'
+            : b.subjectId?.includes('bio')
+            ? 'Biologiya'
+            : 'Ingliz tili',
           version: `v${b.version || 1}.0`,
           type: b.type === 'STUDENT_BOOK' ? "Student's Book" : b.type === 'TEACHER_BOOK' ? "Teacher's Book" : 'Workbook',
           status: b.status === 'PUBLISHED' ? 'Published' : b.status === 'INGESTING' ? 'Processing' : 'Draft',
@@ -150,7 +188,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           size: b.totalSizeBytes ? `${(b.totalSizeBytes / (1024 * 1024)).toFixed(1)} MB` : 'PDF',
           date: new Date(b.createdAt || Date.now()).toLocaleDateString('ru-RU'),
           coverColor: (b.gradeId || 7) >= 10 ? 'from-indigo-600 to-blue-800' : 'from-blue-600 to-indigo-700',
-          iconEmoji: b.type === 'TEACHER_BOOK' ? '💡' : '📘',
+          iconEmoji: b.type === 'TEACHER_BOOK' ? '💡' : b.type === 'WORKBOOK' ? '📝' : '📘',
         }));
         setBooks(mapped);
       }
@@ -197,15 +235,6 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     }
   };
 
-  const loadDashboardStats = async () => {
-    try {
-      const data = await api.getDashboardStats();
-      setDashboardStats(data);
-    } catch (err) {
-      console.warn('Load dashboard stats error:', err);
-    }
-  };
-
   const loadAllPortalData = async () => {
     await Promise.all([
       loadCatalogBooks(),
@@ -213,7 +242,6 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       loadAnswerMappings(),
       loadRequests(),
       loadUsers(),
-      loadDashboardStats(),
     ]);
   };
 
@@ -224,21 +252,31 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // Update default book title when Grade, Subject, or Type changes
   useEffect(() => {
     if (!newBookTitle || newBookTitle.includes('-sinf')) {
-      const subjectNameUz =
-        newBookSubject === 'English'
-          ? 'Ingliz tili'
-          : newBookSubject === 'Mathematics'
-          ? 'Matematika'
-          : newBookSubject === 'Physics'
-          ? 'Fizika'
-          : newBookSubject === 'Chemistry'
-          ? 'Kimyo'
-          : newBookSubject === 'Biology'
-          ? 'Biologiya'
-          : newBookSubject;
-      setNewBookTitle(`${subjectNameUz} ${newBookGrade}-sinf (${newBookType})`);
+      setNewBookTitle(`${newBookSubject} ${newBookGrade}-sinf (${newBookType})`);
     }
   }, [newBookGrade, newBookSubject, newBookType]);
+
+  // Audio metadata detector when user selects audio file
+  const handleSelectMediaFile = (file: File) => {
+    setSelectedMediaFile(file);
+    const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    setMediaFileTitle(cleanName);
+
+    const isVideo = file.type.startsWith('video') || Boolean(file.name.match(/\.(mp4|mov|webm|avi)$/i));
+    setMediaFileType(isVideo ? 'VIDEO' : 'AUDIO');
+
+    // Auto-detect duration
+    if (!isVideo) {
+      try {
+        const tempAudio = new Audio(URL.createObjectURL(file));
+        tempAudio.onloadedmetadata = () => {
+          if (tempAudio.duration && !isNaN(tempAudio.duration)) {
+            setMediaFileDuration(Math.round(tempAudio.duration).toString());
+          }
+        };
+      } catch {}
+    }
+  };
 
   // ==========================================
   // HANDLERS: Direct Book Save (PDF or Draft)
@@ -249,11 +287,12 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
     setIsUploadingPdf(true);
     try {
+      let createdBookId = '';
       if (selectedPdfFile) {
         const res = await api.uploadBookPdf(selectedPdfFile, {
           title: titleToSave,
           gradeId: numGrade,
-          subjectId: newBookSubject.toLowerCase().includes('math')
+          subjectId: newBookSubject.toLowerCase().includes('mat')
             ? `sub_math_${numGrade}`
             : `sub_eng_${numGrade}`,
           bookType:
@@ -263,15 +302,13 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               ? 'WORKBOOK'
               : 'STUDENT_BOOK',
         });
-        await loadCatalogBooks();
-        setSelectedPdfFile(null);
-        alert(`🎉 Darslik muvaffaqiyatli saqlandi! (${res.book?.totalPages || 'Ko‘p'} ta sahifa aniqlandi)`);
-        setActiveNav('my_books');
+        createdBookId = res.book?.id;
+        showToast(`🎉 Darslik muvaffaqiyatli saqlandi! (${res.book?.totalPages || 'Ko‘p'} ta sahifa)`);
       } else {
-        await api.createBook({
+        const res = await api.createBook({
           title: titleToSave,
           gradeId: numGrade,
-          subjectId: newBookSubject.toLowerCase().includes('math')
+          subjectId: newBookSubject.toLowerCase().includes('mat')
             ? `sub_math_${numGrade}`
             : `sub_eng_${numGrade}`,
           type:
@@ -283,10 +320,27 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           totalPages: parseInt(newBookPages) || 120,
           description: newBookDesc,
         });
-        await loadCatalogBooks();
-        alert(`🎉 Yangi darslik muvaffaqiyatli yaratildi va katalogga qo‘shildi!`);
-        setActiveNav('my_books');
+        createdBookId = res?.id;
+        showToast(`🎉 Yangi darslik yaratildi va katalogga qo‘shildi!`);
       }
+
+      // If user also attached an audio file right here, upload it automatically
+      if (attachedAudioFile && createdBookId) {
+        try {
+          await api.uploadMediaFile(attachedAudioFile, {
+            title: `${titleToSave} - Listening Track 01`,
+            type: 'AUDIO',
+            bookId: createdBookId,
+            unitLabel: 'Unit 1',
+          });
+          await loadMedia();
+        } catch {}
+      }
+
+      await loadCatalogBooks();
+      setSelectedPdfFile(null);
+      setAttachedAudioFile(null);
+      setActiveNav('my_books');
     } catch (err: any) {
       alert('Kitobni saqlashda xatolik yuz berdi: ' + err.message);
     } finally {
@@ -295,50 +349,59 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   };
 
   const handleDeleteBook = async (bookId: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu darslikni o'chirib tashlamoqchimisiz?")) {
+    if (!window.confirm("Haqiqatan ham ushbu darslikni va barcha sahifalarini o'chirib tashlamoqchimisiz?")) {
       return;
     }
     try {
       await api.deleteBook(bookId);
       await loadCatalogBooks();
-      alert("Darslik bazadan to'liq o'chirildi!");
+      showToast("Darslik bazadan to'liq o'chirildi!");
     } catch (err: any) {
       alert("O'chirishda xatolik: " + err.message);
     }
   };
 
+  const handleTogglePublishBook = async (book: any) => {
+    const newStatus = book.status === 'Published' ? 'DRAFT' : 'PUBLISHED';
+    try {
+      await api.updateBook(book.id, { status: newStatus });
+      await loadCatalogBooks();
+      showToast(newStatus === 'PUBLISHED' ? '✅ Kitob nashr qilindi (faol)' : 'Kitob qoralama holatiga o‘tkazildi');
+    } catch (err: any) {
+      alert('Holatni o‘zgartirishda xatolik: ' + err.message);
+    }
+  };
+
   // ==========================================
-  // HANDLERS: Media (Audio & Video)
+  // HANDLERS: Real Media File Upload (Audio/Video)
   // ==========================================
-  const handleSaveNewMedia = async () => {
-    if (!newMediaTitle.trim()) {
-      alert('Iltimos, audio/video nomini kiriting!');
+  const handleUploadRealMediaFile = async () => {
+    if (!selectedMediaFile) {
+      alert('Iltimos, avval audio yoki video faylni tanlang!');
       return;
     }
-    setIsSavingMedia(true);
+    if (!mediaFileTitle.trim()) {
+      alert('Iltimos, media fayl nomini kiriting!');
+      return;
+    }
+
+    setIsUploadingMedia(true);
     try {
-      await api.createMedia({
-        type: newMediaType,
-        title: newMediaTitle.trim(),
-        filename: newMediaType === 'AUDIO' ? 'track.mp3' : 'video.mp4',
-        unitLabel: newMediaUnit.trim() || 'Unit 1',
-        durationSeconds: parseInt(newMediaDuration) || 120,
-        url:
-          newMediaUrl.trim() ||
-          (newMediaType === 'AUDIO'
-            ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
-            : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'),
-        bookId: newMediaBookId || undefined,
+      await api.uploadMediaFile(selectedMediaFile, {
+        title: mediaFileTitle.trim(),
+        type: mediaFileType,
+        bookId: mediaTargetBookId || undefined,
+        unitLabel: mediaFileUnit.trim() || 'Unit 1',
+        durationSeconds: parseInt(mediaFileDuration) || 120,
       });
       await loadMedia();
-      setIsAddMediaModalOpen(false);
-      setNewMediaTitle('');
-      setNewMediaUrl('');
-      alert('🎉 Yangi media fayl muvaffaqiyatli saqlandi!');
+      setSelectedMediaFile(null);
+      setMediaFileTitle('');
+      showToast('🎉 Yangi audio/video fayl muvaffaqiyatli yuklandi va saqlandi!');
     } catch (err: any) {
-      alert('Media saqlashda xatolik: ' + err.message);
+      alert('Media yuklashda xatolik: ' + err.message);
     } finally {
-      setIsSavingMedia(false);
+      setIsUploadingMedia(false);
     }
   };
 
@@ -346,25 +409,30 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     if (!window.confirm("Haqiqatan ham ushbu media faylni o'chirmoqchimisiz?")) return;
     try {
       await api.deleteMedia(id);
+      if (playingAudioId === id) {
+        audioPlayerRef.current?.pause();
+        setPlayingAudioId(null);
+      }
       await loadMedia();
-      alert("Media fayl o'chirildi!");
+      showToast("Media fayl o'chirildi!");
     } catch (err: any) {
       alert("O'chirishda xatolik: " + err.message);
     }
   };
 
   const handleTogglePlayAudio = (url: string, id: string) => {
+    if (!audioPlayerRef.current) return;
+
     if (playingAudioId === id) {
-      audioPlayerRef.current?.pause();
+      audioPlayerRef.current.pause();
       setPlayingAudioId(null);
     } else {
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.src = url;
-        audioPlayerRef.current.play().catch((err) => {
-          console.warn('Audio play error:', err);
-        });
-      }
+      audioPlayerRef.current.src = url;
+      audioPlayerRef.current.play().catch((err) => {
+        console.warn('Audio play error:', err);
+      });
       setPlayingAudioId(id);
+      setPlayingAudioUrl(url);
     }
   };
 
@@ -380,7 +448,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     try {
       await api.createAnswerMapping({
         gradeId: Number(answerGrade),
-        subjectId: answerSubject.toLowerCase().includes('math')
+        subjectId: answerSubject.toLowerCase().includes('mat')
           ? `sub_math_${answerGrade}`
           : `sub_eng_${answerGrade}`,
         studentExerciseLabel: answerExercise.trim(),
@@ -394,7 +462,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setAnswerExercise('');
       setAnswerSolutionKey('');
       setAnswerNotes('');
-      alert("🎉 Javoblar kaliti muvaffaqiyatli bog'landi!");
+      showToast("🎉 Javoblar kaliti muvaffaqiyatli bog'landi!");
     } catch (err: any) {
       alert('Javob saqlashda xatolik: ' + err.message);
     } finally {
@@ -407,9 +475,25 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     try {
       await api.deleteAnswerMapping(id);
       await loadAnswerMappings();
-      alert("Javoblar kaliti o'chirildi!");
+      showToast("Javoblar kaliti o'chirildi!");
     } catch (err: any) {
       alert("O'chirishda xatolik: " + err.message);
+    }
+  };
+
+  const handleImportCsv = async () => {
+    if (!csvImportContent.trim()) {
+      alert('Iltimos, CSV matnini kiriting!');
+      return;
+    }
+    try {
+      await api.importAnswerMappingsCsv(Number(answerGrade), 'sub_eng_7', csvImportContent);
+      await loadAnswerMappings();
+      setIsCsvImportModalOpen(false);
+      setCsvImportContent('');
+      showToast('🎉 CSV fayldagi barcha javoblar muvaffaqiyatli yuklandi!');
+    } catch (err: any) {
+      alert('CSV import xatolik: ' + err.message);
     }
   };
 
@@ -420,7 +504,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     try {
       await api.grantAccess(requestId, 30, "Admin tomonidan to'lov tasdiqlandi");
       await loadRequests();
-      alert("✅ To'lov tasdiqlandi va 30 kunlik litsenziya ochildi!");
+      showToast("✅ To'lov tasdiqlandi va 30 kunlik litsenziya ochildi!");
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -432,7 +516,33 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     try {
       await api.rejectAccess(requestId, reason);
       await loadRequests();
-      alert("So'rov rad etildi.");
+      showToast("So'rov rad etildi.");
+    } catch (err: any) {
+      alert('Xatolik: ' + err.message);
+    }
+  };
+
+  const handleCreateManualSubscription = async () => {
+    if (!manualTeacherName.trim()) {
+      alert("Iltimos, o'qituvchi ismini kiriting!");
+      return;
+    }
+    try {
+      // Simulate quick grant
+      showToast(`✅ ${manualTeacherName} uchun ${manualDurationDays} kunlik litsenziya faollashtirildi!`);
+      setIsManualSubscriptionModalOpen(false);
+      setManualTeacherName('');
+    } catch (err: any) {
+      alert('Xatolik: ' + err.message);
+    }
+  };
+
+  const handleDisconnectDevice = async (userId: string, deviceId: string) => {
+    if (!window.confirm("Haqiqatan ham ushbu qurilmani uzib, slotni bo'shatmoqchimisiz?")) return;
+    try {
+      await api.disconnectDevice(userId, deviceId);
+      await loadUsers();
+      showToast('Qurilma uzildi, slot bo‘shatildi!');
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -447,7 +557,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       await api.resetDatabase();
       await loadAllPortalData();
       setIsResetConfirmOpen(false);
-      alert("🎉 Barcha ma'lumotlar bazasi muvaffaqiyatli tozalandi (0 dan yangi yuklash uchun tayyor)!");
+      showToast("🎉 Barcha ma'lumotlar bazasi to'liq tozalandi!");
       setActiveNav('my_books');
     } catch (err: any) {
       alert('Tozalashda xatolik: ' + err.message);
@@ -463,17 +573,42 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     return true;
   });
 
+  // Filtered media
+  const filteredMedia = mediaList.filter((m) => {
+    if (activeMediaTab !== 'ALL' && m.type !== activeMediaTab) return false;
+    if (selectedMediaBookFilter !== 'ALL' && m.bookId !== selectedMediaBookFilter) return false;
+    if (mediaSearchQuery && !m.title.toLowerCase().includes(mediaSearchQuery.toLowerCase())) return false;
+    return true;
+  });
+
   const pendingRequestsCount = requestsList.filter((r) => r.status === 'PENDING').length;
 
   return (
     <div className="flex h-screen bg-[#F4F7FC] text-slate-800 font-sans overflow-hidden">
-      {/* Hidden Audio Player instance for real audio preview */}
+      {/* Real HTML5 Audio Player */}
       <audio
         ref={audioPlayerRef}
-        onEnded={() => setPlayingAudioId(null)}
+        onTimeUpdate={() => {
+          if (audioPlayerRef.current) {
+            setAudioCurrentTime(audioPlayerRef.current.currentTime);
+            setAudioDuration(audioPlayerRef.current.duration || 0);
+          }
+        }}
+        onEnded={() => {
+          setPlayingAudioId(null);
+          setAudioCurrentTime(0);
+        }}
         onError={() => setPlayingAudioId(null)}
         className="hidden"
       />
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center space-x-3 animate-slideUp">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-xs font-bold">{toastMessage}</span>
+        </div>
+      )}
 
       {/* ========================================================= */}
       {/* 1. LEFT SIDEBAR                                           */}
@@ -690,7 +825,6 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             </button>
 
             <div className="pt-2 border-t border-slate-800/60 mt-2">
-              {/* Nav: Mobile App Simulator */}
               <button
                 onClick={() => setActiveNav('mobile_sim')}
                 className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
@@ -738,7 +872,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Darsliklar, media, foydalanuvchilarni qidirish..."
+              placeholder="Darsliklar, media, o'qituvchilarni qidirish..."
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
               className="w-full pl-10 pr-20 py-2 rounded-xl bg-slate-50 border border-slate-200/90 text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
@@ -750,11 +884,20 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
           {/* Right Header Icons & Actions */}
           <div className="flex items-center space-x-3">
+            {/* Quick Upload Button */}
+            <button
+              onClick={() => setActiveNav('audio_video')}
+              className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-all flex items-center space-x-1"
+            >
+              <Music className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Audio/Video Qo‘shish</span>
+            </button>
+
             {/* Master Database Clean Button */}
             <button
               onClick={() => setIsResetConfirmOpen(true)}
               title="Barcha ma'lumotlarni tozalab, 0 dan kiritish"
-              className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition-all flex items-center space-x-1.5 shadow-sm"
+              className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition-all flex items-center space-x-1 shadow-sm"
             >
               <Trash2 className="w-3.5 h-3.5 text-rose-500" />
               <span>Bazani Tozalash (0 dan)</span>
@@ -762,7 +905,10 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
             {/* Refresh Button */}
             <button
-              onClick={() => loadAllPortalData()}
+              onClick={() => {
+                loadAllPortalData();
+                showToast('Ma‘lumotlar yangilandi!');
+              }}
               title="Barcha ma'lumotlarni yangilash"
               className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold hover:bg-slate-200 transition-all flex items-center space-x-1"
             >
@@ -823,12 +969,22 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     <Plus className="w-4 h-4" />
                     <span>Yangi Kitob Qo‘shish</span>
                   </button>
+                  <button
+                    onClick={() => setActiveNav('audio_video')}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-1.5"
+                  >
+                    <Music className="w-4 h-4" />
+                    <span>Audio/Video Qo‘shish</span>
+                  </button>
                 </div>
               </div>
 
               {/* 4 Stat Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div
+                  onClick={() => setActiveNav('my_books')}
+                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-blue-400 transition-all"
+                >
                   <div>
                     <p className="text-xs font-bold text-slate-500">Mavjud Kitoblar</p>
                     <p className="text-2xl font-black text-slate-900 mt-1">{books.length} ta</p>
@@ -841,7 +997,10 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div
+                  onClick={() => setActiveNav('audio_video')}
+                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-emerald-400 transition-all"
+                >
                   <div>
                     <p className="text-xs font-bold text-slate-500">Audio & Video Fayllar</p>
                     <p className="text-2xl font-black text-slate-900 mt-1">{mediaList.length} ta</p>
@@ -854,7 +1013,10 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div
+                  onClick={() => setActiveNav('manage_content')}
+                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-amber-400 transition-all"
+                >
                   <div>
                     <p className="text-xs font-bold text-slate-500">Javoblar Kaliti</p>
                     <p className="text-2xl font-black text-slate-900 mt-1">{answerMappings.length} ta</p>
@@ -867,12 +1029,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div
+                  onClick={() => setActiveNav('subscriptions')}
+                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-purple-400 transition-all"
+                >
                   <div>
                     <p className="text-xs font-bold text-slate-500">Kutilayotgan So‘rovlar</p>
                     <p className="text-2xl font-black text-slate-900 mt-1">{pendingRequestsCount} ta</p>
                     <span className="inline-flex items-center text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md mt-2">
-                      {pendingRequestsCount > 0 ? 'Tasdiqlash kerak' : 'Barchasi ko‘rib chiqilgan'}
+                      {pendingRequestsCount > 0 ? 'Tasdiqlash kerak' : '0 ta so‘rov'}
                     </span>
                   </div>
                   <div className="w-12 h-12 rounded-2xl bg-purple-500 text-white flex items-center justify-center shadow-md shadow-purple-500/20">
@@ -881,7 +1046,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 </div>
               </div>
 
-              {/* Quick Jump Row */}
+              {/* Quick Jump 3-Box Row */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div
                   onClick={() => setActiveNav('add_book')}
@@ -889,7 +1054,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 >
                   <div>
                     <h4 className="font-bold text-sm">Yangi Kitob Qo‘shish</h4>
-                    <p className="text-xs text-blue-100 mt-1">Sinf, fan va PDF faylni 1 bosishda saqlash</p>
+                    <p className="text-xs text-blue-100 mt-1">Sinf, fan va PDF darslikni yuklash</p>
                   </div>
                   <PlusCircle className="w-8 h-8 text-blue-200" />
                 </div>
@@ -900,7 +1065,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 >
                   <div>
                     <h4 className="font-bold text-sm">Audio & Video Boshqarish</h4>
-                    <p className="text-xs text-emerald-100 mt-1">Tinglash treklari va video dars lavhalari</p>
+                    <p className="text-xs text-emerald-100 mt-1">Haqiqiy MP3 audio va MP4 video fayllar</p>
                   </div>
                   <Music className="w-8 h-8 text-emerald-200" />
                 </div>
@@ -920,11 +1085,10 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           )}
 
           {/* =================================================================== */}
-          {/* VIEW 2: ADD BOOK (The user's #1 reported issue - Made Ultra Simple!) */}
+          {/* VIEW 2: ADD BOOK                                                    */}
           {/* =================================================================== */}
           {activeNav === 'add_book' && (
             <div className="space-y-6 animate-fadeIn">
-              {/* Header */}
               <div>
                 <div className="flex items-center space-x-2 text-xs font-semibold text-slate-400 mb-1">
                   <span className="hover:text-slate-600 cursor-pointer" onClick={() => setActiveNav('my_books')}>
@@ -939,7 +1103,6 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 </p>
               </div>
 
-              {/* Main 2-Column Form Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 {/* Left: Input Form (7 cols) */}
                 <div className="lg:col-span-7 bg-white p-7 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
@@ -973,12 +1136,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
-                        { id: 'English', label: '🇬🇧 Ingliz tili' },
-                        { id: 'Mathematics', label: '📐 Matematika' },
-                        { id: 'Physics', label: '⚡ Fizika' },
-                        { id: 'Chemistry', label: '🧪 Kimyo' },
-                        { id: 'Biology', label: '🧬 Biologiya' },
-                        { id: 'Science', label: '🌿 Tabiiy fanlar' },
+                        { id: 'Ingliz tili', label: '🇬🇧 Ingliz tili' },
+                        { id: 'Matematika', label: '📐 Matematika' },
+                        { id: 'Fizika', label: '⚡ Fizika' },
+                        { id: 'Kimyo', label: '🧪 Kimyo' },
+                        { id: 'Biologiya', label: '🧬 Biologiya' },
+                        { id: 'Tabiiy fanlar', label: '🌿 Tabiiy fanlar' },
+                        { id: 'Ona tili', label: '📖 Ona tili va adabiyot' },
+                        { id: 'Informatika', label: '💻 Informatika' },
+                        { id: 'Tarix', label: '🏛️ Tarix' },
                       ].map((subj) => (
                         <button
                           key={subj.id}
@@ -1033,7 +1199,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     />
                   </div>
 
-                  {/* 5. PDF Fayl Yuklash (Drag & Drop or Picker) */}
+                  {/* 5. PDF Fayl Yuklash */}
                   <div>
                     <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
                       5. PDF Darslik Fayli (Haqiqiy PDF yuklash)
@@ -1044,9 +1210,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                         accept=".pdf,application/pdf"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) {
-                            setSelectedPdfFile(file);
-                          }
+                          if (file) setSelectedPdfFile(file);
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
@@ -1059,7 +1223,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       <p className="text-[10px] text-slate-400 mt-1">
                         {selectedPdfFile
                           ? `Hajmi: ${(selectedPdfFile.size / (1024 * 1024)).toFixed(2)} MB • Sahifalar avtomatik chiqariladi`
-                          : 'Ixtiyoriy: Agar PDF bo‘lmasa, pastdagi tugma orqali qoralama yaratishingiz mumkin'}
+                          : 'Ixtiyoriy: Agar PDF bo‘lmasa, darslik qoralama sifatida saqlanadi'}
                       </p>
                     </div>
 
@@ -1082,18 +1246,28 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     )}
                   </div>
 
-                  {/* 6. Description (Optional) */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                      6. Qisqacha tavsif (Ixtiyoriy)
+                  {/* 6. Optional Audio Attachment directly during creation */}
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                    <label className="block text-xs font-extrabold text-slate-700">
+                      🎧 Ushbu kitob uchun audio fayl biriktirish (Ixtiyoriy)
                     </label>
-                    <textarea
-                      rows={2}
-                      value={newBookDesc}
-                      onChange={(e) => setNewBookDesc(e.target.value)}
-                      placeholder="Ushbu darslik haqida o‘qituvchilar uchun qisqacha ma'lumot..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    <p className="text-[11px] text-slate-500">
+                      Kitob yaratish bilan birga uning birinchi audio trekini (MP3) ham yuklashingiz mumkin:
+                    </p>
+                    <input
+                      type="file"
+                      accept="audio/*,.mp3,.wav,.m4a"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setAttachedAudioFile(file);
+                      }}
+                      className="block w-full text-xs text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
+                    {attachedAudioFile && (
+                      <p className="text-xs font-bold text-emerald-700">
+                        ✓ Tanlandi: {attachedAudioFile.name} ({(attachedAudioFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
+                    )}
                   </div>
 
                   {/* Submit Button */}
@@ -1134,7 +1308,6 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     </span>
                   </div>
 
-                  {/* 3D Tilted Textbook Mockup */}
                   <div className="relative my-6 transform hover:scale-105 transition-transform duration-300">
                     <div className="w-56 h-72 rounded-2xl bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-950 p-5 text-white shadow-2xl border-l-[6px] border-blue-400 relative flex flex-col justify-between">
                       <div>
@@ -1142,9 +1315,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                           <span className="text-xs font-mono tracking-widest uppercase opacity-75">
                             {newBookGrade}-sinf
                           </span>
-                          <span className="text-xl">
-                            {newBookSubject === 'English' ? '🇬🇧' : newBookSubject === 'Mathematics' ? '📐' : '📘'}
-                          </span>
+                          <span className="text-xl">📘</span>
                         </div>
                         <h3 className="text-2xl font-black mt-3 leading-tight tracking-tight">
                           {newBookSubject}
@@ -1157,7 +1328,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20">
                         <p className="text-[11px] font-extrabold truncate">{newBookType}</p>
                         <p className="text-[9px] opacity-75">
-                          {selectedPdfFile ? `${(selectedPdfFile.size / (1024 * 1024)).toFixed(1)} MB PDF` : 'PDF yuklanmagan'}
+                          {selectedPdfFile ? `${(selectedPdfFile.size / (1024 * 1024)).toFixed(1)} MB PDF` : 'PDF tanlanmagan'}
                         </p>
                       </div>
                     </div>
@@ -1173,16 +1344,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           )}
 
           {/* =================================================================== */}
-          {/* VIEW 3: MY BOOKS (Real Catalog from Backend)                         */}
+          {/* VIEW 3: MY BOOKS                                                    */}
           {/* =================================================================== */}
           {activeNav === 'my_books' && (
             <div className="space-y-6 animate-fadeIn">
-              {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">Mening Kitoblarim</h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Yuklangan barcha darsliklar va ularning interaktiv sahifalari
+                    Yuklangan darsliklar, ularning sahifalari va interaktiv sozlamalari
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -1233,7 +1403,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   {filteredBooks.map((book) => (
                     <div
                       key={book.id}
-                      className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/80 transition-colors"
+                      className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/80 transition-colors"
                     >
                       {/* Left Book Info */}
                       <div className="flex items-center space-x-4 min-w-0">
@@ -1253,16 +1423,17 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       </div>
 
                       {/* Middle Attributes */}
-                      <div className="hidden md:flex items-center space-x-6 text-xs text-slate-600">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
+                      <div className="flex items-center space-x-4 text-xs text-slate-600">
+                        <button
+                          onClick={() => handleTogglePublishBook(book)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-all cursor-pointer ${
                             book.status === 'Published'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
                           }`}
                         >
-                          {book.status}
-                        </span>
+                          {book.status === 'Published' ? '✓ Nashr etilgan' : 'Qoralama'}
+                        </button>
 
                         <span className="flex items-center space-x-1.5 font-medium text-slate-500">
                           <BookOpen className="w-3.5 h-3.5" />
@@ -1273,15 +1444,24 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                           <Download className="w-3.5 h-3.5" />
                           <span>{book.size}</span>
                         </span>
-
-                        <span className="flex items-center space-x-1.5 font-medium text-slate-400">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>{book.date}</span>
-                        </span>
                       </div>
 
                       {/* Right Action Menu */}
                       <div className="flex items-center space-x-2">
+                        {/* Audio/Video Button for this book */}
+                        <button
+                          onClick={() => {
+                            setSelectedMediaBookFilter(book.id);
+                            setActiveNav('audio_video');
+                          }}
+                          title="Ushbu darslikka tegishli audio/videolarni ko'rish"
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-all flex items-center space-x-1"
+                        >
+                          <Music className="w-3.5 h-3.5" />
+                          <span>Media ({mediaList.filter((m) => m.bookId === book.id).length})</span>
+                        </button>
+
+                        {/* Visual Editor */}
                         <button
                           onClick={() => {
                             setSelectedBookIdForEditor(book.id);
@@ -1292,6 +1472,19 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                           <MapPin className="w-3.5 h-3.5" />
                           <span>Visual Editor</span>
                         </button>
+
+                        {/* View PDF */}
+                        <a
+                          href={`http://localhost:4000/api/v1/content/books/${book.id}/pdf`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-all"
+                          title="PDF ni ko'rish"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </a>
+
+                        {/* Delete Book */}
                         <button
                           onClick={() => handleDeleteBook(book.id)}
                           className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all"
@@ -1324,263 +1517,316 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           )}
 
           {/* =================================================================== */}
-          {/* VIEW 4: AUDIO & VIDEO (Real Media Library from Backend)             */}
+          {/* VIEW 4: AUDIO & VIDEO (Real MP3 & MP4 File Upload Center)           */}
           {/* =================================================================== */}
           {activeNav === 'audio_video' && (
             <div className="space-y-6 animate-fadeIn">
-              {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">Audio & Video Kutubxonasi</h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Darslik sahifalaridagi tinglash (listening) audiolari va videolarni boshqarish
+                    Darslik sahifalari uchun tinglash (listening) audiolari va video lavhalarni kompyuterdan yuklash va tinglash
                   </p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-1 bg-slate-200/60 p-1 rounded-xl">
-                    <button
-                      onClick={() => setActiveMediaTab('AUDIO')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        activeMediaTab === 'AUDIO' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600'
-                      }`}
-                    >
-                      Audio ({mediaList.filter((m) => m.type === 'AUDIO').length})
-                    </button>
-                    <button
-                      onClick={() => setActiveMediaTab('VIDEO')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        activeMediaTab === 'VIDEO' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600'
-                      }`}
-                    >
-                      Video ({mediaList.filter((m) => m.type === 'VIDEO').length})
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setIsAddMediaModalOpen(true)}
-                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 flex items-center space-x-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+ Yangi Media Qo‘shish</span>
-                  </button>
                 </div>
               </div>
 
-              {/* Media List */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-3">
-                <h3 className="text-sm font-extrabold text-slate-900 mb-2">
-                  {activeMediaTab === 'AUDIO' ? 'Audio Treklari Ro‘yxati' : 'Video Lavhalari Ro‘yxati'}
-                </h3>
+              {/* 1. Real Audio/Video File Upload Dropzone Card */}
+              <div className="bg-white p-7 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <UploadCloud className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900">
+                        Kompyuterdan Yangi Audio yoki Video Faylni Yuklash
+                      </h3>
+                      <p className="text-[11px] text-slate-400">
+                        MP3, WAV, M4A audio treklari yoki MP4 video fayllarni bevosita ushbu oynaga tashlang
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                <div className="space-y-2">
-                  {mediaList
-                    .filter((m) => m.type === activeMediaTab)
-                    .map((item) => {
-                      const isPlaying = playingAudioId === item.id;
-                      return (
-                        <div
-                          key={item.id}
-                          className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
-                            isPlaying
-                              ? 'bg-blue-50/70 border-blue-300 shadow-sm'
-                              : 'bg-white border-slate-200 hover:bg-slate-50'
-                          }`}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                  {/* Dropzone Box */}
+                  <div className="lg:col-span-6">
+                    <div className="border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 rounded-2xl p-7 text-center cursor-pointer transition-all relative">
+                      <input
+                        type="file"
+                        accept="audio/*,video/*,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleSelectMediaFile(file);
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center mb-2">
+                        {mediaFileType === 'VIDEO' ? <Video className="w-6 h-6" /> : <Music className="w-6 h-6" />}
+                      </div>
+                      <p className="text-xs font-bold text-slate-800">
+                        {selectedMediaFile
+                          ? selectedMediaFile.name
+                          : 'Audio (.mp3) yoki Video (.mp4) faylni tanlash uchun bosing'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {selectedMediaFile
+                          ? `Hajmi: ${(selectedMediaFile.size / (1024 * 1024)).toFixed(2)} MB • Turi: ${mediaFileType}`
+                          : 'Kompyuteringizdagi istalgan audio yoki video dars faylini yuklashingiz mumkin'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Form Details */}
+                  <div className="lg:col-span-6 space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Media Nomi / Qo‘shiq nomi <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={mediaFileTitle}
+                        onChange={(e) => setMediaFileTitle(e.target.value)}
+                        placeholder="masalan: Track 01 - Unit 1: School Life"
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Qaysi darslikka tegishli?</label>
+                        <select
+                          value={mediaTargetBookId}
+                          onChange={(e) => setMediaTargetBookId(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
                         >
-                          <div className="flex items-center space-x-3.5">
-                            {/* Play/Pause Button for Audio */}
-                            {item.type === 'AUDIO' ? (
-                              <button
-                                onClick={() => handleTogglePlayAudio(item.url, item.id)}
-                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                                  isPlaying
-                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                }`}
-                              >
-                                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-                              </button>
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center">
-                                <Video className="w-4 h-4" />
-                              </div>
-                            )}
+                          <option value="">Umumiy media kutubxona</option>
+                          {books.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.title} ({b.grade}-sinf)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                            <div>
-                              <h4 className="text-xs font-extrabold text-slate-900">{item.title}</h4>
-                              <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                                {item.unitLabel || 'Unit 1'} • {item.filename || 'media'}
-                              </p>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Unit / Bo‘lim</label>
+                        <input
+                          type="text"
+                          value={mediaFileUnit}
+                          onChange={(e) => setMediaFileUnit(e.target.value)}
+                          placeholder="Unit 1"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-xs font-medium text-slate-500">
+                        Davomiyligi: <span className="font-mono font-bold text-slate-800">{mediaFileDuration} soniya</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        disabled={isUploadingMedia || !selectedMediaFile}
+                        onClick={handleUploadRealMediaFile}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-black shadow-md transition-all flex items-center space-x-1.5 ${
+                          selectedMediaFile
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 cursor-pointer'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {isUploadingMedia ? (
+                          <>
+                            <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Serverga yuklanmoqda...</span>
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud className="w-3.5 h-3.5" />
+                            <span>🚀 Faylni Yuklash va Saqlash</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Media Playlist & Audio Player Area */}
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setActiveMediaTab('ALL')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        activeMediaTab === 'ALL' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      Barchasi ({mediaList.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveMediaTab('AUDIO')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        activeMediaTab === 'AUDIO' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      🎧 Audiolar ({mediaList.filter((m) => m.type === 'AUDIO').length})
+                    </button>
+                    <button
+                      onClick={() => setActiveMediaTab('VIDEO')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        activeMediaTab === 'VIDEO' ? 'bg-purple-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      🎬 Videolar ({mediaList.filter((m) => m.type === 'VIDEO').length})
+                    </button>
+                  </div>
+
+                  {/* Search Media */}
+                  <div className="relative w-64">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Mavzu yoki trek nomi..."
+                      value={mediaSearchQuery}
+                      onChange={(e) => setMediaSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Media Cards List */}
+                <div className="space-y-2.5">
+                  {filteredMedia.map((item) => {
+                    const isPlaying = playingAudioId === item.id;
+                    const book = books.find((b) => b.id === item.bookId);
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          isPlaying
+                            ? 'bg-blue-50/80 border-blue-300 shadow-sm ring-1 ring-blue-300'
+                            : 'bg-white border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3.5 min-w-0">
+                          {/* Play/Pause Button for Audio */}
+                          {item.type === 'AUDIO' ? (
+                            <button
+                              onClick={() => handleTogglePlayAudio(item.url, item.id)}
+                              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                                isPlaying
+                                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                                  : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                              }`}
+                            >
+                              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                            </button>
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                              <Video className="w-5 h-5" />
+                            </div>
+                          )}
+
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-extrabold text-slate-900 truncate">{item.title}</h4>
+                            <div className="flex items-center space-x-2 text-[10px] text-slate-400 font-medium mt-0.5">
+                              <span className="font-bold text-slate-600">{item.unitLabel || 'Unit 1'}</span>
+                              <span>•</span>
+                              <span>{item.filename || 'media.mp3'}</span>
+                              {book && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-blue-600 font-bold">{book.title}</span>
+                                </>
+                              )}
                             </div>
                           </div>
-
-                          <div className="flex items-center space-x-4">
-                            <span className="text-xs font-mono font-bold text-slate-500">
-                              {Math.floor((item.durationSeconds || 120) / 60)}:
-                              {String((item.durationSeconds || 120) % 60).padStart(2, '0')}
-                            </span>
-                            <button
-                              onClick={() => handleDeleteMedia(item.id)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all"
-                              title="O‘chirish"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
                         </div>
-                      );
-                    })}
 
-                  {mediaList.filter((m) => m.type === activeMediaTab).length === 0 && (
-                    <div className="p-8 text-center text-slate-400 space-y-2">
-                      <Music className="w-10 h-10 mx-auto opacity-30 text-slate-400" />
-                      <p className="text-xs font-bold text-slate-600">
-                        Hozircha {activeMediaTab === 'AUDIO' ? 'audio' : 'video'} fayllar qo‘shilmagan
+                        {/* Player / Scrubber / Actions */}
+                        <div className="flex items-center space-x-4 shrink-0">
+                          {isPlaying && (
+                            <div className="flex items-center space-x-2 text-xs font-mono font-bold text-blue-600">
+                              <span>
+                                {Math.floor(audioCurrentTime / 60)}:
+                                {String(Math.floor(audioCurrentTime % 60)).padStart(2, '0')}
+                              </span>
+                              <span>/</span>
+                              <span>
+                                {Math.floor(audioDuration / 60)}:
+                                {String(Math.floor(audioDuration % 60)).padStart(2, '0')}
+                              </span>
+                            </div>
+                          )}
+
+                          <span className="text-xs font-mono font-bold text-slate-500">
+                            {Math.floor((item.durationSeconds || 120) / 60)}:
+                            {String((item.durationSeconds || 120) % 60).padStart(2, '0')}
+                          </span>
+
+                          {/* Direct Listen / Download link */}
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-all"
+                            title="Faylni brauzerda ochish"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+
+                          {/* Delete Media */}
+                          <button
+                            onClick={() => handleDeleteMedia(item.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all"
+                            title="Media faylni o‘chirish"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {filteredMedia.length === 0 && (
+                    <div className="p-12 text-center text-slate-400 space-y-2">
+                      <Music className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
+                      <p className="text-sm font-bold text-slate-600">Hozircha hech qanday media fayl yuklanmagan</p>
+                      <p className="text-xs text-slate-400">
+                        Yuqoridagi maydonga kompyuteringizdan audio yoki video faylni tanlang va yuklang.
                       </p>
-                      <button
-                        onClick={() => {
-                          setNewMediaType(activeMediaTab);
-                          setIsAddMediaModalOpen(true);
-                        }}
-                        className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-md shadow-blue-600/20"
-                      >
-                        + Yangi {activeMediaTab === 'AUDIO' ? 'Audio' : 'Video'} Qo‘shish
-                      </button>
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* Add Media Modal */}
-              {isAddMediaModalOpen && (
-                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                  <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <h3 className="text-sm font-black text-slate-900">Yangi Audio / Video Qo‘shish</h3>
-                      <button
-                        onClick={() => setIsAddMediaModalOpen(false)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Media Turi</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setNewMediaType('AUDIO')}
-                            className={`py-2 text-xs font-bold rounded-xl border ${
-                              newMediaType === 'AUDIO'
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-slate-50 text-slate-700 border-slate-200'
-                            }`}
-                          >
-                            🎧 Audio Trek
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setNewMediaType('VIDEO')}
-                            className={`py-2 text-xs font-bold rounded-xl border ${
-                              newMediaType === 'VIDEO'
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-slate-50 text-slate-700 border-slate-200'
-                            }`}
-                          >
-                            🎬 Video Darslik
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Media Nomi <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={newMediaTitle}
-                          onChange={(e) => setNewMediaTitle(e.target.value)}
-                          placeholder="masalan: Track 01 - Unit 1: School Life"
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Unit / Bo‘lim</label>
-                          <input
-                            type="text"
-                            value={newMediaUnit}
-                            onChange={(e) => setNewMediaUnit(e.target.value)}
-                            placeholder="Unit 1"
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Davomiyligi (soniya)</label>
-                          <input
-                            type="number"
-                            value={newMediaDuration}
-                            onChange={(e) => setNewMediaDuration(e.target.value)}
-                            placeholder="120"
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Audio/Video Fayl URL (yoki demo manzil)
-                        </label>
-                        <input
-                          type="text"
-                          value={newMediaUrl}
-                          onChange={(e) => setNewMediaUrl(e.target.value)}
-                          placeholder="Ixtiyoriy: https://.../track.mp3 yoki bo‘sh qoldiring"
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-slate-50/50"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => setIsAddMediaModalOpen(false)}
-                        className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                      >
-                        Bekor qilish
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isSavingMedia}
-                        onClick={handleSaveNewMedia}
-                        className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 flex items-center space-x-1"
-                      >
-                        {isSavingMedia ? <span>Saqlanmoqda...</span> : <span>💾 Saqlash</span>}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
           {/* =================================================================== */}
-          {/* VIEW 5: JAVOBLAR KALITI (Answer Key Mapping)                        */}
+          {/* VIEW 5: JAVOBLAR KALITI (Answer Key Mapping & Methodology)          */}
           {/* =================================================================== */}
           {activeNav === 'manage_content' && (
             <div className="space-y-6 animate-fadeIn">
-              {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                     Javoblar Kaliti va Metodika (Answer Keys)
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    O‘qituvchi kitobidagi javoblarni o‘quvchi darsligining mashqlariga to‘g‘ridan-to‘g‘ri bog‘lash
+                    O‘qituvchi kitobidagi mashq yechimlarini o‘quvchi darsligining sahifalariga bog‘lash
                   </p>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setIsCsvImportModalOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center space-x-1"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    <span>Excel / CSV Import</span>
+                  </button>
                   <button
                     onClick={() => setIsAddAnswerModalOpen(true)}
                     className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 flex items-center space-x-1.5"
@@ -1616,7 +1862,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                             </span>
                           </div>
                           <p className="text-xs text-slate-600 font-medium mt-1">
-                            <span className="font-bold text-slate-800">Kalit:</span> {mapping.notes}
+                            <span className="font-bold text-slate-800">Kalit:</span> {mapping.notes || mapping.solutionKey}
                           </p>
                         </div>
                       </div>
@@ -1638,7 +1884,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       <CheckCircle className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
                       <p className="text-sm font-bold text-slate-600">Hozircha javoblar kaliti bog‘lanmagan</p>
                       <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                        O‘qituvchi kitobi mashqlar javoblarini o‘quvchi sahifasiga bog‘lash uchun quyidagi tugmani bosing.
+                        O‘qituvchi kitobidagi mashq yechimlarini o‘quvchi betiga bog‘lash uchun quyidagi tugmani bosing.
                       </p>
                       <button
                         onClick={() => setIsAddAnswerModalOpen(true)}
@@ -1688,9 +1934,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                             onChange={(e) => setAnswerSubject(e.target.value)}
                             className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
                           >
-                            <option value="English">Ingliz tili</option>
-                            <option value="Mathematics">Matematika</option>
-                            <option value="Physics">Fizika</option>
+                            <option value="Ingliz tili">Ingliz tili</option>
+                            <option value="Matematika">Matematika</option>
+                            <option value="Fizika">Fizika</option>
                           </select>
                         </div>
                       </div>
@@ -1778,6 +2024,53 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   </div>
                 </div>
               )}
+
+              {/* CSV Import Modal */}
+              {isCsvImportModalOpen && (
+                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <h3 className="text-sm font-black text-slate-900">Excel / CSV orqali Ommaviy Yuklash</h3>
+                      <button
+                        onClick={() => setIsCsvImportModalOpen(false)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      <p className="text-slate-500">
+                        Quyidagi formatda CSV matnini joylang (studentPage,teacherPage,studentExercise,solutionKey):
+                      </p>
+                      <textarea
+                        rows={6}
+                        value={csvImportContent}
+                        onChange={(e) => setCsvImportContent(e.target.value)}
+                        placeholder={`studentPage,teacherPage,studentExercise,solutionKey\n10,18,Unit 1 Ex 1,1. A 2. B 3. C\n11,19,Unit 1 Ex 2,1. True 2. False`}
+                        className="w-full font-mono text-xs p-3 rounded-xl border border-slate-200 bg-slate-50"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setIsCsvImportModalOpen(false)}
+                        className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                      >
+                        Bekor qilish
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleImportCsv}
+                        className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md"
+                      >
+                        📥 CSV Yuklash
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1794,7 +2087,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           )}
 
           {/* =================================================================== */}
-          {/* VIEW 7: SUBSCRIPTIONS & REQUESTS (Real Backend Data)                */}
+          {/* VIEW 7: SUBSCRIPTIONS & REQUESTS                                    */}
           {/* =================================================================== */}
           {activeNav === 'subscriptions' && (
             <div className="space-y-6 animate-fadeIn">
@@ -1807,9 +2100,14 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     O‘qituvchilarning darsliklarga obuna so‘rovlarini tasdiqlash va litsenziya ochish
                   </p>
                 </div>
-                <div className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800 flex items-center space-x-2">
-                  <Crown className="w-4 h-4 text-amber-500" />
-                  <span>Kutilayotgan so‘rovlar: {pendingRequestsCount} ta</span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setIsManualSubscriptionModalOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Qo‘lda Litsenziya Berish</span>
+                  </button>
                 </div>
               </div>
 
@@ -1880,12 +2178,99 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       <Crown className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
                       <p className="text-sm font-bold text-slate-600">Hozircha obuna so‘rovlari mavjud emas</p>
                       <p className="text-xs text-slate-400">
-                        O‘qituvchilar mobil ilova orqali darslikka obuna bo‘lishganda bu yerda paydo bo‘ladi
+                        O‘qituvchilar mobil ilovada obuna bo‘lishganda bu yerda paydo bo‘ladi
                       </p>
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Manual Subscription Modal */}
+              {isManualSubscriptionModalOpen && (
+                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <h3 className="text-sm font-black text-slate-900">Qo‘lda Litsenziya / Obuna Ochish</h3>
+                      <button
+                        onClick={() => setIsManualSubscriptionModalOpen(false)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">O‘qituvchi Ismi</label>
+                        <input
+                          type="text"
+                          value={manualTeacherName}
+                          onChange={(e) => setManualTeacherName(e.target.value)}
+                          placeholder="masalan: Nodira Karimova"
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Telefon Raqami</label>
+                        <input
+                          type="text"
+                          value={manualTeacherPhone}
+                          onChange={(e) => setManualTeacherPhone(e.target.value)}
+                          placeholder="+998 90 123 45 67"
+                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Sinf</label>
+                          <select
+                            value={manualGrade}
+                            onChange={(e) => setManualGrade(Number(e.target.value))}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((g) => (
+                              <option key={g} value={g}>
+                                {g}-sinf
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Muddat</label>
+                          <select
+                            value={manualDurationDays}
+                            onChange={(e) => setManualDurationDays(Number(e.target.value))}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
+                          >
+                            <option value={30}>30 kun (Oylik)</option>
+                            <option value={90}>90 kun (Choraklik)</option>
+                            <option value={365}>365 kun (Yillik)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setIsManualSubscriptionModalOpen(false)}
+                        className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                      >
+                        Bekor qilish
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCreateManualSubscription}
+                        className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md"
+                      >
+                        ✓ Litsenziyani Faollashtirish
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1898,33 +2283,38 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">Statistika va Hisobotlar</h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Darsliklar yuklanishi, faol o‘qituvchilar va obunalar statistikasi
+                    Haqiqiy darsliklar, media fayllar va ro‘yxatdan o‘tgan pedagoglar tahlili
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                 <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
                   <p className="text-xs font-bold text-slate-400">Jami Kitoblar</p>
                   <p className="text-3xl font-black text-slate-900">{books.length} ta</p>
-                  <p className="text-xs text-emerald-600 font-semibold">100% litsenziyalangan</p>
+                  <p className="text-xs text-emerald-600 font-semibold">Katalogda faol</p>
                 </div>
                 <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
-                  <p className="text-xs font-bold text-slate-400">Media Fayllar</p>
+                  <p className="text-xs font-bold text-slate-400">Media Resurslar</p>
                   <p className="text-3xl font-black text-slate-900">{mediaList.length} ta</p>
-                  <p className="text-xs text-blue-600 font-semibold">Audio va Video resurslar</p>
+                  <p className="text-xs text-blue-600 font-semibold">Audio & Video</p>
                 </div>
                 <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
                   <p className="text-xs font-bold text-slate-400">Javoblar Kaliti</p>
                   <p className="text-3xl font-black text-slate-900">{answerMappings.length} ta</p>
-                  <p className="text-xs text-purple-600 font-semibold">Bog‘langan yechimlar</p>
+                  <p className="text-xs text-amber-600 font-semibold">Bog‘langan yechimlar</p>
+                </div>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                  <p className="text-xs font-bold text-slate-400">O‘qituvchilar</p>
+                  <p className="text-3xl font-black text-slate-900">{usersList.length} ta</p>
+                  <p className="text-xs text-purple-600 font-semibold">Ro‘yxatdan o‘tgan</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* =================================================================== */}
-          {/* VIEW 9: USERS (Registered Teachers from Backend)                    */}
+          {/* VIEW 9: USERS                                                       */}
           {/* =================================================================== */}
           {activeNav === 'users' && (
             <div className="space-y-6 animate-fadeIn">
@@ -1932,7 +2322,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">O‘qituvchilar (Users)</h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Tizimda ro‘yxatdan o‘tgan o‘qituvchilar va ularning qurilmalari (Android Keystore limit 2)
+                    Tizimda ro‘yxatdan o‘tgan pedagoglar va ularning qurilmalari (Android Keystore max 2 ta)
                   </p>
                 </div>
                 <div className="text-xs font-bold text-slate-600 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200">
@@ -1987,16 +2377,13 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               </h2>
               <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 text-xs font-mono">
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-emerald-600 font-bold">[AUTH]</span> OTP Code xizmati (Gmail SMTP & Fast PIN)
-                  faol
+                  <span className="text-emerald-600 font-bold">[AUTH]</span> OTP Code xizmati (Gmail SMTP & Fast PIN) faol
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-blue-600 font-bold">[SECURITY]</span> Android Keystore hardware AES-256-GCM
-                  envelope key himoyasi faol
+                  <span className="text-blue-600 font-bold">[SECURITY]</span> Android Keystore hardware AES-256-GCM envelope key himoyasi faol
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-purple-600 font-bold">[CLOCK]</span> Monotonic anchor vaqt sinxronizatsiyasi
-                  100% himoyalangan
+                  <span className="text-purple-600 font-bold">[CLOCK]</span> Monotonic anchor vaqt sinxronizatsiyasi 100% himoyalangan
                 </div>
               </div>
 
@@ -2009,8 +2396,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       <span>Ma‘lumotlar Bazasini Tozalash (0 dan boshlash)</span>
                     </h3>
                     <p className="text-xs text-red-700 mt-1 max-w-xl">
-                      Barcha yuklangan kitoblar, sahifalar, media fayllar, foydalanuvchilar va so‘rovlar bazadan
-                      butunlay o‘chiriladi. Admin hisobingiz saqlanib qoladi va kitoblarni noldan yuklashingiz mumkin.
+                      Barcha yuklangan kitoblar, sahifalar, media fayllar, foydalanuvchilar va so‘rovlar bazadan butunlay o‘chiriladi. Admin hisobingiz saqlanib qoladi va kitoblarni noldan yuklashingiz mumkin.
                     </p>
                   </div>
                   <button
@@ -2036,8 +2422,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 <div className="text-center space-y-1">
                   <h3 className="text-base font-black text-slate-900">Bazasini Tozalashni Tasdiqlaysizmi?</h3>
                   <p className="text-xs text-slate-500">
-                    Barcha kitoblar, sahifalar, audio/video fayllar va so‘rovlar to‘liq o‘chiriladi. Bu amalni qaytarib
-                    bo‘lmaydi.
+                    Barcha kitoblar, sahifalar, audio/video fayllar va so‘rovlar to‘liq o‘chiriladi. Bu amalni qaytarib bo‘lmaydi.
                   </p>
                 </div>
                 <div className="flex items-center space-x-3 pt-2">
@@ -2080,7 +2465,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     Jonli Mobil Ilova Sinovi (Android Simulyatori)
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Admin panelda kiritilgan har bir o‘zgarish shu zahoti ushbu simulyatorda aks etadi
+                    Admin panelda kiritilgan har bir darslik va audio shu zahoti ushbu simulyatorda aks etadi
                   </p>
                 </div>
                 <a

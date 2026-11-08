@@ -101,6 +101,7 @@ export class ContentService {
 
   // Phase 3: Media library store
   private mediaStore: Map<string, MediaItem> = new Map();
+  private mediaBuffersStore: Map<string, { buffer: Buffer; mimeType: string }> = new Map();
 
   // Phase 4: Teacher's Book Answer Keys store
   private answerKeysStore: Map<string, AnswerKeyItem> = new Map();
@@ -683,6 +684,7 @@ export class ContentService {
     this.pdfBuffersStore.clear();
     this.hotspotsStore.clear();
     this.mediaStore.clear();
+    this.mediaBuffersStore.clear();
     this.answerKeysStore.clear();
     this.ingestionReportsStore.clear();
     this.logger.log('🧹 All content database stores cleared completely.');
@@ -1222,8 +1224,65 @@ export class ContentService {
     return newItem;
   }
 
+  uploadAndSaveMediaFile(
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer },
+    meta: {
+      title?: string;
+      type?: 'AUDIO' | 'VIDEO';
+      bookId?: string;
+      unitLabel?: string;
+      durationSeconds?: number;
+    },
+  ): MediaItem {
+    const id = `media_${Date.now()}`;
+    const isVideo =
+      meta.type === 'VIDEO' ||
+      file.mimetype.startsWith('video') ||
+      Boolean(file.originalname.match(/\.(mp4|mov|webm|avi|mkv)$/i));
+    const detectedType: 'AUDIO' | 'VIDEO' = isVideo ? 'VIDEO' : 'AUDIO';
+
+    const cleanTitle =
+      meta.title?.trim() || file.originalname.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+
+    const newItem: MediaItem = {
+      id,
+      bookId: meta.bookId || undefined,
+      type: detectedType,
+      filename: file.originalname,
+      title: cleanTitle,
+      unitLabel: meta.unitLabel?.trim() || 'Unit 1',
+      lessonLabel: 'Lesson 1',
+      durationSeconds: meta.durationSeconds || (detectedType === 'AUDIO' ? 120 : 300),
+      sizeBytes: file.size,
+      language: 'English',
+      url: `http://localhost:4000/api/v1/content/media/${id}/file`,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.mediaStore.set(id, newItem);
+    this.mediaBuffersStore.set(id, { buffer: file.buffer, mimeType: file.mimetype });
+    this.logger.log(`📻 Uploaded and saved real media file [${newItem.title}] (${newItem.type}, ${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+    return newItem;
+  }
+
+  getMediaFileBuffer(id: string): { buffer: Buffer; mimeType: string } | null {
+    return this.mediaBuffersStore.get(id) || null;
+  }
+
   deleteMedia(id: string): boolean {
+    this.mediaBuffersStore.delete(id);
     return this.mediaStore.delete(id);
+  }
+
+  updateBook(bookId: string, updates: Partial<Book>): Book | null {
+    const idx = this.booksStore.findIndex((b) => b.id === bookId);
+    if (idx === -1) return null;
+    this.booksStore[idx] = {
+      ...this.booksStore[idx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    return this.booksStore[idx];
   }
 
   // ==========================================
