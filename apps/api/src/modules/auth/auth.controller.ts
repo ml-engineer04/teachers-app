@@ -135,6 +135,22 @@ export class AuthController {
     return this.authService.getActiveDevices(userId);
   }
 
+  @Get('devices/user/:userId')
+  @ApiOperation({ summary: 'List active devices by User ID (Alias)' })
+  async getDevicesByUserIdAlias(@Param('userId') userId: string) {
+    return this.authService.getActiveDevices(userId);
+  }
+
+  @Delete('devices/user/:userId/:deviceId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Disconnect device by User ID and Device ID (Pre-login)' })
+  async disconnectUserDevice(
+    @Param('userId') userId: string,
+    @Param('deviceId') deviceId: string,
+  ) {
+    return this.authService.disconnectDevice(userId, deviceId);
+  }
+
   @Post('devices/:userId/disconnect')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Disconnect device by User ID for pre-login slot release' })

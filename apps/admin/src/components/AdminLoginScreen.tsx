@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen, Lock, Mail, ArrowRight, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { api } from '../services/apiClient';
 
 interface AdminLoginScreenProps {
   onLoginSuccess: (adminData: { email: string; name: string }) => void;
@@ -11,26 +12,22 @@ export function AdminLoginScreen({ onLoginSuccess }: AdminLoginScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await api.login(email.trim(), password);
       setIsLoading(false);
-      // Validating admin credentials
-      if (
-        (email.trim().toLowerCase() === 'admin@smartteacherbook.uz' && password === 'Admin123!@#') ||
-        (email.trim().toLowerCase() === 'admin' && password === 'admin')
-      ) {
-        onLoginSuccess({
-          email: 'admin@smartteacherbook.uz',
-          name: 'Bosh Administrator',
-        });
-      } else {
-        setError('Login yoki parol noto‘g‘ri! Iltimos, qayta urinib ko‘ring.');
-      }
-    }, 400);
+      onLoginSuccess({
+        email: res.admin.email,
+        name: res.admin.role === 'SUPER_ADMIN' ? 'Bosh Administrator' : 'Administrator',
+      });
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err.message || 'Login yoki parol noto‘g‘ri! Iltimos, qayta urinib ko‘ring.');
+    }
   };
 
   const handleFillDemo = () => {

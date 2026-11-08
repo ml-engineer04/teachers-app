@@ -1,9 +1,14 @@
 const API_BASE = 'http://localhost:4000/api/v1';
 
+const ADMIN_TOKEN_KEY = 'stb_admin_token';
+
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem(ADMIN_TOKEN_KEY) : null;
+
   const res = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
     ...options,
@@ -16,6 +21,28 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
 }
 
 export const api = {
+  // Authentication
+  async login(email: string, password: string) {
+    const data = await fetchJson<{ accessToken: string; admin: { id: string; email: string; role: string } }>(
+      '/admin/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      },
+    );
+    if (data.accessToken && typeof window !== 'undefined') {
+      localStorage.setItem(ADMIN_TOKEN_KEY, data.accessToken);
+    }
+    return data;
+  },
+
+  logout() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      localStorage.removeItem('stb_admin_session');
+    }
+  },
+
   // Dashboard
   async getDashboardStats() {
     return fetchJson<any>('/admin/dashboard/stats');

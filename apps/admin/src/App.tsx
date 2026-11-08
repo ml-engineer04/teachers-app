@@ -27,6 +27,7 @@ export default function App() {
     <ModernAdminPortal
       onLogout={() => {
         localStorage.removeItem('stb_admin_session');
+        localStorage.removeItem('stb_admin_token');
         setAdminUser(null);
       }}
     />
