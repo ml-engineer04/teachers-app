@@ -1,0 +1,35 @@
+node_modules/
+.pnpm-store/
+dist/
+build/
+.output/
+.turbo/
+*.log
+
+# Mobile
+apps/mobile/.expo/
+apps/mobile/android/app/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/ios/build/
+*.keystore
+*.jks
+*.aab
+*.apk
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ingestion temporary storage
+apps/api/temp/
+apps/api/uploads/

@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stb_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stb_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stb_secret_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-smartteacherbook}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - stb_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stb_admin} -d ${POSTGRES_DB:-smartteacherbook}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: stb_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - stb_redis_data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: stb_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-stb_admin}:${POSTGRES_PASSWORD:-stb_secret_pass}@postgres:5432/${POSTGRES_DB:-smartteacherbook}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-stb_jwt_super_access_secret_key_change_in_production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-stb_jwt_super_refresh_secret_key_change_in_production}
+      LICENSE_PRIVATE_KEY_PEM: ${LICENSE_PRIVATE_KEY_PEM}
+      LICENSE_PUBLIC_KEY_PEM: ${LICENSE_PUBLIC_KEY_PEM}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME}
+      SES_FROM_EMAIL: ${SES_FROM_EMAIL:-no-reply@smartteacherbook.com}
+      ADMIN_ALERT_EMAILS: ${ADMIN_ALERT_EMAILS}
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: stb_admin_panel
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+
+volumes:
+  stb_postgres_data:
+  stb_redis_data:
