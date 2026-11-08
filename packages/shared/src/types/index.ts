@@ -97,6 +97,7 @@ export interface Book {
   manifestS3Key?: string | null;
   manifestSha256?: string | null;
   totalSizeBytes?: number;
+  coverImageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -131,6 +132,7 @@ export interface Hotspot {
   solutionText?: string | null;
   methodologyNotes?: string | null;
   multiAnswers?: any[] | null;
+  imageUrl?: string | null;
 }
 
 export interface MediaFile {
@@ -165,6 +167,9 @@ export interface AnswerMapping {
   teacherPageNumber: number;
   teacherExerciseLabel?: string | null;
   notes?: string | null;
+  solutionKey?: string | null;
+  imageUrl?: string | null;
+  format?: 'TEXT' | 'IMAGE' | 'BOTH';
 }
 
 export interface AccessRequest {

@@ -7,10 +7,13 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  Image,
 } from 'react-native';
 import { DownloadsManager } from '../services/storage/downloadsManager';
 import { SubscriptionManager, GradeAccessInfo } from '../services/subscription/subscriptionManager';
 import { ExpiredAccessModal } from '../components/ExpiredAccessModal';
+import { mobileApi } from '../services/api/mobileApi';
+import { Book } from '@smartteacherbook/shared';
 
 interface GradeDetailScreenProps {
   grade: number;
@@ -39,6 +42,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
     daysRemaining: 25,
   });
   const [expiredModalVisible, setExpiredModalVisible] = useState<boolean>(false);
+  const [liveBooks, setLiveBooks] = useState<Book[]>([]);
 
   const subjects = [
     { code: 'ENG', name: 'Ingliz tili', icon: '🇬🇧', color: '#2563EB' },
@@ -58,36 +62,63 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
     SubscriptionManager.getGradeAccess(grade).then((access) => {
       setGradeAccess(access);
     });
+
+    // Fetch live books
+    mobileApi
+      .getAllBooks()
+      .then((data) => {
+        if (Array.isArray(data)) setLiveBooks(data);
+      })
+      .catch(() => {});
   }, [grade, selectedSubject]);
 
-  const books = [
+  // Filter live books for this grade and subject
+  const matchingLive = liveBooks.filter((b) => {
+    const bGrade = b.gradeId || (b as any).grade?.gradeNumber;
+    const matchesGrade = !bGrade || Number(bGrade) === grade;
+    const subjCode = selectedSubject.toLowerCase();
+    const bSubj = (b.subjectId || '').toLowerCase();
+    const matchesSubj =
+      !b.subjectId ||
+      (subjCode === 'eng' && (bSubj.includes('eng') || bSubj.includes('ingliz'))) ||
+      (subjCode === 'math' && (bSubj.includes('math') || bSubj.includes('matem'))) ||
+      (subjCode === 'phys' && (bSubj.includes('phys') || bSubj.includes('fizik'))) ||
+      (subjCode === 'chem' && (bSubj.includes('chem') || bSubj.includes('kimyo'))) ||
+      (subjCode === 'bio' && (bSubj.includes('bio') || bSubj.includes('biolog')));
+    return matchesGrade && matchesSubj;
+  });
+
+  const defaultBooks = [
     {
       id: 'sb',
       type: 'STUDENT_BOOK',
-      title: "Student's Book (Darslik)",
+      title: `${grade}-sinf ${currentSubject.name} (Student's Book)`,
       subtitle: '142 bet • 24 Audio & 12 Video Hotspots',
       icon: '📖',
       iconBg: '#FEF3C7',
+      coverImageUrl: null as string | null,
       status: isDownloaded ? 'Yuklangan' : 'Oflayn tayyor',
       size: '42 MB',
     },
     {
       id: 'tb',
       type: 'TEACHER_BOOK',
-      title: "Teacher's Book (Javoblar kaliti)",
+      title: `${grade}-sinf ${currentSubject.name} (Teacher's Book)`,
       subtitle: '180 bet • Barcha mashqlar javobi bilan',
       icon: '💡',
       iconBg: '#DBEAFE',
+      coverImageUrl: null as string | null,
       status: isDownloaded ? 'Yuklangan' : 'Oflayn tayyor',
       size: '38 MB',
     },
     {
       id: 'wb',
       type: 'WORKBOOK',
-      title: 'Workbook (Ish daftari)',
+      title: `${grade}-sinf ${currentSubject.name} (Workbook)`,
       subtitle: '96 bet • Mustaqil mashqlar va testlar',
       icon: '✏️',
       iconBg: '#FCE7F3',
+      coverImageUrl: null as string | null,
       status: isDownloaded ? 'Yuklangan' : 'Oflayn tayyor',
       size: '28 MB',
     },
@@ -98,6 +129,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
       subtitle: '24 ta MP3 trek • Offline o‘ynatish',
       icon: '🎧',
       iconBg: '#E0E7FF',
+      coverImageUrl: null as string | null,
       status: '24 Trek',
       size: '65 MB',
     },
@@ -108,10 +140,25 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
       subtitle: '12 ta MP4 video • To‘liq darslik mavzulari',
       icon: '🎬',
       iconBg: '#FEF9C3',
+      coverImageUrl: null as string | null,
       status: '12 Video',
       size: '140 MB',
     },
   ];
+
+  const liveCards = matchingLive.map((b) => ({
+    id: b.id,
+    type: b.type || 'STUDENT_BOOK',
+    title: b.title,
+    subtitle: `${b.totalPages || 120} bet • ${b.status === 'PUBLISHED' ? '✓ Nashr etilgan' : 'Qoralama'}`,
+    icon: b.type === 'TEACHER_BOOK' ? '💡' : b.type === 'WORKBOOK' ? '✏️' : '📖',
+    iconBg: b.type === 'TEACHER_BOOK' ? '#DBEAFE' : b.type === 'WORKBOOK' ? '#FCE7F3' : '#FEF3C7',
+    coverImageUrl: b.coverImageUrl || null,
+    status: isDownloaded ? 'Yuklangan' : 'Oflayn tayyor',
+    size: 'PDF',
+  }));
+
+  const books = liveCards.length > 0 ? [...liveCards, ...defaultBooks.slice(3)] : defaultBooks;
 
   const handleDownloadAll = async () => {
     setDownloadProgress(5);
@@ -303,9 +350,17 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                 activeOpacity={0.75}
                 onPress={() => handleBookTap(book.type)}
               >
-                <View style={[styles.bookIconCircle, { backgroundColor: book.iconBg }]}>
-                  <Text style={styles.bookEmoji}>{book.icon}</Text>
-                </View>
+                {book.coverImageUrl ? (
+                  <Image
+                    source={{ uri: book.coverImageUrl }}
+                    style={styles.bookCoverThumb}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.bookIconCircle, { backgroundColor: book.iconBg }]}>
+                    <Text style={styles.bookEmoji}>{book.icon}</Text>
+                  </View>
+                )}
 
                 <View style={styles.bookDetails}>
                   <Text style={styles.bookTitle}>{book.title}</Text>
@@ -654,6 +709,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
+  },
+  bookCoverThumb: {
+    width: 44,
+    height: 58,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     marginRight: 12,
   },
   bookEmoji: {

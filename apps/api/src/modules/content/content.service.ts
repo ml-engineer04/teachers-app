@@ -61,6 +61,8 @@ export interface AnswerKeyItem {
   solutionKey: string;
   methodologyNotes?: string;
   previewThumbnail?: string;
+  imageUrl?: string;
+  format?: 'TEXT' | 'IMAGE' | 'BOTH';
   createdAt: string;
 }
 
@@ -105,6 +107,10 @@ export class ContentService {
 
   // Phase 4: Teacher's Book Answer Keys store
   private answerKeysStore: Map<string, AnswerKeyItem> = new Map();
+  private answerKeyImagesStore: Map<string, { buffer: Buffer; mimeType: string }> = new Map();
+
+  // Book cover images store
+  private coverImagesStore: Map<string, { buffer: Buffer; mimeType: string }> = new Map();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -674,6 +680,7 @@ export class ContentService {
       }
     }
 
+    this.coverImagesStore.delete(bookId);
     this.logger.log(`🗑️ Successfully deleted book and all assets: ${bookId}`);
     return true;
   }
@@ -686,6 +693,8 @@ export class ContentService {
     this.mediaStore.clear();
     this.mediaBuffersStore.clear();
     this.answerKeysStore.clear();
+    this.answerKeyImagesStore.clear();
+    this.coverImagesStore.clear();
     this.ingestionReportsStore.clear();
     this.logger.log('🧹 All content database stores cleared completely.');
   }
@@ -1356,7 +1365,57 @@ export class ContentService {
     return item;
   }
 
+  saveBookCoverImage(bookId: string, file: { buffer: Buffer; mimetype: string }): Book | null {
+    const book = this.booksStore.find((b) => b.id === bookId);
+    if (!book) return null;
+    this.coverImagesStore.set(bookId, { buffer: file.buffer, mimeType: file.mimetype });
+    book.coverImageUrl = `http://localhost:4000/api/v1/content/books/${bookId}/cover`;
+    this.logger.log(`📸 Saved custom cover image for book [${book.title}] (${(file.buffer.length / 1024).toFixed(1)} KB)`);
+    return book;
+  }
+
+  getBookCoverImage(bookId: string): { buffer: Buffer; mimeType: string } | null {
+    return this.coverImagesStore.get(bookId) || null;
+  }
+
+  saveAnswerKeyWithImage(
+    file: { buffer: Buffer; mimetype: string } | undefined,
+    dto: Partial<AnswerKeyItem>,
+  ): AnswerKeyItem {
+    const id = dto.id || `ans_${Date.now()}`;
+    const hasImage = Boolean(file && file.buffer);
+    if (hasImage && file) {
+      this.answerKeyImagesStore.set(id, { buffer: file.buffer, mimeType: file.mimetype });
+    }
+
+    const item: AnswerKeyItem = {
+      id,
+      studentBookId: dto.studentBookId || 'book_grade11_english_sb',
+      teacherBookId: dto.teacherBookId || 'book_grade11_english_tb',
+      teacherBookTitle: dto.teacherBookTitle || "Teacher's Book (Answer Key)",
+      teacherPageNumber: dto.teacherPageNumber || 1,
+      studentPageNumber: dto.studentPageNumber || 1,
+      unitLabel: dto.unitLabel || 'Unit 1',
+      exerciseNumber: dto.exerciseNumber || 'Mashq',
+      exerciseTitle: dto.exerciseTitle || dto.exerciseNumber || 'Mashq Javoblari',
+      solutionKey: dto.solutionKey || (hasImage ? "📸 Rasm orqali yuklangan javoblar kaliti" : "Javoblar ko'rsatilmagan"),
+      methodologyNotes: dto.methodologyNotes || '',
+      imageUrl: hasImage ? `http://localhost:4000/api/v1/content/answers/${id}/image` : undefined,
+      format: hasImage ? (dto.solutionKey ? 'BOTH' : 'IMAGE') : 'TEXT',
+      createdAt: new Date().toISOString(),
+    };
+
+    this.answerKeysStore.set(id, item);
+    this.logger.log(`💡 Saved Answer Key [${item.exerciseNumber}] with format [${item.format}]`);
+    return item;
+  }
+
+  getAnswerKeyImage(id: string): { buffer: Buffer; mimeType: string } | null {
+    return this.answerKeyImagesStore.get(id) || null;
+  }
+
   deleteAnswerKey(id: string): boolean {
+    this.answerKeyImagesStore.delete(id);
     return this.answerKeysStore.delete(id);
   }
 

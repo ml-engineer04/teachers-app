@@ -49,6 +49,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ userEmail, onExit })
     teacherPage: number;
     answerContent: string;
     notes?: string;
+    imageUrl?: string;
   }>({
     exerciseLabel: 'Ex. 1 Vocab & Reading',
     studentPage: 2,
@@ -64,8 +65,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ userEmail, onExit })
   const [mediaDrawerVisible, setMediaDrawerVisible] = useState<boolean>(false);
   const [activeDrawingTool, setActiveDrawingTool] = useState<DrawingTool>('OFF');
   const [liveHotspots, setLiveHotspots] = useState<any[]>([]);
+  const [liveAnswerMappings, setLiveAnswerMappings] = useState<any[]>([]);
 
-  // Phase 5: Fetch published hotspots from backend with offline fallback
+  // Phase 5: Fetch published hotspots and answer mappings from backend with offline fallback
   useEffect(() => {
     fetch('http://localhost:4000/api/v1/content/books/book_grade11_english_sb/hotspots')
       .then((res) => res.json())
@@ -77,30 +79,66 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ userEmail, onExit })
       .catch(() => {
         // Fallback silently in offline mode
       });
+
+    fetch('http://localhost:4000/api/v1/answer-mappings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setLiveAnswerMappings(data);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  // Hotspots for Student's Book (dynamic from Visual Editor API)
+  // Hotspots for Student's Book (dynamic from Visual Editor API and Answer Mappings)
   const getPageHotspots = (page: number): Hotspot[] => {
+    const dynamicHotspots: Hotspot[] = [];
+
     if (liveHotspots.length > 0) {
-      return liveHotspots
+      liveHotspots
         .filter((h) => h.pageNumber === page)
-        .map((h) => ({
-          id: h.id,
-          pageId: `p${page}`,
-          type:
-            h.type === 'AUDIO'
-              ? HotspotType.AUDIO
-              : h.type === 'VIDEO'
-              ? HotspotType.VIDEO
-              : HotspotType.ANSWER_LINK,
-          rect: h.rect,
-          targetMediaId: h.targetFile,
-          exerciseLabel: h.exerciseLabel || h.label,
-          targetPageNumber: h.targetPageNumber,
-          solutionText: h.solutionText,
-          methodologyNotes: h.methodologyNotes,
-          multiAnswers: h.multiAnswers,
-        }));
+        .forEach((h) => {
+          dynamicHotspots.push({
+            id: h.id,
+            pageId: `p${page}`,
+            type:
+              h.type === 'AUDIO'
+                ? HotspotType.AUDIO
+                : h.type === 'VIDEO'
+                ? HotspotType.VIDEO
+                : HotspotType.ANSWER_LINK,
+            rect: h.rect,
+            targetMediaId: h.targetFile,
+            exerciseLabel: h.exerciseLabel || h.label,
+            targetPageNumber: h.targetPageNumber,
+            solutionText: h.solutionText,
+            methodologyNotes: h.methodologyNotes,
+            multiAnswers: h.multiAnswers,
+            imageUrl: h.imageUrl,
+          });
+        });
+    }
+
+    if (liveAnswerMappings.length > 0) {
+      liveAnswerMappings
+        .filter((m) => m.studentPageNumber === page)
+        .forEach((ans, idx) => {
+          dynamicHotspots.push({
+            id: `map-${ans.id}`,
+            pageId: `p${page}`,
+            type: HotspotType.ANSWER_LINK,
+            rect: { x: 0.52, y: 0.82 - idx * 0.1, w: 0.44, h: 0.08 },
+            exerciseLabel: ans.studentExerciseLabel || 'Javoblar kaliti',
+            targetPageNumber: ans.teacherPageNumber || page + 12,
+            solutionText: ans.solutionKey || ans.notes,
+            methodologyNotes: ans.notes,
+            imageUrl: ans.imageUrl || undefined,
+          });
+        });
+    }
+
+    if (dynamicHotspots.length > 0) {
+      return dynamicHotspots;
     }
 
     // Default seed fallback
@@ -174,6 +212,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ userEmail, onExit })
         notes:
           hotspot.methodologyNotes ||
           'Metodik eslatma: Ushbu mashq bo‘yicha o‘quvchilar juftlikda 5 daqiqa gaplashib, keyin javoblar kalitini tekshirishi tavsiya etiladi.',
+        imageUrl: hotspot.imageUrl,
       });
       setAnswerSheetVisible(true);
     }
@@ -344,6 +383,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({ userEmail, onExit })
         teacherPageNumber={activeAnswerData.teacherPage}
         answerContent={activeAnswerData.answerContent}
         notes={activeAnswerData.notes}
+        imageUrl={activeAnswerData.imageUrl}
         onClose={() => setAnswerSheetVisible(false)}
       />
 

@@ -6,6 +6,7 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
+  Image,
 } from 'react-native';
 
 interface AnswerKeySheetProps {
@@ -15,6 +16,7 @@ interface AnswerKeySheetProps {
   teacherPageNumber: number;
   answerContent: string;
   notes?: string;
+  imageUrl?: string;
   onClose: () => void;
   onJumpToTeacherPage?: (teacherPage: number) => void;
 }
@@ -26,9 +28,12 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
   teacherPageNumber,
   answerContent,
   notes,
+  imageUrl,
   onClose,
   onJumpToTeacherPage,
 }) => {
+  const [isFullScreenPreview, setIsFullScreenPreview] = React.useState(false);
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -40,8 +45,8 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
           <View style={styles.header}>
             <View>
               <View style={styles.badgeRow}>
-                <span style={styles.teacherBadge}>O‘QITUVCHI KITOBI (TEACHER'S BOOK)</span>
-                <span style={styles.pageBadge}>Sahifa {teacherPageNumber}</span>
+                <Text style={styles.teacherBadge}>O‘QITUVCHI KITOBI (TEACHER'S BOOK)</Text>
+                <Text style={styles.pageBadge}>Sahifa {teacherPageNumber}</Text>
               </View>
               <Text style={styles.exerciseTitle}>
                 {exerciseLabel || 'Mashq Javoblari'}
@@ -57,22 +62,53 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
 
           {/* Answer Key Content */}
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-            <View style={styles.answersBox}>
-              <Text style={styles.sectionLabel}>RASMIY JAVOBLAR KALITI:</Text>
-              <Text style={styles.answerText}>
-                {answerContent ||
-                  '1. True — Artificial intelligence transforms interactive language lessons.\n2. False — Teachers maintain vital mentorship and communication roles.\n3. Not Given — Specific curriculum budget not stated.\n4. Paired dialogue practice promotes student confidence.'}
-              </Text>
-            </View>
+            {/* If Teacher uploaded a Screenshot Image of the answer key */}
+            {imageUrl ? (
+              <View style={styles.screenshotBox}>
+                <View style={styles.screenshotHeaderRow}>
+                  <Text style={styles.sectionLabelWhite}>📸 RASMIY JAVOBLAR SKRINSHOTI:</Text>
+                  <TouchableOpacity
+                    onPress={() => setIsFullScreenPreview(true)}
+                    style={styles.expandBadge}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.expandText}>Kattalashtirish 🔍</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => setIsFullScreenPreview(true)}
+                  style={styles.screenshotImageWrap}
+                >
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={styles.screenshotImage}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+                <Text style={styles.tapToZoomHint}>Rasmni to‘liq hajmda ochish uchun ustiga bosing</Text>
+              </View>
+            ) : null}
+
+            {/* Answer Text Content */}
+            {answerContent ? (
+              <View style={styles.answersBox}>
+                <Text style={styles.sectionLabel}>RASMIY JAVOBLAR KALITI:</Text>
+                <Text style={styles.answerText}>
+                  {answerContent}
+                </Text>
+              </View>
+            ) : null}
 
             {/* Methodology Notes */}
-            <View style={styles.methodologyBox}>
-              <Text style={styles.methodologyLabel}>METODIK KO‘RSATMA & TAHLIL:</Text>
-              <Text style={styles.methodologyText}>
-                {notes ||
-                  'Ushbu mashqda o‘quvchilar ko‘pincha passiv va aktiv zamon qo‘llanishida xatolikka yo‘l qo‘yadilar. 3-savol bo‘yicha sinfda juftlik muhokamasini o‘tkazish tavsiya etiladi.'}
-              </Text>
-            </View>
+            {notes ? (
+              <View style={styles.methodologyBox}>
+                <Text style={styles.methodologyLabel}>METODIK KO‘RSATMA & TAHLIL:</Text>
+                <Text style={styles.methodologyText}>
+                  {notes}
+                </Text>
+              </View>
+            ) : null}
           </ScrollView>
 
           {/* Bottom Actions */}
@@ -87,6 +123,37 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
           </View>
         </View>
       </View>
+
+      {/* Fullscreen Screenshot Zoom Modal */}
+      {imageUrl && (
+        <Modal
+          visible={isFullScreenPreview}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsFullScreenPreview(false)}
+        >
+          <View style={styles.fullscreenOverlay}>
+            <View style={styles.fullscreenTopBar}>
+              <Text style={styles.fullscreenTitle}>
+                {exerciseLabel} — Skrinshot
+              </Text>
+              <TouchableOpacity
+                style={styles.fullscreenCloseBtn}
+                onPress={() => setIsFullScreenPreview(false)}
+              >
+                <Text style={styles.fullscreenCloseBtnText}>✕ Yopish</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.fullscreenImageWrap}>
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.fullscreenImage}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
     </Modal>
   );
 };
@@ -172,6 +239,92 @@ const styles = StyleSheet.create({
   },
   scrollBody: {
     marginBottom: 16,
+  },
+  screenshotBox: {
+    backgroundColor: '#0F172A',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 12,
+  },
+  screenshotHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sectionLabelWhite: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+  },
+  expandBadge: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  expandText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  screenshotImageWrap: {
+    width: '100%',
+    height: 220,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#1E293B',
+  },
+  screenshotImage: {
+    width: '100%',
+    height: '100%',
+  },
+  tapToZoomHint: {
+    fontSize: 10,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  fullscreenOverlay: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  fullscreenTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    paddingBottom: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+  },
+  fullscreenTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  fullscreenCloseBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  fullscreenCloseBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  fullscreenImageWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
+  fullscreenImage: {
+    width: '100%',
+    height: '100%',
   },
   answersBox: {
     backgroundColor: '#F8FAFC',

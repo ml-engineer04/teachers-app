@@ -83,6 +83,37 @@ export class ContentController {
     res.end(buffer);
   }
 
+  @Post('books/:bookId/cover')
+  @ApiOperation({ summary: 'Upload custom cover image for a book (JPEG/PNG/WebP)' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('cover'))
+  async uploadBookCover(
+    @Param('bookId') bookId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Muqova rasmi yuklanmadi');
+    }
+    const book = this.contentService.saveBookCoverImage(bookId, file);
+    if (!book) {
+      throw new NotFoundException(`Book ${bookId} topilmadi`);
+    }
+    return { success: true, coverImageUrl: book.coverImageUrl, book };
+  }
+
+  @Get('books/:bookId/cover')
+  @ApiOperation({ summary: 'Stream custom book cover image' })
+  async streamBookCover(@Param('bookId') bookId: string, @Res() res: Response) {
+    const coverData = this.contentService.getBookCoverImage(bookId);
+    if (!coverData) {
+      throw new NotFoundException(`Book ${bookId} muqovasi topilmadi`);
+    }
+    res.setHeader('Content-Type', coverData.mimeType || 'image/jpeg');
+    res.setHeader('Content-Length', coverData.buffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(coverData.buffer);
+  }
+
   @Post('books/upload-pdf')
   @ApiOperation({ summary: 'Upload textbook PDF file, extract page count & dimensions (Phase 1)' })
   @ApiConsumes('multipart/form-data')
@@ -348,6 +379,49 @@ export class ContentController {
   @ApiOperation({ summary: 'Create or update an answer key mapping (Phase 4)' })
   async createOrUpdateAnswerKey(@Body() body: Partial<AnswerKeyItem>) {
     return this.contentService.createOrUpdateAnswerKey(body);
+  }
+
+  @Post('answers/upload')
+  @ApiOperation({ summary: 'Upload Answer Key with screenshot photo OR text' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('image'))
+  async uploadAnswerKeyWithImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Body()
+    body: {
+      studentBookId?: string;
+      teacherBookId?: string;
+      studentPageNumber?: string;
+      teacherPageNumber?: string;
+      exerciseNumber?: string;
+      exerciseTitle?: string;
+      solutionKey?: string;
+      methodologyNotes?: string;
+    },
+  ) {
+    return this.contentService.saveAnswerKeyWithImage(file, {
+      studentBookId: body.studentBookId,
+      teacherBookId: body.teacherBookId,
+      studentPageNumber: body.studentPageNumber ? parseInt(body.studentPageNumber) : 1,
+      teacherPageNumber: body.teacherPageNumber ? parseInt(body.teacherPageNumber) : 1,
+      exerciseNumber: body.exerciseNumber || body.exerciseTitle || 'Mashq',
+      exerciseTitle: body.exerciseTitle || body.exerciseNumber || 'Mashq',
+      solutionKey: body.solutionKey,
+      methodologyNotes: body.methodologyNotes,
+    });
+  }
+
+  @Get('answers/:id/image')
+  @ApiOperation({ summary: 'Stream answer key screenshot image' })
+  async streamAnswerKeyImage(@Param('id') id: string, @Res() res: Response) {
+    const imgData = this.contentService.getAnswerKeyImage(id);
+    if (!imgData) {
+      throw new NotFoundException(`Answer key image ${id} topilmadi`);
+    }
+    res.setHeader('Content-Type', imgData.mimeType || 'image/jpeg');
+    res.setHeader('Content-Length', imgData.buffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(imgData.buffer);
   }
 
   @Delete('answers/:id')

@@ -257,6 +257,43 @@ export const mobileApi = {
     }
   },
 
+  async getAllBooks(): Promise<Book[]> {
+    try {
+      return await request<Book[]>('/content/books');
+    } catch {
+      return [];
+    }
+  },
+
+  async getAnswerMappings(gradeId?: number, subjectId?: string): Promise<any[]> {
+    try {
+      const q = new URLSearchParams();
+      if (gradeId) q.set('gradeId', String(gradeId));
+      if (subjectId) q.set('subjectId', subjectId);
+      const qs = q.toString() ? `?${q.toString()}` : '';
+      return await request<any[]>(`/answer-mappings${qs}`);
+    } catch {
+      return [];
+    }
+  },
+
+  async getBookHotspots(bookId: string): Promise<any[]> {
+    try {
+      return await request<any[]>(`/content/books/${bookId}/hotspots`);
+    } catch {
+      return [];
+    }
+  },
+
+  async getMedia(bookId?: string): Promise<any[]> {
+    try {
+      const q = bookId ? `?bookId=${bookId}` : '';
+      return await request<any[]>(`/content/media${q}`);
+    } catch {
+      return [];
+    }
+  },
+
   async createAccessRequest(dto: CreateAccessRequestDto): Promise<AccessRequest> {
     try {
       return await request<AccessRequest>('/access-requests', {

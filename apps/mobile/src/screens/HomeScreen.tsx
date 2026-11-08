@@ -9,10 +9,13 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { DownloadsManager } from '../services/storage/downloadsManager';
 import { SubscriptionManager, GradeAccessInfo } from '../services/subscription/subscriptionManager';
 import { ExpiredAccessModal } from '../components/ExpiredAccessModal';
+import { mobileApi } from '../services/api/mobileApi';
+import { Book } from '@smartteacherbook/shared';
 
 interface HomeScreenProps {
   userEmail: string;
@@ -46,6 +49,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     daysRemaining: 25,
   });
 
+  const [liveBooks, setLiveBooks] = useState<Book[]>([]);
+
   const grades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
   const subjects = [
@@ -67,6 +72,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     SubscriptionManager.getGradeAccess(selectedGrade).then((access) => {
       setGradeAccess(access);
     });
+
+    // Fetch real books from backend API
+    mobileApi
+      .getAllBooks()
+      .then((data) => {
+        if (Array.isArray(data)) setLiveBooks(data);
+      })
+      .catch(() => {});
   }, [selectedGrade, selectedSubject]);
 
   const handleOpenBook = (bookType: string) => {
@@ -95,40 +108,60 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
-  const books = [
+  // Real books matching current grade and subject
+  const matchingLive = liveBooks.filter((b) => {
+    const bGrade = b.gradeId || (b as any).grade?.gradeNumber;
+    const matchesGrade = !bGrade || Number(bGrade) === selectedGrade;
+    const subjCode = selectedSubject.toLowerCase();
+    const bSubj = (b.subjectId || '').toLowerCase();
+    const matchesSubj =
+      !b.subjectId ||
+      (subjCode === 'eng' && (bSubj.includes('eng') || bSubj.includes('ingliz'))) ||
+      (subjCode === 'math' && (bSubj.includes('math') || bSubj.includes('matem'))) ||
+      (subjCode === 'phys' && (bSubj.includes('phys') || bSubj.includes('fizik'))) ||
+      (subjCode === 'chem' && (bSubj.includes('chem') || bSubj.includes('kimyo'))) ||
+      (subjCode === 'bio' && (bSubj.includes('bio') || bSubj.includes('biolog'))) ||
+      (subjCode === 'uzb' && (bSubj.includes('uzb') || bSubj.includes('ona')));
+    return matchesGrade && matchesSubj;
+  });
+
+  const defaultBooks = [
     {
       id: 'sb',
       type: 'STUDENT_BOOK',
-      title: "O‘quvchi darsligi (Student's Book)",
+      title: `${selectedGrade}-sinf ${currentSubjectObj.name} (Student's Book)`,
       subtitle: 'Interaktiv audio & video topshiriqlar, 142 bet',
       badge: 'Asosiy darslik',
       badgeBg: '#EFF6FF',
       badgeColor: '#1D4ED8',
       icon: '📘',
+      coverImageUrl: null as string | null,
       actionText: 'Darslikni ochish →',
       isPrimary: true,
     },
     {
       id: 'tb',
       type: 'TEACHER_BOOK',
-      title: "O‘qituvchi kitobi (Teacher's Book)",
+      title: `${selectedGrade}-sinf ${currentSubjectObj.name} (Teacher's Book)`,
       subtitle: 'Barcha mashqlar va testlarning to‘liq javoblar kaliti',
       badge: 'Javoblar kaliti 💡',
       badgeBg: '#FEF3C7',
       badgeColor: '#B45309',
       icon: '💡',
+      coverImageUrl: null as string | null,
       actionText: 'Javoblarni ko‘rish →',
       isPrimary: false,
     },
     {
       id: 'wb',
       type: 'WORKBOOK',
-      title: 'Ish daftari (Workbook)',
+      title: `${selectedGrade}-sinf ${currentSubjectObj.name} (Workbook)`,
       subtitle: 'Mustaqil ishlash uchun amaliy mashqlar va topshiriqlar',
       badge: 'Amaliy mashqlar',
       badgeBg: '#F3E8FF',
       badgeColor: '#7E22CE',
       icon: '📝',
+      coverImageUrl: null as string | null,
       actionText: 'Ochish →',
       isPrimary: false,
     },
@@ -141,6 +174,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       badgeBg: '#E0F2FE',
       badgeColor: '#0369A1',
       icon: '🎧',
+      coverImageUrl: null as string | null,
       actionText: 'Tinglash →',
       isPrimary: false,
     },
@@ -153,10 +187,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       badgeBg: '#FDF2F8',
       badgeColor: '#BE185D',
       icon: '🎬',
+      coverImageUrl: null as string | null,
       actionText: 'Tomosha qilish →',
       isPrimary: false,
     },
   ];
+
+  const liveCards = matchingLive.map((b) => ({
+    id: b.id,
+    type: b.type || 'STUDENT_BOOK',
+    title: b.title,
+    subtitle: `${b.totalPages || 120} bet • ${b.status === 'PUBLISHED' ? '✓ Nashr etilgan' : 'Qoralama'}`,
+    badge:
+      b.type === 'TEACHER_BOOK'
+        ? 'Javoblar kaliti 💡'
+        : b.type === 'WORKBOOK'
+        ? 'Ish daftari'
+        : 'Asosiy darslik',
+    badgeBg: b.type === 'TEACHER_BOOK' ? '#FEF3C7' : b.type === 'WORKBOOK' ? '#F3E8FF' : '#EFF6FF',
+    badgeColor: b.type === 'TEACHER_BOOK' ? '#B45309' : b.type === 'WORKBOOK' ? '#7E22CE' : '#1D4ED8',
+    icon: b.type === 'TEACHER_BOOK' ? '💡' : b.type === 'WORKBOOK' ? '📝' : '📘',
+    coverImageUrl: b.coverImageUrl || null,
+    actionText: b.type === 'TEACHER_BOOK' ? 'Javoblarni ko‘rish →' : 'Darslikni ochish →',
+    isPrimary: b.type === 'STUDENT_BOOK',
+  }));
+
+  const books = liveCards.length > 0 ? [...liveCards, ...defaultBooks.slice(3)] : defaultBooks;
 
   const filteredBooks = searchQuery.trim()
     ? books.filter(
@@ -361,9 +417,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               activeOpacity={0.82}
             >
               <View style={styles.bookHeaderRow}>
-                <View style={styles.bookIconBadge}>
-                  <Text style={styles.bookEmoji}>{book.icon}</Text>
-                </View>
+                {book.coverImageUrl ? (
+                  <Image
+                    source={{ uri: book.coverImageUrl }}
+                    style={styles.bookCoverThumb}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.bookIconBadge}>
+                    <Text style={styles.bookEmoji}>{book.icon}</Text>
+                  </View>
+                )}
                 <View style={[styles.typeBadge, { backgroundColor: book.badgeBg }]}>
                   <Text style={[styles.typeBadgeText, { color: book.badgeColor }]}>
                     {book.badge}
@@ -735,6 +799,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bookCoverThumb: {
+    width: 44,
+    height: 58,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
   bookEmoji: {
     fontSize: 22,

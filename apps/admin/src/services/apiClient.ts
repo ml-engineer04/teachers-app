@@ -152,6 +152,24 @@ export const api = {
     });
   },
 
+  async uploadBookCover(bookId: string, file: File) {
+    const formData = new FormData();
+    formData.append('cover', file);
+    const token = typeof window !== 'undefined' ? localStorage.getItem(ADMIN_TOKEN_KEY) : null;
+    const res = await fetch(`${API_BASE}/content/books/${bookId}/cover`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Muqova yuklashda xatolik: ${err}`);
+    }
+    return res.json();
+  },
+
   async getBooksByGrade(gradeId: number) {
     return fetchJson<any[]>(`/content/grades/${gradeId}/books`);
   },
@@ -256,6 +274,69 @@ export const api = {
     return fetchJson<any>('/answer-mappings', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  async uploadAnswerKeyWithImage(
+    file: File | undefined,
+    data: {
+      gradeId?: number;
+      subjectId?: string;
+      studentBookId?: string;
+      teacherBookId?: string;
+      studentPageNumber?: number;
+      teacherPageNumber?: number;
+      exerciseNumber?: string;
+      exerciseTitle?: string;
+      studentExerciseLabel?: string;
+      teacherExerciseLabel?: string;
+      solutionKey?: string;
+      methodologyNotes?: string;
+      notes?: string;
+      format?: 'TEXT' | 'IMAGE' | 'BOTH';
+    },
+  ) {
+    let imageUrl: string | undefined;
+
+    if (file) {
+      const formData = new FormData();
+      formData.append('image', file);
+      if (data.studentPageNumber) formData.append('studentPageNumber', String(data.studentPageNumber));
+      if (data.teacherPageNumber) formData.append('teacherPageNumber', String(data.teacherPageNumber));
+      formData.append('exerciseTitle', data.studentExerciseLabel || data.exerciseTitle || 'Mashq');
+      if (data.solutionKey) formData.append('solutionKey', data.solutionKey);
+      if (data.methodologyNotes || data.notes) {
+        formData.append('methodologyNotes', data.methodologyNotes || data.notes || '');
+      }
+
+      const token = typeof window !== 'undefined' ? localStorage.getItem(ADMIN_TOKEN_KEY) : null;
+      const res = await fetch(`${API_BASE}/content/answers/upload`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Javob yuklashda xatolik: ${err}`);
+      }
+      const uploaded = await res.json();
+      imageUrl = uploaded?.imageUrl;
+    }
+
+    return this.createAnswerMapping({
+      gradeId: data.gradeId || 7,
+      subjectId: data.subjectId || 'sub_eng_7',
+      studentExerciseLabel: data.studentExerciseLabel || data.exerciseTitle || 'Mashq',
+      studentPageNumber: data.studentPageNumber || 1,
+      teacherPageNumber: data.teacherPageNumber || 1,
+      teacherExerciseLabel:
+        data.teacherExerciseLabel || `${data.studentExerciseLabel || 'Mashq'} (Javoblar Kaliti)`,
+      solutionKey: data.solutionKey || (imageUrl ? '📸 Skrinshot rasm biriktirilgan' : 'Yechim'),
+      notes: data.notes || data.methodologyNotes || data.solutionKey,
+      imageUrl: imageUrl || null,
+      format: file ? (data.solutionKey ? 'BOTH' : 'IMAGE') : 'TEXT',
     });
   },
 
