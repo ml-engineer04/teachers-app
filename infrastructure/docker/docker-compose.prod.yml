@@ -1,0 +1,95 @@
+version: '3.8'
+
+# ==============================================================================
+# SmartTeacherBook — Production Multi-Container Orchestration Stack
+# ==============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stb_prod_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stb_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
+      POSTGRES_DB: ${POSTGRES_DB:-smartteacherbook_prod}
+    volumes:
+      - stb_prod_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stb_admin} -d ${POSTGRES_DB:-smartteacherbook_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stb_internal_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: stb_prod_redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-stb_redis_secure_pass}
+    volumes:
+      - stb_prod_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-stb_redis_secure_pass}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stb_internal_net
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    container_name: stb_prod_api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-stb_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-smartteacherbook_prod}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-stb_redis_secure_pass}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT Access Secret required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT Refresh Secret required}
+      LICENSE_PRIVATE_KEY_PEM: ${LICENSE_PRIVATE_KEY_PEM:?RSA Private Key required}
+      LICENSE_PUBLIC_KEY_PEM: ${LICENSE_PUBLIC_KEY_PEM:?RSA Public Key required}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS Access Key required}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS Secret Key required}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME:?S3 Bucket required}
+      SES_FROM_EMAIL: ${SES_FROM_EMAIL:-support@smartteacherbook.uz}
+      ADMIN_ALERT_EMAILS: ${ADMIN_ALERT_EMAILS:-admin@smartteacherbook.uz}
+    networks:
+      - stb_internal_net
+      - stb_public_net
+
+  admin:
+    build:
+      context: ../..
+      dockerfile: apps/admin/Dockerfile
+    container_name: stb_prod_admin
+    restart: always
+    depends_on:
+      - api
+    environment:
+      VITE_API_URL: https://api.smartteacherbook.uz
+    networks:
+      - stb_public_net
+
+networks:
+  stb_internal_net:
+    driver: bridge
+    internal: true
+  stb_public_net:
+    driver: bridge
+
+volumes:
+  stb_prod_pgdata:
+  stb_prod_redisdata:
