@@ -1,147 +1,204 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   Modal,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { useTheme } from '../../theme/ThemeContext';
+import { useI18n } from '../../i18n/I18nContext';
 
-interface MediaLibraryItem {
+export interface MediaLibraryItem {
   id: string;
   type: 'AUDIO' | 'VIDEO';
   title: string;
-  unit: string;
-  duration: string;
-  size: string;
+  subtitle?: string;
+  durationLabel?: string;
+  durationSeconds?: number | null;
+  pageNumber?: number;
+  url?: string;
 }
 
 interface MediaLibraryDrawerProps {
   visible: boolean;
   onClose: () => void;
+  mediaItems?: MediaLibraryItem[];
   onPlayMedia: (item: MediaLibraryItem) => void;
 }
 
 export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
   visible,
   onClose,
+  mediaItems = [],
   onPlayMedia,
 }) => {
-  const [filterType, setFilterType] = useState<'ALL' | 'AUDIO' | 'VIDEO'>('ALL');
+  const { colors, isDark } = useTheme();
+  const { strings } = useI18n();
+  const [filter, setFilter] = useState<'ALL' | 'AUDIO' | 'VIDEO'>('ALL');
 
-  const mediaList: MediaLibraryItem[] = [
-    {
-      id: 'm1',
-      type: 'AUDIO',
-      title: 'Unit 1: Track 1 — Listening Comprehension',
-      unit: 'Unit 1 (p. 2)',
-      duration: '02:30',
-      size: '3.2 MB',
-    },
-    {
-      id: 'm2',
-      type: 'AUDIO',
-      title: 'Unit 1: Track 2 — Vocabulary & Pronunciation',
-      unit: 'Unit 1 (p. 3)',
-      duration: '01:45',
-      size: '2.4 MB',
-    },
-    {
-      id: 'm3',
-      type: 'VIDEO',
-      title: 'Unit 1: Grammar Focus — Conditionals Type 3',
-      unit: 'Unit 1 (p. 4)',
-      duration: '05:10',
-      size: '15.4 MB',
-    },
-    {
-      id: 'm4',
-      type: 'AUDIO',
-      title: 'Unit 2: Track 3 — Ecosystems & Biodiversity',
-      unit: 'Unit 2 (p. 5)',
-      duration: '03:15',
-      size: '4.1 MB',
-    },
-    {
-      id: 'm5',
-      type: 'VIDEO',
-      title: 'Unit 2: Speaking Masterclass — Debates & Arguments',
-      unit: 'Unit 2 (p. 6)',
-      duration: '06:40',
-      size: '22.0 MB',
-    },
-  ];
+  const filtered = useMemo(() => {
+    if (filter === 'ALL') return mediaItems;
+    return mediaItems.filter((m) => m.type === filter);
+  }, [mediaItems, filter]);
 
-  const filtered = filterType === 'ALL' ? mediaList : mediaList.filter((m) => m.type === filterType);
+  const formatDur = (item: MediaLibraryItem) => {
+    if (item.durationLabel) return item.durationLabel;
+    if (item.durationSeconds && item.durationSeconds > 0) {
+      const m = Math.floor(item.durationSeconds / 60);
+      const s = item.durationSeconds % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    }
+    return item.type === 'VIDEO' ? 'Video' : 'Audio';
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.drawerCard}>
-          <View style={styles.handle} />
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
+        <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-          <View style={styles.header}>
-            <div>
-              <Text style={styles.title}>Media Kutubxona (Listening & Video)</Text>
-              <Text style={styles.sub}>
-                Barcha audio va videolar qurilmada AES-256 bilan shifrlangan
-              </Text>
-            </div>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Text style={styles.closeText}>✕</Text>
+          <View style={styles.headerRow}>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+              {strings.reader.mediaLibrary}
+            </Text>
+            <TouchableOpacity
+              style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt }]}
+              onPress={onClose}
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke={colors.textSecondary}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                />
+              </Svg>
             </TouchableOpacity>
           </View>
 
-          {/* Filter Pills */}
-          <View style={styles.filterRow}>
-            {(['ALL', 'AUDIO', 'VIDEO'] as const).map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.filterPill, filterType === t && styles.filterPillActive]}
-                onPress={() => setFilterType(t)}
-              >
-                <Text style={[styles.filterPillText, filterType === t && styles.filterPillTextActive]}>
-                  {t === 'ALL' ? 'Barchasi' : t === 'AUDIO' ? '🎧 Audio Treklar' : '🎬 Video Darslar'}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <View style={[styles.filterRow, { backgroundColor: colors.surfaceAlt }]}>
+            {(
+              [
+                { key: 'ALL', label: strings.reader.mediaTabAll },
+                { key: 'AUDIO', label: strings.reader.mediaTabAudio },
+                { key: 'VIDEO', label: strings.reader.mediaTabVideo },
+              ] as const
+            ).map((tab) => {
+              const active = filter === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[
+                    styles.filterPill,
+                    active && { backgroundColor: colors.primaryDark },
+                  ]}
+                  onPress={() => setFilter(tab.key)}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      { color: active ? colors.onPrimary : colors.textSecondary },
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
-          {/* Media List */}
-          <ScrollView style={styles.listWrap} showsVerticalScrollIndicator={false}>
-            {filtered.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.mediaItemCard}
-                activeOpacity={0.7}
-                onPress={() => {
-                  onPlayMedia(item);
-                  onClose();
-                }}
-              >
-                <View
-                  style={[
-                    styles.iconBox,
-                    { backgroundColor: item.type === 'AUDIO' ? '#EFF6FF' : '#FEF2F2' },
-                  ]}
-                >
-                  <Text style={{ fontSize: 18 }}>{item.type === 'AUDIO' ? '🎧' : '🎬'}</Text>
-                </View>
-
-                <View style={styles.itemDetails}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
-                  <Text style={styles.itemMeta}>
-                    {item.unit} • {item.duration} • {item.size}
-                  </Text>
-                </View>
-
-                <View style={styles.playMiniBtn}>
-                  <Text style={styles.playMiniIcon}>▶</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+            {filtered.length === 0 ? (
+              <View style={[styles.emptyBox, { backgroundColor: colors.surfaceAlt }]}>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  {strings.reader.noMediaOnBook}
+                </Text>
+              </View>
+            ) : (
+              filtered.map((item) => {
+                const isVideo = item.type === 'VIDEO';
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.mediaCard, { backgroundColor: colors.surfaceAlt }]}
+                    onPress={() => {
+                      onClose();
+                      onPlayMedia(item);
+                    }}
+                    activeOpacity={0.78}
+                  >
+                    <View
+                      style={[
+                        styles.mediaIconBox,
+                        {
+                          backgroundColor: isVideo
+                            ? isDark
+                              ? 'rgba(56, 189, 248, 0.18)'
+                              : '#E0F2FE'
+                            : colors.primarySoft,
+                        },
+                      ]}
+                    >
+                      {isVideo ? (
+                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                          <Path d="M8 5l11 7-11 7V5z" fill={colors.primaryText} />
+                        </Svg>
+                      ) : (
+                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                          <Path
+                            d="M9 18V5l12-2v13"
+                            stroke={colors.primaryText}
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <Circle cx={6} cy={18} r={2.5} fill={colors.primaryText} />
+                        </Svg>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[styles.mediaTitle, { color: colors.textPrimary }]}
+                        numberOfLines={1}
+                      >
+                        {item.title}
+                      </Text>
+                      <Text
+                        style={[styles.mediaSub, { color: colors.textSecondary }]}
+                        numberOfLines={1}
+                      >
+                        {formatDur(item)}
+                        {item.subtitle ? ` • ${item.subtitle}` : ''}
+                      </Text>
+                    </View>
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M9 6l6 6-6 6"
+                        stroke={colors.primaryText}
+                        strokeWidth={2.2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </ScrollView>
+
+          <TouchableOpacity
+            style={[styles.bottomCta, { backgroundColor: colors.primarySoft }]}
+            onPress={onClose}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.bottomCtaText, { color: colors.primaryText }]}>
+              {strings.common.close}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -151,120 +208,103 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
     justifyContent: 'flex-end',
   },
-  drawerCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    height: '75%',
+  backdrop: {
+    flex: 1,
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '82%',
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
   handle: {
+    alignSelf: 'center',
     width: 44,
     height: 4,
-    backgroundColor: '#CBD5E1',
     borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  header: {
+  headerRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  sub: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
-  },
-  closeText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#64748B',
+    justifyContent: 'center',
   },
   filterRow: {
     flexDirection: 'row',
-    gap: 8,
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
     marginBottom: 14,
   },
   filterPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
-  },
-  filterPillActive: {
-    backgroundColor: '#0F172A',
-  },
-  filterPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  filterPillTextActive: {
-    color: '#FFFFFF',
-  },
-  listWrap: {
     flex: 1,
+    paddingVertical: 8,
+    borderRadius: 9,
+    alignItems: 'center',
   },
-  mediaItemCard: {
+  filterText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  list: {
+    maxHeight: 350,
+  },
+  mediaCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    borderRadius: 14,
     padding: 12,
-    borderRadius: 18,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     marginBottom: 8,
   },
-  iconBox: {
+  mediaIconBox: {
     width: 42,
     height: 42,
-    borderRadius: 14,
-    justifyContent: 'center',
+    borderRadius: 12,
     alignItems: 'center',
-    marginRight: 12,
+    justifyContent: 'center',
   },
-  itemDetails: {
-    flex: 1,
+  mediaTitle: {
+    fontSize: 14,
+    fontWeight: '700',
   },
-  itemTitle: {
+  mediaSub: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  itemMeta: {
-    fontSize: 10,
-    color: '#64748B',
     marginTop: 2,
   },
-  playMiniBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#0F172A',
-    justifyContent: 'center',
+  emptyBox: {
+    borderRadius: 14,
+    padding: 18,
+  },
+  emptyText: {
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  bottomCta: {
+    marginTop: 14,
+    borderRadius: 14,
+    paddingVertical: 13,
     alignItems: 'center',
   },
-  playMiniIcon: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    marginLeft: 2,
+  bottomCtaText: {
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

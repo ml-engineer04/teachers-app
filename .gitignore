@@ -33,3 +33,5 @@ apps/mobile/ios/build/
 # Ingestion temporary storage
 apps/api/temp/
 apps/api/uploads/
+apps/api/.data/
+.data/

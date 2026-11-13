@@ -1,126 +1,390 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   Modal,
+  TouchableOpacity,
   StyleSheet,
+  Pressable,
+  ActivityIndicator,
 } from 'react-native';
+import { Audio, AVPlaybackStatus } from 'expo-av';
+import Svg, { Path, Rect } from 'react-native-svg';
+import { notify } from '../../services/notifications/notificationService';
+import { useTheme } from '../../theme/ThemeContext';
+import { useI18n } from '../../i18n/I18nContext';
 
 interface AudioPlayerModalProps {
   visible: boolean;
-  trackTitle: string;
-  unitLabel: string;
-  durationSeconds?: number;
   onClose: () => void;
+  trackTitle: string;
+  trackSubtitle?: string;
+  trackUrl?: string;
 }
 
+const SPEEDS = [0.8, 1.0, 1.2, 1.5];
+
+/**
+ * 1-to-1 Floating White Card matching Image 2 (Audio):
+ * - Header: Headphones icon + "Audio" + close "×"
+ * - Track row: Circular lavender waveform icon + Unit title + subtitle
+ * - Scrubber bar + "00:45" / "02:30"
+ * - Controls: -10s circle | Big Indigo Play/Pause | +10s circle | "Tezlik: 1.0x ⌄"
+ * - Footer: "🔒 AES-256 Encrypted"
+ */
 export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
   visible,
-  trackTitle,
-  unitLabel,
-  durationSeconds = 150,
   onClose,
+  trackTitle,
+  trackSubtitle = 'Track 1 • Listening',
+  trackUrl,
 }) => {
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [currentTime, setCurrentTime] = useState<number>(24);
-  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [loadingAudio, setLoadingAudio] = useState(false);
+  const [positionSec, setPositionSec] = useState(45);
+  const [durationSec, setDurationSec] = useState(150);
+  const [speed, setSpeed] = useState(1.0);
+  const [trackBarWidth, setTrackBarWidth] = useState(260);
+  const [usingRealAudio, setUsingRealAudio] = useState(false);
+
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const { colors } = useTheme();
+  const { strings, language } = useI18n();
+  const speedText = language === 'ru' ? 'Скорость:' : language === 'en' ? 'Speed:' : 'Tezlik:';
+
+  const unloadSound = useCallback(async () => {
+    if (soundRef.current) {
+      try {
+        await soundRef.current.unloadAsync();
+      } catch {}
+      soundRef.current = null;
+    }
+    setUsingRealAudio(false);
+  }, []);
 
   useEffect(() => {
-    let timer: any;
-    if (visible && isPlaying) {
-      timer = setInterval(() => {
-        setCurrentTime((prev) => (prev >= durationSeconds ? 0 : prev + 1));
-      }, 1000 / playbackSpeed);
+    let cancelled = false;
+
+    const initAudio = async () => {
+      await unloadSound();
+      if (!visible) {
+        setIsPlaying(false);
+        return;
+      }
+
+      if (!trackUrl) {
+        setPositionSec(0);
+        setDurationSec(150);
+        setIsPlaying(true);
+        return;
+      }
+
+      setPositionSec(0);
+      setLoadingAudio(true);
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+        }).catch(() => {});
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: trackUrl },
+          { shouldPlay: true, rate: speed, shouldCorrectPitch: true },
+          (status: AVPlaybackStatus) => {
+            if (!status.isLoaded) return;
+            setPositionSec(Math.floor((status.positionMillis || 0) / 1000));
+            if (status.durationMillis) {
+              setDurationSec(Math.max(1, Math.floor(status.durationMillis / 1000)));
+            }
+            setIsPlaying(status.isPlaying);
+            if (status.didJustFinish) {
+              setIsPlaying(false);
+              setPositionSec(0);
+            }
+          },
+        );
+
+        if (cancelled) {
+          await sound.unloadAsync();
+          return;
+        }
+        soundRef.current = sound;
+        setUsingRealAudio(true);
+      } catch {
+        if (!cancelled) {
+          setUsingRealAudio(false);
+          setIsPlaying(true);
+          notify.warning(
+            strings.common.warning,
+            strings.reader.mediaLoadFailed,
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingAudio(false);
+      }
+    };
+
+    initAudio();
+    return () => {
+      cancelled = true;
+      unloadSound();
+    };
+  }, [visible, trackUrl, unloadSound]);
+
+  useEffect(() => {
+    if (!visible || usingRealAudio || !isPlaying) return;
+    const interval = setInterval(() => {
+      setPositionSec((prev) => (prev + 1 >= durationSec ? 0 : prev + 1));
+    }, 1000 / speed);
+    return () => clearInterval(interval);
+  }, [visible, usingRealAudio, isPlaying, speed, durationSec]);
+
+  const togglePlay = async () => {
+    if (soundRef.current && usingRealAudio) {
+      try {
+        if (isPlaying) {
+          await soundRef.current.pauseAsync();
+        } else {
+          await soundRef.current.playAsync();
+        }
+      } catch {}
+    } else {
+      setIsPlaying((prev) => !prev);
     }
-    return () => clearInterval(timer);
-  }, [visible, isPlaying, playbackSpeed, durationSeconds]);
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const handleSkip = (delta: number) => {
-    setCurrentTime((prev) => Math.max(0, Math.min(durationSeconds, prev + delta)));
+  const seekBy = async (deltaSec: number) => {
+    const nextSec = Math.max(0, Math.min(durationSec, positionSec + deltaSec));
+    setPositionSec(nextSec);
+    if (soundRef.current && usingRealAudio) {
+      try {
+        await soundRef.current.setPositionAsync(nextSec * 1000);
+      } catch {}
+    }
   };
 
-  const toggleSpeed = () => {
-    if (playbackSpeed === 1.0) setPlaybackSpeed(1.2);
-    else if (playbackSpeed === 1.2) setPlaybackSpeed(1.5);
-    else if (playbackSpeed === 1.5) setPlaybackSpeed(0.8);
-    else setPlaybackSpeed(1.0);
+  const seekToRatio = async (ratio: number) => {
+    const clamped = Math.max(0, Math.min(1, ratio));
+    const nextSec = Math.round(clamped * durationSec);
+    setPositionSec(nextSec);
+    if (soundRef.current && usingRealAudio) {
+      try {
+        await soundRef.current.setPositionAsync(nextSec * 1000);
+      } catch {}
+    }
   };
 
-  const progressPercent = Math.min(100, (currentTime / durationSeconds) * 100);
+  const cycleSpeed = async () => {
+    const idx = SPEEDS.indexOf(speed);
+    const nextSpeed = SPEEDS[(idx + 1) % SPEEDS.length];
+    setSpeed(nextSpeed);
+    if (soundRef.current && usingRealAudio) {
+      try {
+        await soundRef.current.setRateAsync(nextSpeed, true);
+      } catch {}
+    }
+  };
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const progressPct = durationSec > 0 ? Math.min(100, (positionSec / durationSec) * 100) : 0;
+
+  const isLocalOffline =
+    Boolean(trackUrl) &&
+    (trackUrl!.startsWith('file:') || trackUrl!.startsWith('blob:'));
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheetCard}>
-          {/* Top Pill Handle */}
-          <View style={styles.handle} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.badge}>{unitLabel}</Text>
-              <Text style={styles.title}>{trackTitle}</Text>
-              <Text style={styles.decryptedNote}>
-                🔒 RAM-da dekodlangan • AES-256-GCM
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              shadowColor: colors.shadowColor,
+            },
+          ]}
+        >
+          {/* Header Row */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M3 18v-6a9 9 0 0118 0v6"
+                  stroke={colors.primary}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                />
+                <Path
+                  d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"
+                  fill={colors.primary}
+                />
+              </Svg>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                {strings.reader.audioPlayerTitle}
               </Text>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Text style={styles.closeText}>✕</Text>
+            <TouchableOpacity
+              style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt }]}
+              onPress={onClose}
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke={colors.textSecondary}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                />
+              </Svg>
             </TouchableOpacity>
           </View>
 
-          {/* Scrubber Progress Bar */}
-          <View style={styles.scrubberContainer}>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-              <View style={[styles.scrubberThumb, { left: `${progressPercent}%` }]} />
+          {/* Artwork Circle + Title Row */}
+          <View style={styles.trackRow}>
+            <View style={[styles.waveCircle, { backgroundColor: colors.primarySoft }]}>
+              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
+                <Rect x={3} y={10} width={2.4} height={4} rx={1.2} fill={colors.primary} />
+                <Rect x={7.5} y={6} width={2.4} height={12} rx={1.2} fill={colors.primary} />
+                <Rect x={12} y={4} width={2.4} height={16} rx={1.2} fill={colors.primary} />
+                <Rect x={16.5} y={7} width={2.4} height={10} rx={1.2} fill={colors.primary} />
+                <Rect x={20} y={10} width={2} height={4} rx={1} fill={colors.primary} opacity={0.6} />
+              </Svg>
             </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
+                {trackTitle}
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>
+                {trackSubtitle}
+              </Text>
+            </View>
+          </View>
+
+          {/* Progress Scrubber */}
+          <View style={styles.scrubberWrap}>
+            <Pressable
+              style={styles.trackTouchArea}
+              onLayout={(e) => setTrackBarWidth(e.nativeEvent.layout.width || 260)}
+              onPress={(e) => seekToRatio(e.nativeEvent.locationX / trackBarWidth)}
+            >
+              <View style={[styles.trackBg, { backgroundColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.trackFill,
+                    { width: `${progressPct}%`, backgroundColor: colors.primary },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.trackThumb,
+                    {
+                      left: `${progressPct}%`,
+                      backgroundColor: colors.primaryDark,
+                      borderColor: colors.surface,
+                    },
+                  ]}
+                />
+              </View>
+            </Pressable>
             <View style={styles.timeRow}>
-              <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-              <Text style={styles.timeText}>-{formatTime(durationSeconds - currentTime)}</Text>
+              <Text style={[styles.timeText, { color: colors.textSecondary }]}>
+                {formatTime(positionSec)}
+              </Text>
+              <Text style={[styles.timeText, { color: colors.textSecondary }]}>
+                {formatTime(durationSec)}
+              </Text>
             </View>
           </View>
 
-          {/* Controls Bar */}
+          {/* Transport Controls Row + Speed Pill */}
           <View style={styles.controlsRow}>
-            {/* Speed Button */}
-            <TouchableOpacity style={styles.speedButton} onPress={toggleSpeed}>
-              <Text style={styles.speedText}>{playbackSpeed}x</Text>
+            <TouchableOpacity style={styles.skipBtn} onPress={() => seekBy(-10)}>
+              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 5V2L7 6l5 4V7a5 5 0 11-5 5"
+                  stroke={colors.textPrimary}
+                  strokeWidth={1.7}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+              <Text style={[styles.skipInsideText, { color: colors.textPrimary }]}>10</Text>
             </TouchableOpacity>
 
-            {/* Skip -10s */}
-            <TouchableOpacity style={styles.skipButton} onPress={() => handleSkip(-10)}>
-              <Text style={styles.skipText}>-10s</Text>
-            </TouchableOpacity>
-
-            {/* Play / Pause Primary Button */}
             <TouchableOpacity
-              style={styles.playPauseBtn}
+              style={[
+                styles.playBtn,
+                { backgroundColor: colors.primaryDark, shadowColor: colors.primary },
+              ]}
+              onPress={togglePlay}
               activeOpacity={0.85}
-              onPress={() => setIsPlaying(!isPlaying)}
             >
-              <Text style={styles.playPauseIcon}>{isPlaying ? '❚❚' : '▶'}</Text>
+              {loadingAudio ? (
+                <ActivityIndicator color={colors.onPrimary} />
+              ) : isPlaying ? (
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M8 5v14M16 5v14"
+                    stroke={colors.onPrimary}
+                    strokeWidth={3.2}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              ) : (
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path d="M7 5l12 7-12 7V5z" fill={colors.onPrimary} />
+                </Svg>
+              )}
             </TouchableOpacity>
 
-            {/* Skip +10s */}
-            <TouchableOpacity style={styles.skipButton} onPress={() => handleSkip(10)}>
-              <Text style={styles.skipText}>+10s</Text>
+            <TouchableOpacity style={styles.skipBtn} onPress={() => seekBy(10)}>
+              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M12 5V2l5 4-5 4V7a5 5 0 105 5"
+                  stroke={colors.textPrimary}
+                  strokeWidth={1.7}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+              <Text style={[styles.skipInsideText, { color: colors.textPrimary }]}>10</Text>
             </TouchableOpacity>
 
-            {/* Repeat button */}
             <TouchableOpacity
-              style={styles.repeatButton}
-              onPress={() => setCurrentTime(0)}
+              style={[
+                styles.speedChip,
+                { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+              ]}
+              onPress={cycleSpeed}
+              activeOpacity={0.8}
             >
-              <Text style={styles.repeatText}>↺</Text>
+              <Text style={[styles.speedLabel, { color: colors.textMuted }]}>{speedText}</Text>
+              <Text style={[styles.speedVal, { color: colors.textPrimary }]}>
+                {speed.toFixed(1)}x ⌄
+              </Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Footer Status */}
+          <View style={styles.footerRow}>
+            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4"
+                stroke={isLocalOffline ? colors.accent : colors.primary}
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+            </Svg>
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+              {isLocalOffline ? strings.reader.offlineMediaReady : 'AES-256 Encrypted'}
+            </Text>
           </View>
         </View>
       </View>
@@ -131,166 +395,175 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.38)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 18,
   },
-  sheetCard: {
+  card: {
+    width: '100%',
+    maxWidth: 380,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    borderRadius: 22,
+    padding: 18,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.16,
+    shadowRadius: 28,
     elevation: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  handle: {
-    width: 44,
-    height: 4,
-    backgroundColor: '#CBD5E1',
-    borderRadius: 2,
-    alignSelf: 'center',
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
     marginBottom: 16,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  badge: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#2563EB',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  waveCircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#0F172A',
-    marginTop: 2,
   },
-  decryptedNote: {
-    fontSize: 10,
-    color: '#059669',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeText: {
+  subtitle: {
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '500',
     color: '#64748B',
+    marginTop: 2,
   },
-  scrubberContainer: {
-    marginBottom: 20,
+  scrubberWrap: {
+    marginBottom: 14,
   },
-  progressBarBg: {
-    height: 6,
-    backgroundColor: '#E2E8F0',
+  trackTouchArea: {
+    paddingVertical: 8,
+  },
+  trackBg: {
+    height: 4.5,
     borderRadius: 3,
+    backgroundColor: '#E2E8F0',
     position: 'relative',
     justifyContent: 'center',
   },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#2563EB',
+  trackFill: {
+    height: 4.5,
     borderRadius: 3,
+    backgroundColor: '#6366F1',
   },
-  scrubberThumb: {
+  trackThumb: {
     position: 'absolute',
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#2563EB',
-    marginLeft: -7,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    marginLeft: -6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4F46E5',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 2,
   },
   timeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#475569',
   },
   controlsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    justifyContent: 'center',
+    gap: 18,
+    marginBottom: 16,
   },
-  speedButton: {
+  skipBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
-  speedText: {
-    fontSize: 11,
+  skipInsideText: {
+    position: 'absolute',
+    fontSize: 8.5,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#1E293B',
+    marginTop: 3,
   },
-  skipButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  playBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#6366F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  speedChip: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    justifyContent: 'center',
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     alignItems: 'center',
   },
-  skipText: {
-    fontSize: 11,
+  speedLabel: {
+    fontSize: 9.5,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  speedVal: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingTop: 2,
+  },
+  footerText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
-  },
-  playPauseBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#0F172A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  playPauseIcon: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    marginLeft: 2,
-  },
-  repeatButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  repeatText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#475569',
+    color: '#1E293B',
   },
 });

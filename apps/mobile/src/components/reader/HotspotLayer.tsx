@@ -1,6 +1,17 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { Hotspot, HotspotType } from '@smartteacherbook/shared';
+import { computeHotspotBadgeLayout } from '../../utils/pageGeometry';
+
+interface ExtendedHotspot extends Hotspot {
+  label?: string;
+  tooltipText?: string;
+  appearanceStyle?: 'SOLID' | 'OUTLINE';
+  size?: 'SM' | 'MD' | 'LG';
+  noteText?: string;
+  targetFile?: string;
+}
 
 interface HotspotLayerProps {
   hotspots: Hotspot[];
@@ -10,9 +21,8 @@ interface HotspotLayerProps {
 }
 
 /**
- * Spec §3 & §8 Hotspot Rendering Layer
- * Overlays normalized hotspot rectangles over pre-rendered page image.
- * Renders audio, video, internal page, and Teacher's Book answer keys.
+ * Interactive Icon-Only Hotspot Rendering Layer synced with Admin Visual Hotspot Editor:
+ * Places clean compact circular icons (Audio, Video, Answer Key, Note) without dashed boxes or text clutter covering textbook words.
  */
 export const HotspotLayer: React.FC<HotspotLayerProps> = ({
   hotspots,
@@ -21,36 +31,97 @@ export const HotspotLayer: React.FC<HotspotLayerProps> = ({
   onHotspotPress,
 }) => {
   return (
-    <View style={[styles.container, { width: pageWidth, height: pageHeight }]} pointerEvents="box-none">
-      {hotspots.map((h) => {
-        const left = h.rect.x * pageWidth;
-        const top = h.rect.y * pageHeight;
-        const width = h.rect.w * pageWidth;
-        const height = h.rect.h * pageHeight;
+    <View
+      style={[styles.container, { width: pageWidth, height: pageHeight, pointerEvents: 'box-none' }]}
+    >
+      {hotspots.map((raw) => {
+        const h = raw as ExtendedHotspot;
+        const { left, top, tapSize, badgeSize, iconSize } = computeHotspotBadgeLayout(
+          h.rect,
+          pageWidth,
+          pageHeight,
+          h.size,
+        );
 
         const isAudio = h.type === HotspotType.AUDIO;
         const isVideo = h.type === HotspotType.VIDEO;
         const isAnswer = h.type === HotspotType.ANSWER_LINK;
 
+        const isSolid = h.appearanceStyle !== 'OUTLINE';
+
+        const accentColor = isAudio
+          ? '#4F46E5'
+          : isVideo
+          ? '#2563EB'
+          : isAnswer
+          ? '#D97706'
+          : '#059669';
+
         return (
           <TouchableOpacity
             key={h.id}
-            activeOpacity={0.7}
+            activeOpacity={0.78}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             style={[
-              styles.hotspotTouch,
-              { left, top, width, height },
-              isAudio && styles.audioBadge,
-              isVideo && styles.videoBadge,
-              isAnswer && styles.answerBadge,
+              styles.hotspotBox,
+              {
+                left,
+                top,
+                width: tapSize,
+                height: tapSize,
+              },
             ]}
             onPress={() => onHotspotPress(h)}
           >
-            <View style={styles.badgeContent}>
-              <Text style={styles.badgeLabel} numberOfLines={1} ellipsizeMode="tail">
-                {isAudio && '🎧 Audio'}
-                {isVideo && '🎬 Video'}
-                {isAnswer && '💡 Javoblar (Kalit)'}
-              </Text>
+            <View
+              style={[
+                styles.iconBadge,
+                {
+                  width: badgeSize,
+                  height: badgeSize,
+                  borderRadius: badgeSize / 2,
+                  backgroundColor: isSolid ? accentColor : 'rgba(255, 255, 255, 0.96)',
+                  borderColor: accentColor,
+                },
+              ]}
+            >
+              {isAudio ? (
+                <Svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M3 18v-6a9 9 0 0118 0v6"
+                    stroke={isSolid ? '#FFFFFF' : accentColor}
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                  />
+                  <Path
+                    d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"
+                    fill={isSolid ? '#FFFFFF' : accentColor}
+                  />
+                </Svg>
+              ) : isVideo ? (
+                <Svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none">
+                  <Path d="M8 5l11 7-11 7V5z" fill={isSolid ? '#FFFFFF' : accentColor} />
+                </Svg>
+              ) : isAnswer ? (
+                <Svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.74V16a1 1 0 001 1h6a1 1 0 001-1v-1.26A7 7 0 0012 2z"
+                    stroke={isSolid ? '#FFFFFF' : accentColor}
+                    strokeWidth={2.1}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              ) : (
+                <Svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                    stroke={isSolid ? '#FFFFFF' : accentColor}
+                    strokeWidth={2}
+                  />
+                  <Circle cx={9} cy={13} r={1} fill={isSolid ? '#FFFFFF' : accentColor} />
+                </Svg>
+              )}
             </View>
           </TouchableOpacity>
         );
@@ -64,34 +135,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+    zIndex: 10,
   },
-  hotspotTouch: {
+  hotspotBox: {
     position: 'absolute',
-    borderRadius: 8,
-    borderWidth: 1.5,
-    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  audioBadge: {
-    borderColor: '#2563EB',
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
-  },
-  videoBadge: {
-    borderColor: '#DC2626',
-    backgroundColor: 'rgba(220, 38, 38, 0.15)',
-  },
-  answerBadge: {
-    borderColor: '#F59E0B',
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-  },
-  badgeContent: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  badgeLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0F2942',
+  iconBadge: {
+    borderWidth: 1.4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.14,
+    shadowRadius: 3,
+    elevation: 2,
   },
 });

@@ -2,209 +2,328 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   Modal,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
+  TextInput,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import { pdfPageToBookDisplay } from '@smartteacherbook/shared';
+import { useTheme } from '../../theme/ThemeContext';
+import { useI18n } from '../../i18n/I18nContext';
 
-interface Bookmark {
-  id: string;
+export interface BookmarkEntry {
+  id?: string;
   pageNumber: number;
-  title: string;
-  createdAt: string;
+  title?: string;
 }
 
-interface Note {
+export interface NoteEntry {
   id: string;
   pageNumber: number;
   text: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 interface BookmarksNotesDrawerProps {
   visible: boolean;
-  currentPage: number;
   onClose: () => void;
+  currentPage: number;
+  totalPages?: number;
+  contentStartPdfPage?: number;
+  bookmarks: BookmarkEntry[];
+  notes: NoteEntry[];
+  initialTab?: 'BOOKMARKS' | 'NOTES';
   onSelectPage: (page: number) => void;
+  onToggleBookmark: (page: number) => void;
+  onAddNote: (page: number, text: string) => Promise<void> | void;
+  onDeleteNote: (noteId: string) => Promise<void> | void;
 }
 
 export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
   visible,
-  currentPage,
   onClose,
+  currentPage,
+  totalPages = 100,
+  contentStartPdfPage = 1,
+  bookmarks,
+  notes,
+  initialTab = 'BOOKMARKS',
   onSelectPage,
+  onToggleBookmark,
+  onAddNote,
+  onDeleteNote,
 }) => {
-  const [activeTab, setActiveTab] = useState<'BOOKMARKS' | 'NOTES'>('BOOKMARKS');
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([
-    { id: 'bm_1', pageNumber: 2, title: 'Digital Classrooms & Vocabulary', createdAt: 'Kecha' },
-    { id: 'bm_2', pageNumber: 4, title: 'Grammar Conditionals Rule', createdAt: 'Bugun' },
-  ]);
+  const { colors, isDark } = useTheme();
+  const { strings, t } = useI18n();
+  const [activeTab, setActiveTab] = useState<'BOOKMARKS' | 'NOTES'>(initialTab);
+  const [addingNote, setAddingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
 
-  const [notes, setNotes] = useState<Note[]>([
-    {
-      id: 'nt_1',
-      pageNumber: 2,
-      text: '3-mashq bo‘yicha o‘quvchilarni 4 kishilik guruhga bo‘lib, audio yozuvni 2 marta eshittirish kerak.',
-      createdAt: 'Bugun, 09:30',
-    },
-  ]);
+  React.useEffect(() => {
+    if (visible) {
+      setActiveTab(initialTab);
+    }
+  }, [visible, initialTab]);
 
-  const [newNoteText, setNewNoteText] = useState('');
+  const badgePalette = [
+    { bg: isDark ? 'rgba(129, 140, 248, 0.18)' : '#EEF2FF', icon: colors.primary },
+    { bg: isDark ? 'rgba(251, 191, 36, 0.18)' : '#FEF3C7', icon: colors.warning },
+    { bg: isDark ? 'rgba(52, 211, 153, 0.18)' : '#DCFCE7', icon: colors.accent },
+  ];
+
+  const formatPageBadge = (pdfPage: number) => {
+    const info = pdfPageToBookDisplay(pdfPage, totalPages, contentStartPdfPage);
+    if (info.isFrontMatter) {
+      return `${strings.common.introShort} ${info.frontMatterIndex}`;
+    }
+    return `${info.bookPage ?? pdfPage}-${strings.common.pageShort}`;
+  };
 
   const isCurrentBookmarked = bookmarks.some((b) => b.pageNumber === currentPage);
 
-  const toggleBookmarkCurrentPage = () => {
-    if (isCurrentBookmarked) {
-      setBookmarks((prev) => prev.filter((b) => b.pageNumber !== currentPage));
-    } else {
-      setBookmarks((prev) => [
-        ...prev,
-        {
-          id: `bm_${Date.now()}`,
-          pageNumber: currentPage,
-          title: `${currentPage}-sahifa xatcho‘pi`,
-          createdAt: 'Hozir',
-        },
-      ]);
-    }
-  };
-
-  const handleAddNote = () => {
-    if (!newNoteText.trim()) return;
-    setNotes((prev) => [
-      ...prev,
-      {
-        id: `nt_${Date.now()}`,
-        pageNumber: currentPage,
-        text: newNoteText.trim(),
-        createdAt: 'Hozir',
-      },
-    ]);
-    setNewNoteText('');
-  };
-
-  const handleDeleteNote = (id: string) => {
-    setNotes((prev) => prev.filter((n) => n.id !== id));
+  const handleCreateNote = async () => {
+    const trimmed = noteDraft.trim();
+    if (!trimmed) return;
+    await onAddNote(currentPage, trimmed);
+    setNoteDraft('');
+    setAddingNote(false);
+    setActiveTab('NOTES');
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.drawerCard}>
-          {/* Top Handle */}
-          <View style={styles.handle} />
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
+        <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-          {/* Tab Switcher */}
-          <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'BOOKMARKS' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('BOOKMARKS')}
-            >
-              <Text style={[styles.tabText, activeTab === 'BOOKMARKS' && styles.tabTextActive]}>
-                🔖 Xatcho‘plar ({bookmarks.length})
-              </Text>
-            </TouchableOpacity>
+          {/* Header Switcher */}
+          <View style={styles.topRow}>
+            <View style={[styles.segmentBox, { backgroundColor: colors.surfaceAlt }]}>
+              <TouchableOpacity
+                style={[
+                  styles.segmentBtn,
+                  activeTab === 'BOOKMARKS' && [
+                    styles.segmentBtnActive,
+                    { backgroundColor: colors.cardBg, shadowColor: colors.shadowColor },
+                  ],
+                ]}
+                onPress={() => setActiveTab('BOOKMARKS')}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: activeTab === 'BOOKMARKS' ? colors.primary : colors.textSecondary },
+                    activeTab === 'BOOKMARKS' && styles.segmentTextActive,
+                  ]}
+                >
+                  {t('reader.bookmarksTitle', { count: bookmarks.length })}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.segmentBtn,
+                  activeTab === 'NOTES' && [
+                    styles.segmentBtnActive,
+                    { backgroundColor: colors.cardBg, shadowColor: colors.shadowColor },
+                  ],
+                ]}
+                onPress={() => setActiveTab('NOTES')}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: activeTab === 'NOTES' ? colors.primary : colors.textSecondary },
+                    activeTab === 'NOTES' && styles.segmentTextActive,
+                  ]}
+                >
+                  {t('reader.notesTitle', { count: notes.length })}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'NOTES' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('NOTES')}
+              style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt }]}
+              onPress={onClose}
             >
-              <Text style={[styles.tabText, activeTab === 'NOTES' && styles.tabTextActive]}>
-                📝 Qaydlar ({notes.length})
-              </Text>
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke={colors.textSecondary}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                />
+              </Svg>
             </TouchableOpacity>
           </View>
 
-          {/* TAB 1: BOOKMARKS */}
-          {activeTab === 'BOOKMARKS' && (
-            <View style={{ flex: 1 }}>
-              {/* Add/remove for current page */}
-              <TouchableOpacity
-                style={[styles.addBookmarkBtn, isCurrentBookmarked && styles.addBookmarkBtnActive]}
-                onPress={toggleBookmarkCurrentPage}
-              >
-                <Text style={styles.addBookmarkIcon}>{isCurrentBookmarked ? '★' : '☆'}</Text>
-                <Text style={styles.addBookmarkText}>
-                  {isCurrentBookmarked
-                    ? `${currentPage}-sahifani xatcho‘plardan o‘chirish`
-                    : `Hozirgi (${currentPage}-sahifa)ni xatcho‘plarga qo‘shish`}
-                </Text>
-              </TouchableOpacity>
+          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+            {activeTab === 'BOOKMARKS' ? (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.quickToggleCard,
+                    { backgroundColor: colors.primarySoft, borderColor: colors.borderStrong },
+                  ]}
+                  onPress={() => onToggleBookmark(currentPage)}
+                >
+                  <Text style={[styles.quickToggleText, { color: colors.primaryText }]}>
+                    {isCurrentBookmarked
+                      ? `✓ ${formatPageBadge(currentPage)} — ${strings.common.delete}`
+                      : `+ ${formatPageBadge(currentPage)} — ${strings.reader.bookmark}`}
+                  </Text>
+                </TouchableOpacity>
 
-              <ScrollView style={styles.listWrap} showsVerticalScrollIndicator={false}>
                 {bookmarks.length === 0 ? (
-                  <Text style={styles.emptyHint}>Hali hech qanday xatcho‘p saqlanmagan.</Text>
+                  <View style={[styles.emptyBox, { backgroundColor: colors.surfaceAlt }]}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                      {strings.reader.noBookmarks}
+                    </Text>
+                  </View>
                 ) : (
-                  bookmarks.map((bm) => (
+                  bookmarks.map((bm, idx) => {
+                    const pal = badgePalette[idx % badgePalette.length];
+                    return (
+                      <TouchableOpacity
+                        key={`${bm.pageNumber}-${idx}`}
+                        style={[styles.cardRow, { backgroundColor: colors.surfaceAlt }]}
+                        onPress={() => {
+                          onSelectPage(bm.pageNumber);
+                          onClose();
+                        }}
+                      >
+                        <View style={[styles.bmIconBox, { backgroundColor: pal.bg }]}>
+                          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                            <Path
+                              d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"
+                              fill={pal.icon}
+                            />
+                          </Svg>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+                            {formatPageBadge(bm.pageNumber)}
+                          </Text>
+                          <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
+                            {bm.title || strings.reader.bookmark}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.trashBtn}
+                          onPress={() => onToggleBookmark(bm.pageNumber)}
+                        >
+                          <Text style={[styles.trashText, { color: colors.danger }]}>
+                            {strings.common.delete}
+                          </Text>
+                        </TouchableOpacity>
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </>
+            ) : (
+              <>
+                {addingNote && (
+                  <View
+                    style={[
+                      styles.noteComposer,
+                      { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
+                    ]}
+                  >
+                    <Text style={[styles.composerLabel, { color: colors.primaryText }]}>
+                      {formatPageBadge(currentPage)} — {strings.reader.notes}
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.noteInput,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.border,
+                          color: colors.textPrimary,
+                        },
+                      ]}
+                      value={noteDraft}
+                      onChangeText={setNoteDraft}
+                      placeholder={strings.reader.addNotePlaceholder}
+                      placeholderTextColor={colors.placeholder}
+                      multiline
+                      autoFocus
+                    />
+                    <View style={styles.composerActions}>
+                      <TouchableOpacity
+                        style={[styles.composerCancel, { backgroundColor: colors.cardBg }]}
+                        onPress={() => setAddingNote(false)}
+                      >
+                        <Text style={[styles.composerCancelText, { color: colors.textSecondary }]}>
+                          {strings.common.cancel}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.composerSave, { backgroundColor: colors.primaryDark }]}
+                        onPress={handleCreateNote}
+                      >
+                        <Text style={[styles.composerSaveText, { color: colors.onPrimary }]}>
+                          {strings.common.save}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {notes.length === 0 && !addingNote ? (
+                  <View style={[styles.emptyBox, { backgroundColor: colors.surfaceAlt }]}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                      {strings.reader.noNotes}
+                    </Text>
+                  </View>
+                ) : (
+                  notes.map((n) => (
                     <TouchableOpacity
-                      key={bm.id}
-                      style={styles.itemCard}
+                      key={n.id}
+                      style={[styles.noteCard, { backgroundColor: colors.surfaceAlt }]}
                       onPress={() => {
-                        onSelectPage(bm.pageNumber);
+                        onSelectPage(n.pageNumber);
                         onClose();
                       }}
                     >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.itemTitle}>{bm.title}</Text>
-                        <Text style={styles.itemMeta}>Qo‘shilgan: {bm.createdAt}</Text>
+                      <View style={styles.noteTop}>
+                        <View style={[styles.notePageBadge, { backgroundColor: colors.primarySoft }]}>
+                          <Text style={[styles.notePageBadgeText, { color: colors.primaryText }]}>
+                            {formatPageBadge(n.pageNumber)}
+                          </Text>
+                        </View>
+                        <TouchableOpacity onPress={() => onDeleteNote(n.id)}>
+                          <Text style={[styles.trashText, { color: colors.danger }]}>
+                            {strings.common.delete}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
-                      <View style={styles.pageBadge}>
-                        <Text style={styles.pageBadgeText}>p. {bm.pageNumber}</Text>
-                      </View>
+                      <Text style={[styles.noteBody, { color: colors.textPrimary }]}>{n.text}</Text>
                     </TouchableOpacity>
                   ))
                 )}
-              </ScrollView>
-            </View>
-          )}
+              </>
+            )}
+          </ScrollView>
 
-          {/* TAB 2: NOTES */}
-          {activeTab === 'NOTES' && (
-            <View style={{ flex: 1 }}>
-              {/* Add Note Input */}
-              <View style={styles.noteInputCard}>
-                <Text style={styles.noteInputTitle}>
-                  {currentPage}-sahifa uchun o‘qituvchi eslatmasi:
-                </Text>
-                <TextInput
-                  style={styles.noteTextInput}
-                  placeholder="Dars rejasi yoki metodik eslatma..."
-                  value={newNoteText}
-                  onChangeText={setNewNoteText}
-                  multiline
-                  numberOfLines={2}
-                />
-                <TouchableOpacity
-                  style={styles.saveNoteBtn}
-                  onPress={handleAddNote}
-                  disabled={!newNoteText.trim()}
-                >
-                  <Text style={styles.saveNoteBtnText}>Qaydni Saqlash</Text>
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={styles.listWrap} showsVerticalScrollIndicator={false}>
-                {notes.length === 0 ? (
-                  <Text style={styles.emptyHint}>Hali hech qanday qayd yozilmagan.</Text>
-                ) : (
-                  notes.map((nt) => (
-                    <View key={nt.id} style={styles.noteCard}>
-                      <View style={styles.noteHeader}>
-                        <Text style={styles.notePageBadge}>{nt.pageNumber}-sahifa</Text>
-                        <TouchableOpacity onPress={() => handleDeleteNote(nt.id)}>
-                          <Text style={styles.deleteText}>O‘chirish</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={styles.noteText}>{nt.text}</Text>
-                      <Text style={styles.noteDate}>{nt.createdAt}</Text>
-                    </View>
-                  ))
-                )}
-              </ScrollView>
-            </View>
-          )}
+          {/* Bottom CTA */}
+          <TouchableOpacity
+            style={[
+              styles.bottomCta,
+              { backgroundColor: colors.primarySoft, borderColor: colors.borderStrong },
+            ]}
+            onPress={() => {
+              setActiveTab('NOTES');
+              setAddingNote(true);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.bottomCtaText, { color: colors.primaryText }]}>
+              + {strings.reader.saveNote}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -214,190 +333,196 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
     justifyContent: 'flex-end',
   },
-  drawerCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    height: '75%',
+  backdrop: {
+    flex: 1,
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '82%',
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
   handle: {
+    alignSelf: 'center',
     width: 44,
     height: 4,
-    backgroundColor: '#CBD5E1',
     borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  tabBar: {
+  topRow: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 18,
-    padding: 4,
-    marginBottom: 16,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 14,
+    gap: 10,
+    marginBottom: 14,
   },
-  tabButtonActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  tabTextActive: {
-    color: '#0F172A',
-  },
-  addBookmarkBtn: {
+  segmentBox: {
+    flex: 1,
     flexDirection: 'row',
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 9,
+    alignItems: 'center',
+  },
+  segmentBtnActive: {
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  segmentTextActive: {
+    fontWeight: '800',
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 16,
-    backgroundColor: '#EFF6FF',
+  },
+  list: {
+    maxHeight: 360,
+  },
+  quickToggleCard: {
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  addBookmarkBtnActive: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FDE68A',
+  quickToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
-  addBookmarkIcon: {
-    fontSize: 16,
-    color: '#2563EB',
-    marginRight: 8,
-  },
-  addBookmarkText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1E40AF',
-  },
-  listWrap: {
-    flex: 1,
-  },
-  itemCard: {
+  cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 18,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    gap: 12,
+    borderRadius: 14,
+    padding: 12,
     marginBottom: 8,
   },
-  itemTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
+  bmIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  itemMeta: {
-    fontSize: 10,
-    color: '#94A3B8',
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  cardSub: {
+    fontSize: 12,
     marginTop: 2,
   },
-  pageBadge: {
-    paddingHorizontal: 10,
+  trashBtn: {
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 10,
-    backgroundColor: '#E2E8F0',
   },
-  pageBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#475569',
-  },
-  emptyHint: {
+  trashText: {
     fontSize: 12,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginTop: 30,
+    fontWeight: '700',
   },
-  noteInputCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 20,
+  emptyBox: {
+    borderRadius: 14,
+    padding: 18,
+  },
+  emptyText: {
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  noteComposer: {
+    borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  noteInputTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#475569',
-    marginBottom: 6,
-  },
-  noteTextInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    padding: 10,
+  composerLabel: {
     fontSize: 12,
-    color: '#0F172A',
+    fontWeight: '800',
     marginBottom: 8,
-    minHeight: 50,
   },
-  saveNoteBtn: {
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
+  noteInput: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+    minHeight: 74,
+    fontSize: 14,
+    textAlignVertical: 'top',
+  },
+  composerActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 10,
+  },
+  composerCancel: {
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    alignItems: 'center',
+    borderRadius: 9,
   },
-  saveNoteBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+  composerCancelText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  composerSave: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 9,
+  },
+  composerSaveText: {
+    fontSize: 12,
     fontWeight: '800',
   },
   noteCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 14,
     padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  noteHeader: {
+  noteTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
   },
   notePageBadge: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#2563EB',
-    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
   },
-  deleteText: {
-    fontSize: 10,
-    color: '#DC2626',
-    fontWeight: '700',
+  notePageBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
   },
-  noteText: {
-    fontSize: 12,
-    color: '#334155',
-    lineHeight: 18,
+  noteBody: {
+    fontSize: 13,
+    lineHeight: 19,
   },
-  noteDate: {
-    fontSize: 10,
-    color: '#94A3B8',
-    marginTop: 6,
+  bottomCta: {
+    marginTop: 14,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  bottomCtaText: {
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

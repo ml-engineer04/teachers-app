@@ -1,161 +1,242 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   Modal,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
+  TextInput,
+  Pressable,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import {
+  bookPageToPdfPage,
+  getBookContentTotalPages,
+  pdfPageToBookDisplay,
+} from '@smartteacherbook/shared';
+import { useTheme } from '../../theme/ThemeContext';
+import { useI18n } from '../../i18n/I18nContext';
 
-interface TocItem {
+export interface TocEntry {
   id: string;
+  unit?: string;
   title: string;
-  unit: string;
   pageNumber: number;
+  endPageNumber?: number;
+  subtitle?: string;
 }
 
 interface TocSearchDrawerProps {
   visible: boolean;
-  currentPage: number;
   onClose: () => void;
+  totalPages: number;
+  currentPage: number;
+  contentStartPdfPage?: number;
   onSelectPage: (page: number) => void;
+  tocItems?: TocEntry[];
 }
 
+/**
+ * Floating Card (Contents / Mundarija / Содержание):
+ * Displays admin-defined Units + Go-to-Page jumper mapped with contentStartPdfPage.
+ */
 export const TocSearchDrawer: React.FC<TocSearchDrawerProps> = ({
   visible,
-  currentPage,
   onClose,
+  totalPages,
+  currentPage,
+  contentStartPdfPage = 1,
   onSelectPage,
+  tocItems,
 }) => {
-  const [activeTab, setActiveTab] = useState<'TOC' | 'SEARCH'>('TOC');
-  const [searchQuery, setSearchQuery] = useState('');
+  const { colors } = useTheme();
+  const { strings, t } = useI18n();
+  const [pageInput, setPageInput] = useState('');
+  const [jumpMode, setJumpMode] = useState(false);
 
-  const tocItems: TocItem[] = [
-    { id: '1', unit: 'Unit 1', title: 'Technology, Science & Digital Classrooms', pageNumber: 1 },
-    { id: '2', unit: 'Unit 1', title: 'Vocabulary Practice & Phrasal Verbs', pageNumber: 2 },
-    { id: '3', unit: 'Unit 2', title: 'Global Ecosystems & Environmental Solutions', pageNumber: 3 },
-    { id: '4', unit: 'Unit 2', title: 'Grammar Focus: Conditionals Type 3', pageNumber: 4 },
-    { id: '5', unit: 'Unit 3', title: 'Arts, Architecture & World Heritage', pageNumber: 5 },
-    { id: '6', unit: 'Unit 3', title: 'Communicative Fluency & Speaking Tasks', pageNumber: 6 },
-  ];
+  const contentTotal = getBookContentTotalPages(totalPages, contentStartPdfPage);
 
-  const searchResults = searchQuery
-    ? tocItems.filter(
-        (item) =>
-          item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.unit.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : [];
+  useEffect(() => {
+    if (visible) {
+      setJumpMode(false);
+    }
+  }, [visible]);
+
+  const effectiveToc = useMemo(() => {
+    if (!tocItems || tocItems.length === 0) return [];
+    return [...tocItems].sort((a, b) => a.pageNumber - b.pageNumber);
+  }, [tocItems]);
+
+  const activeUnitIndex = useMemo(() => {
+    let matchIdx = 0;
+    effectiveToc.forEach((item, idx) => {
+      if (currentPage >= item.pageNumber) matchIdx = idx;
+    });
+    return matchIdx;
+  }, [effectiveToc, currentPage]);
+
+  const formatPdfPageShort = (pdfPage: number) => {
+    const info = pdfPageToBookDisplay(pdfPage, totalPages, contentStartPdfPage);
+    if (info.isFrontMatter) {
+      return `${strings.common.introShort} ${info.frontMatterIndex}`;
+    }
+    return String(info.bookPage ?? pdfPage);
+  };
+
+  const handleGoToInputPage = () => {
+    const num = parseInt(pageInput, 10);
+    if (!isNaN(num) && num >= 1 && num <= Math.max(1, contentTotal)) {
+      const targetPdf = bookPageToPdfPage(num, totalPages, contentStartPdfPage);
+      onSelectPage(targetPdf);
+      setPageInput('');
+      setJumpMode(false);
+      onClose();
+    }
+  };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.drawerCard}>
-          {/* Top Handle */}
-          <View style={styles.handle} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-          {/* Tab Switcher */}
-          <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'TOC' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('TOC')}
-            >
-              <Text style={[styles.tabText, activeTab === 'TOC' && styles.tabTextActive]}>
-                📑 Mundarija (TOC)
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              shadowColor: colors.shadowColor,
+            },
+          ]}
+        >
+          {/* Header Row */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
+                  stroke={colors.primary}
+                  strokeWidth={2.3}
+                  strokeLinecap="round"
+                />
+              </Svg>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                {strings.reader.tocTitle}
               </Text>
-            </TouchableOpacity>
-
+            </View>
             <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'SEARCH' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('SEARCH')}
+              style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt }]}
+              onPress={onClose}
             >
-              <Text style={[styles.tabText, activeTab === 'SEARCH' && styles.tabTextActive]}>
-                🔍 Matn Qidirish
-              </Text>
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke={colors.textSecondary}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                />
+              </Svg>
             </TouchableOpacity>
           </View>
 
-          {/* TAB 1: TOC */}
-          {activeTab === 'TOC' && (
-            <ScrollView style={styles.listWrap} showsVerticalScrollIndicator={false}>
-              {tocItems.map((item) => {
-                const isCurrent = item.pageNumber === currentPage;
+          {/* Unit List */}
+          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+            {effectiveToc.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                  {strings.reader.noToc}
+                </Text>
+              </View>
+            ) : (
+              effectiveToc.map((item, idx) => {
+                const isSelected = idx === activeUnitIndex;
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.tocItemCard, isCurrent && styles.tocItemCardActive]}
-                    activeOpacity={0.7}
+                    style={[
+                      styles.unitRow,
+                      isSelected && { backgroundColor: colors.primarySoft },
+                    ]}
                     onPress={() => {
-                      onSelectPage(item.pageNumber);
+                      onSelectPage(Math.min(Math.max(1, item.pageNumber), Math.max(1, totalPages)));
                       onClose();
                     }}
+                    activeOpacity={0.75}
                   >
-                    <View style={styles.tocLeft}>
-                      <Text style={styles.tocUnitBadge}>{item.unit}</Text>
-                      <Text style={styles.tocTitle}>{item.title}</Text>
-                    </View>
-
-                    <View style={[styles.pageNumberPill, isCurrent && styles.pageNumberPillActive]}>
-                      <Text style={[styles.pageNumberText, isCurrent && styles.pageNumberTextActive]}>
-                        p. {item.pageNumber}
+                    {isSelected ? (
+                      <View style={[styles.activeLeftBar, { backgroundColor: colors.primaryDark }]} />
+                    ) : (
+                      <View style={styles.inactiveLeftSpace} />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.unitTitle,
+                          { color: isSelected ? colors.textPrimary : colors.textSecondary },
+                          isSelected && styles.unitTitleActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {item.title}
                       </Text>
                     </View>
+                    <Text
+                      style={[
+                        styles.unitPageNum,
+                        { color: isSelected ? colors.primaryDark : colors.textMuted },
+                        isSelected && styles.unitPageNumActive,
+                      ]}
+                    >
+                      {item.endPageNumber
+                        ? `${formatPdfPageShort(item.pageNumber)}–${formatPdfPageShort(item.endPageNumber)}`
+                        : formatPdfPageShort(item.pageNumber)}
+                    </Text>
                   </TouchableOpacity>
                 );
-              })}
-            </ScrollView>
-          )}
+              })
+            )}
+          </ScrollView>
 
-          {/* TAB 2: SEARCH */}
-          {activeTab === 'SEARCH' && (
-            <View style={styles.searchSection}>
-              <View style={styles.searchBar}>
-                <Text style={{ fontSize: 14, marginRight: 8 }}>🔍</Text>
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="So‘z yoki mavzuni kiriting..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoFocus
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Text style={{ color: '#94A3B8', fontWeight: 'bold' }}>✕</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <ScrollView style={styles.listWrap} showsVerticalScrollIndicator={false}>
-                {searchQuery.length === 0 ? (
-                  <Text style={styles.emptyHint}>
-                    Darslik matni bo‘yicha to‘liq matnli indeks orqali qidiring (masalan: "Technology", "Grammar", "Ecosystems").
-                  </Text>
-                ) : searchResults.length === 0 ? (
-                  <Text style={styles.emptyHint}>Hech qanday natija topilmadi.</Text>
-                ) : (
-                  searchResults.map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.tocItemCard}
-                      onPress={() => {
-                        onSelectPage(item.pageNumber);
-                        onClose();
-                      }}
-                    >
-                      <View style={styles.tocLeft}>
-                        <Text style={styles.tocUnitBadge}>{item.unit}</Text>
-                        <Text style={styles.tocTitle}>{item.title}</Text>
-                      </View>
-                      <View style={styles.pageNumberPill}>
-                        <Text style={styles.pageNumberText}>p. {item.pageNumber}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))
-                )}
-              </ScrollView>
+          {/* Bottom "Go to page" CTA / Inline Jump Bar */}
+          {jumpMode ? (
+            <View style={styles.jumpRow}>
+              <TextInput
+                style={[
+                  styles.jumpInput,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderColor: colors.borderStrong,
+                    color: colors.textPrimary,
+                  },
+                ]}
+                value={pageInput}
+                onChangeText={(txt) => setPageInput(txt.replace(/\D/g, ''))}
+                placeholder={`1–${Math.max(1, contentTotal)}`}
+                placeholderTextColor={colors.placeholder}
+                keyboardType="number-pad"
+                autoFocus
+                onSubmitEditing={handleGoToInputPage}
+              />
+              <TouchableOpacity
+                style={[styles.jumpConfirmBtn, { backgroundColor: colors.primaryDark }]}
+                onPress={handleGoToInputPage}
+              >
+                <Text style={[styles.jumpConfirmText, { color: colors.onPrimary }]}>
+                  {strings.reader.goToPage}
+                </Text>
+              </TouchableOpacity>
             </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.bottomPillBtn, { backgroundColor: colors.primarySoft }]}
+              onPress={() => setJumpMode(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.bottomPillText, { color: colors.textPrimary }]}>
+                {t('reader.jumpToPagePlaceholder').replace('...', '')} (1–{Math.max(1, contentTotal)})
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -166,129 +247,119 @@ export const TocSearchDrawer: React.FC<TocSearchDrawerProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    justifyContent: 'flex-end',
-  },
-  drawerCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    height: '75%',
-  },
-  handle: {
-    width: 44,
-    height: 4,
-    backgroundColor: '#CBD5E1',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 18,
-    padding: 4,
-    marginBottom: 16,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 10,
+    justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 14,
+    paddingHorizontal: 18,
   },
-  tabButtonActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+  card: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    borderRadius: 22,
+    padding: 18,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.16,
+    shadowRadius: 28,
+    elevation: 10,
+    borderWidth: 1,
   },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  tabTextActive: {
-    color: '#0F172A',
-  },
-  listWrap: {
-    flex: 1,
-  },
-  tocItemCard: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 18,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 8,
-  },
-  tocItemCardActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#93C5FD',
-  },
-  tocLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  tocUnitBadge: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#2563EB',
-    textTransform: 'uppercase',
-  },
-  tocTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  pageNumberPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    backgroundColor: '#E2E8F0',
-  },
-  pageNumberPillActive: {
-    backgroundColor: '#2563EB',
-  },
-  pageNumberText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#475569',
-  },
-  pageNumberTextActive: {
-    color: '#FFFFFF',
-  },
-  searchSection: {
-    flex: 1,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-    height: 46,
     marginBottom: 14,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0F172A',
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  emptyHint: {
-    fontSize: 12,
-    color: '#94A3B8',
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  list: {
+    maxHeight: 280,
+  },
+  unitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingRight: 12,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  activeLeftBar: {
+    width: 3.5,
+    height: 22,
+    borderRadius: 2,
+    marginRight: 12,
+  },
+  inactiveLeftSpace: {
+    width: 15.5,
+  },
+  unitTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  unitTitleActive: {
+    fontWeight: '800',
+  },
+  unitPageNum: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    marginLeft: 10,
+  },
+  unitPageNumActive: {
+    fontWeight: '800',
+  },
+  emptyBox: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
     textAlign: 'center',
-    marginTop: 30,
-    lineHeight: 18,
+  },
+  bottomPillBtn: {
+    marginTop: 14,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  bottomPillText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  jumpRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+  },
+  jumpInput: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  jumpConfirmBtn: {
+    borderRadius: 12,
     paddingHorizontal: 20,
+    justifyContent: 'center',
+  },
+  jumpConfirmText: {
+    fontSize: 13.5,
+    fontWeight: '800',
   },
 });

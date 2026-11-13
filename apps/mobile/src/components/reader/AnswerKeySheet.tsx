@@ -1,156 +1,327 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   Modal,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
   Image,
+  Pressable,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import { pdfPageToBookDisplay } from '@smartteacherbook/shared';
+import { useTheme } from '../../theme/ThemeContext';
+import { useI18n } from '../../i18n/I18nContext';
+
+export interface AnswerItem {
+  id?: string;
+  exerciseLabel: string;
+  teacherPageNumber: number;
+  solutionText: string;
+  methodologyNotes?: string;
+  imageUrl?: string;
+}
 
 interface AnswerKeySheetProps {
   visible: boolean;
-  exerciseLabel: string;
-  studentPageNumber: number;
-  teacherPageNumber: number;
-  answerContent: string;
-  notes?: string;
-  imageUrl?: string;
   onClose: () => void;
-  onJumpToTeacherPage?: (teacherPage: number) => void;
+  pageNumber: number;
+  totalPages?: number;
+  contentStartPdfPage?: number;
+  exerciseLabel: string;
+  teacherPageNumber: number;
+  solutionText: string;
+  methodologyNotes?: string;
+  imageUrl?: string;
+  items?: AnswerItem[];
+  onSwitchToTeachersBook?: (teacherPage: number) => void;
 }
 
 export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
   visible,
-  exerciseLabel,
-  studentPageNumber,
-  teacherPageNumber,
-  answerContent,
-  notes,
-  imageUrl,
   onClose,
-  onJumpToTeacherPage,
+  pageNumber,
+  totalPages = 100,
+  contentStartPdfPage = 1,
+  exerciseLabel,
+  teacherPageNumber,
+  solutionText,
+  methodologyNotes,
+  imageUrl,
+  items = [],
+  onSwitchToTeachersBook,
 }) => {
-  const [isFullScreenPreview, setIsFullScreenPreview] = React.useState(false);
+  const { colors } = useTheme();
+  const { strings, t } = useI18n();
+  const [activeTab, setActiveTab] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [zoomImageVisible, setZoomImageVisible] = useState(false);
+
+  const pageDisplayInfo = pdfPageToBookDisplay(pageNumber, totalPages, contentStartPdfPage);
+  const displayPageLabel = pageDisplayInfo.isFrontMatter
+    ? `${strings.common.introShort} ${pageDisplayInfo.frontMatterIndex}`
+    : `${strings.common.page} ${pageDisplayInfo.bookPage ?? pageNumber}`;
+
+  const currentItem: AnswerItem =
+    items.length > 0 && items[selectedIndex]
+      ? items[selectedIndex]
+      : {
+          exerciseLabel,
+          teacherPageNumber,
+          solutionText,
+          methodologyNotes,
+          imageUrl,
+        };
+
+  const parsedPills = useMemo(() => {
+    const raw = (currentItem.solutionText || '').trim();
+    if (!raw) return [];
+    const tokens: Array<{ num: string; ans: string }> = [];
+    const parts = raw.split(/[\n,;]+/).map((p) => p.trim()).filter(Boolean);
+    for (const part of parts) {
+      const m = part.match(/^(\d+)\s*[.):\-–]\s*(.+)$/);
+      if (m && m[2].length <= 24) {
+        tokens.push({ num: m[1], ans: m[2].trim() });
+      }
+    }
+    return tokens.length >= 2 ? tokens : [];
+  }, [currentItem.solutionText]);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheetCard}>
-          {/* Top Pill Handle */}
-          <View style={styles.handle} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-          {/* Header */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              shadowColor: colors.shadowColor,
+            },
+          ]}
+        >
+          {/* Header Row */}
           <View style={styles.header}>
-            <View>
-              <View style={styles.badgeRow}>
-                <Text style={styles.teacherBadge}>O‘QITUVCHI KITOBI (TEACHER'S BOOK)</Text>
-                <Text style={styles.pageBadge}>Sahifa {teacherPageNumber}</Text>
-              </View>
-              <Text style={styles.exerciseTitle}>
-                {exerciseLabel || 'Mashq Javoblari'}
-              </Text>
-              <Text style={styles.linkedSub}>
-                Bog‘langan sahifa: Student's Book p. {studentPageNumber}
+            <View style={styles.headerLeft}>
+              <Text style={styles.bulbEmoji}>💡</Text>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                {strings.reader.answerKeysTitle}
               </Text>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Answer Key Content */}
-          <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-            {/* If Teacher uploaded a Screenshot Image of the answer key */}
-            {imageUrl ? (
-              <View style={styles.screenshotBox}>
-                <View style={styles.screenshotHeaderRow}>
-                  <Text style={styles.sectionLabelWhite}>📸 RASMIY JAVOBLAR SKRINSHOTI:</Text>
-                  <TouchableOpacity
-                    onPress={() => setIsFullScreenPreview(true)}
-                    style={styles.expandBadge}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.expandText}>Kattalashtirish 🔍</Text>
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={() => setIsFullScreenPreview(true)}
-                  style={styles.screenshotImageWrap}
-                >
-                  <Image
-                    source={{ uri: imageUrl }}
-                    style={styles.screenshotImage}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
-                <Text style={styles.tapToZoomHint}>Rasmni to‘liq hajmda ochish uchun ustiga bosing</Text>
-              </View>
-            ) : null}
-
-            {/* Answer Text Content */}
-            {answerContent ? (
-              <View style={styles.answersBox}>
-                <Text style={styles.sectionLabel}>RASMIY JAVOBLAR KALITI:</Text>
-                <Text style={styles.answerText}>
-                  {answerContent}
-                </Text>
-              </View>
-            ) : null}
-
-            {/* Methodology Notes */}
-            {notes ? (
-              <View style={styles.methodologyBox}>
-                <Text style={styles.methodologyLabel}>METODIK KO‘RSATMA & TAHLIL:</Text>
-                <Text style={styles.methodologyText}>
-                  {notes}
-                </Text>
-              </View>
-            ) : null}
-          </ScrollView>
-
-          {/* Bottom Actions */}
-          <View style={styles.actionsRow}>
             <TouchableOpacity
-              style={styles.doneBtn}
-              activeOpacity={0.85}
+              style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt }]}
               onPress={onClose}
             >
-              <Text style={styles.doneBtnText}>Darslikka Qaytish</Text>
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke={colors.textSecondary}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                />
+              </Svg>
             </TouchableOpacity>
           </View>
+
+          {/* Segmented Pill Toggle */}
+          <View style={[styles.segmentRow, { backgroundColor: colors.surfaceAlt }]}>
+            <TouchableOpacity
+              style={[
+                styles.segmentBtn,
+                activeTab === 'STUDENT' && {
+                  backgroundColor: colors.cardBg,
+                  borderColor: colors.primary,
+                },
+              ]}
+              onPress={() => setActiveTab('STUDENT')}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  { color: activeTab === 'STUDENT' ? colors.textPrimary : colors.textSecondary },
+                ]}
+              >
+                {strings.grades.bookTypeStudent}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segmentBtn,
+                activeTab === 'TEACHER' && {
+                  backgroundColor: colors.cardBg,
+                  borderColor: colors.primary,
+                },
+              ]}
+              onPress={() => setActiveTab('TEACHER')}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  { color: activeTab === 'TEACHER' ? colors.textPrimary : colors.textSecondary },
+                ]}
+              >
+                {strings.grades.bookTypeTeacher}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {items.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.exChipsRow}
+            >
+              {items.map((item, idx) => (
+                <TouchableOpacity
+                  key={item.id || idx}
+                  style={[
+                    styles.exChip,
+                    { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                    selectedIndex === idx && {
+                      backgroundColor: colors.primarySoft,
+                      borderColor: colors.primary,
+                    },
+                  ]}
+                  onPress={() => setSelectedIndex(idx)}
+                >
+                  <Text
+                    style={[
+                      styles.exChipText,
+                      { color: selectedIndex === idx ? colors.primaryText : colors.textMuted },
+                    ]}
+                  >
+                    {item.exerciseLabel}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          <Text style={[styles.exerciseMeta, { color: colors.textPrimary }]}>
+            {currentItem.exerciseLabel || strings.reader.openAnswers} • {displayPageLabel}
+          </Text>
+
+          <ScrollView style={styles.bodyScroll} showsVerticalScrollIndicator={false}>
+            {!!currentItem.imageUrl && (
+              <TouchableOpacity
+                style={[
+                  styles.imageCard,
+                  { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+                ]}
+                onPress={() => setZoomImageVisible(true)}
+                activeOpacity={0.9}
+              >
+                <Image
+                  source={{ uri: currentItem.imageUrl }}
+                  style={styles.answerImage}
+                  resizeMode="contain"
+                />
+                <View style={styles.zoomBadge}>
+                  <Text style={styles.zoomBadgeText}>🔍 {strings.reader.openAnswers}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {parsedPills.length > 0 ? (
+              <View style={styles.pillsRow}>
+                {parsedPills.map((p, idx) => (
+                  <View
+                    key={`${p.num}-${idx}`}
+                    style={[
+                      styles.answerCapsule,
+                      { backgroundColor: colors.cardBg, borderColor: colors.border },
+                    ]}
+                  >
+                    <Text style={[styles.capsuleText, { color: colors.textPrimary }]}>
+                      {p.num}. {p.ans}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : !!currentItem.solutionText ? (
+              <View
+                style={[
+                  styles.textKeyCard,
+                  { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                ]}
+              >
+                <Text style={[styles.textKeyValue, { color: colors.textPrimary }]}>
+                  {currentItem.solutionText}
+                </Text>
+              </View>
+            ) : !currentItem.imageUrl ? (
+              <View style={[styles.emptyCard, { backgroundColor: colors.surfaceAlt }]}>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  {strings.reader.noAnswerKeys}
+                </Text>
+              </View>
+            ) : null}
+
+            <View
+              style={[
+                styles.methodCard,
+                { backgroundColor: colors.primarySoft, borderColor: colors.border },
+              ]}
+            >
+              <View style={{ flex: 1 }}>
+                <View style={styles.methodHeader}>
+                  <Text style={styles.starIcon}>⭐</Text>
+                  <Text style={[styles.methodTitle, { color: colors.textPrimary }]}>
+                    {strings.grades.bookTypeTeacher}
+                  </Text>
+                </View>
+                <Text style={[styles.methodText, { color: colors.textSecondary }]}>
+                  {currentItem.methodologyNotes || strings.common.noData}
+                </Text>
+              </View>
+
+              {onSwitchToTeachersBook && (
+                <TouchableOpacity
+                  style={[
+                    styles.miniPageThumb,
+                    { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+                  ]}
+                  onPress={() => {
+                    onClose();
+                    onSwitchToTeachersBook(currentItem.teacherPageNumber || pageNumber);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.thumbLineBold} />
+                  <View style={[styles.thumbLine, { backgroundColor: colors.border }]} />
+                  <View style={[styles.thumbLineShort, { backgroundColor: colors.borderStrong }]} />
+                  <Text style={[styles.thumbPageNum, { color: colors.primaryText }]}>
+                    {t('common.pageShort')} {currentItem.teacherPageNumber || pageNumber}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
         </View>
       </View>
 
-      {/* Fullscreen Screenshot Zoom Modal */}
-      {imageUrl && (
+      {!!currentItem.imageUrl && (
         <Modal
-          visible={isFullScreenPreview}
+          visible={zoomImageVisible}
           transparent
           animationType="fade"
-          onRequestClose={() => setIsFullScreenPreview(false)}
+          onRequestClose={() => setZoomImageVisible(false)}
         >
-          <View style={styles.fullscreenOverlay}>
-            <View style={styles.fullscreenTopBar}>
-              <Text style={styles.fullscreenTitle}>
-                {exerciseLabel} — Skrinshot
-              </Text>
-              <TouchableOpacity
-                style={styles.fullscreenCloseBtn}
-                onPress={() => setIsFullScreenPreview(false)}
-              >
-                <Text style={styles.fullscreenCloseBtnText}>✕ Yopish</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.fullscreenImageWrap}>
-              <Image
-                source={{ uri: imageUrl }}
-                style={styles.fullscreenImage}
-                resizeMode="contain"
-              />
-            </View>
+          <View style={styles.zoomOverlay}>
+            <TouchableOpacity
+              style={styles.zoomCloseBtn}
+              onPress={() => setZoomImageVisible(false)}
+            >
+              <Text style={styles.zoomCloseText}>✕ {strings.common.close}</Text>
+            </TouchableOpacity>
+            <Image
+              source={{ uri: currentItem.imageUrl }}
+              style={styles.zoomFullImage}
+              resizeMode="contain"
+            />
           </View>
         </Modal>
       )}
@@ -161,223 +332,237 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 18,
   },
-  sheetCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
+  card: {
+    width: '100%',
+    maxWidth: 400,
     maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    borderRadius: 22,
+    padding: 18,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.16,
+    shadowRadius: 28,
     elevation: 10,
-  },
-  handle: {
-    width: 44,
-    height: 4,
-    backgroundColor: '#CBD5E1',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
+    borderWidth: 1,
   },
   header: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bulbEmoji: {
+    fontSize: 17,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    padding: 3,
+    gap: 4,
+    marginBottom: 14,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 11,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  segmentText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  exChipsRow: {
+    gap: 8,
+    paddingBottom: 10,
+  },
+  exChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  exChipText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  exerciseMeta: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  bodyScroll: {
+    maxHeight: 340,
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 16,
   },
-  badgeRow: {
+  answerCapsule: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  capsuleText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  textKeyCard: {
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  textKeyValue: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  imageCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 14,
+    position: 'relative',
+  },
+  answerImage: {
+    width: '100%',
+    height: 160,
+  },
+  zoomBadge: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  zoomBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  emptyCard: {
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+  emptyText: {
+    fontSize: 12.5,
+    lineHeight: 18,
+  },
+  methodCard: {
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  methodHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 4,
   },
-  teacherBadge: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#D97706',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  pageBadge: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#2563EB',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  exerciseTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  linkedSub: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#64748B',
-  },
-  scrollBody: {
-    marginBottom: 16,
-  },
-  screenshotBox: {
-    backgroundColor: '#0F172A',
-    borderRadius: 20,
-    padding: 14,
-    marginBottom: 12,
-  },
-  screenshotHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  sectionLabelWhite: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 0.5,
-  },
-  expandBadge: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  expandText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#38BDF8',
-  },
-  screenshotImageWrap: {
-    width: '100%',
-    height: 220,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#1E293B',
-  },
-  screenshotImage: {
-    width: '100%',
-    height: '100%',
-  },
-  tapToZoomHint: {
-    fontSize: 10,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  fullscreenOverlay: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  fullscreenTopBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-  },
-  fullscreenTitle: {
-    color: '#FFFFFF',
+  starIcon: {
     fontSize: 14,
+  },
+  methodTitle: {
+    fontSize: 13,
     fontWeight: '800',
   },
-  fullscreenCloseBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  fullscreenCloseBtnText: {
-    color: '#FFFFFF',
+  methodText: {
     fontSize: 12,
-    fontWeight: '700',
+    lineHeight: 17,
   },
-  fullscreenImageWrap: {
+  miniPageThumb: {
+    width: 58,
+    height: 70,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 6,
+    justifyContent: 'space-between',
+    transform: [{ rotate: '-4deg' }],
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  thumbLineBold: {
+    height: 5,
+    borderRadius: 2,
+    backgroundColor: '#93C5FD',
+    width: '90%',
+  },
+  thumbLine: {
+    height: 3,
+    borderRadius: 1.5,
+    width: '100%',
+  },
+  thumbLineShort: {
+    height: 3,
+    borderRadius: 1.5,
+    width: '65%',
+  },
+  thumbPageNum: {
+    fontSize: 9,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  zoomOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(11, 20, 55, 0.94)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 8,
-  },
-  fullscreenImage: {
-    width: '100%',
-    height: '100%',
-  },
-  answersBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 20,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 12,
   },
-  sectionLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#475569',
-    letterSpacing: 0.5,
-    marginBottom: 8,
+  zoomCloseBtn: {
+    position: 'absolute',
+    top: 42,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 99,
   },
-  answerText: {
-    fontSize: 13,
-    color: '#0F172A',
-    fontWeight: '600',
-    lineHeight: 22,
-  },
-  methodologyBox: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  methodologyLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#B45309',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  methodologyText: {
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 18,
-  },
-  actionsRow: {
-    paddingTop: 4,
-  },
-  doneBtn: {
-    backgroundColor: '#0F172A',
-    borderRadius: 20,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  doneBtnText: {
+  zoomCloseText: {
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 13,
+  },
+  zoomFullImage: {
+    width: '100%',
+    height: '80%',
   },
 });
