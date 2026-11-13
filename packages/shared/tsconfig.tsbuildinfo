@@ -1,1 +1,1 @@
-{"root":["./src/index.ts","./src/constants/index.ts","./src/dtos/index.ts","./src/enums/index.ts","./src/i18n/index.ts","./src/types/index.ts"],"version":"5.9.3"}
+{"root":["./src/index.ts","./src/constants/index.ts","./src/dtos/index.ts","./src/enums/index.ts","./src/i18n/index.ts","./src/types/index.ts","./src/utils/pageoffset.ts"],"version":"5.9.3"}

@@ -2,11 +2,12 @@
   "name": "smartteacherbook-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "SmartTeacherBook - Android e-textbook app for teachers + NestJS backend + Admin panel",
+  "description": "ilmçi (ilmchi.uz) - O‘qituvchilar va maktablar uchun raqamli darsliklar platformasi",
   "scripts": {
     "build:shared": "pnpm --filter @smartteacherbook/shared build",
     "dev:api": "pnpm --filter @smartteacherbook/api start:dev",
     "dev:admin": "pnpm --filter @smartteacherbook/admin dev",
+    "dev:web": "pnpm --filter @smartteacherbook/web dev",
     "dev:mobile": "pnpm --filter @smartteacherbook/mobile start",
     "build:all": "pnpm -r build",
     "test:security": "./apps/api/node_modules/.bin/ts-node --project apps/api/tsconfig.json tests/run-all-tests.ts",

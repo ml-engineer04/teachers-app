@@ -1,11 +1,67 @@
 import { AccessRequestStatus, AdminRole, BookType, HotspotType, MediaType, SubscriptionPlan } from '../enums';
 import { HotspotRect } from '../types';
 
-// Mobile Google Authentication (§7 Master Prompt)
+// Mobile & Web Authentication (Email/Password + Google OIDC)
 export interface GoogleAuthDto {
-  idToken: string; // Google JWT Token validated on NestJS backend
-  email?: string;
+  idToken?: string; // Google OIDC ID Token validated on NestJS backend
+  authorizationCode?: string; // Optional OAuth2 authorization code exchanged server-side
+  redirectUri?: string;
+  codeVerifier?: string;
+  nonce?: string;
+  deviceId: string;
+  deviceModel: string;
+  osVersion: string;
+  appVersion: string;
+  platform?: string;
+}
+
+export interface EmailRegisterDto {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
+  deviceId?: string;
+  deviceModel?: string;
+  osVersion?: string;
+  appVersion?: string;
+  platform?: string;
+}
+
+export interface EmailLoginDto {
+  email: string;
+  password: string;
+  deviceId: string;
+  deviceModel: string;
+  osVersion: string;
+  appVersion: string;
+  platform?: string;
+}
+
+export interface VerifyEmailDto {
+  email: string;
+  code: string;
+  deviceId: string;
+  deviceModel: string;
+  osVersion: string;
+  appVersion: string;
+  platform?: string;
+}
+
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+export interface ResetPasswordDto {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
+export interface LinkGoogleAccountDto {
+  linkToken: string;
+  password?: string;
+  otpCode?: string;
   deviceId: string;
   deviceModel: string;
   osVersion: string;
@@ -20,8 +76,19 @@ export interface AuthTokensResponse {
   user: {
     id: string;
     email: string;
+    firstName?: string | null;
+    lastName?: string | null;
     fullName: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
+    googleId?: string | null;
+    role?: string;
+    authProvider?: string;
+    emailVerified?: boolean;
+  };
+  subscription?: {
+    status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'PENDING';
+    plan: string | null;
+    expiresAt: string | null;
   };
 }
 
@@ -108,11 +175,33 @@ export interface UpdateSubjectDto {
 }
 
 // Admin Grade / Price Management
-export interface UpdateGradeDto {
+export interface CreateGradeDto {
+  gradeNumber: number;
+  title?: string;
+  description?: string;
   priceMonthlyUzs?: number;
   priceQuarterlyUzs?: number;
   priceYearlyUzs?: number;
   isActive?: boolean;
+}
+
+export interface UpdateGradeDto {
+  title?: string;
+  description?: string;
+  priceMonthlyUzs?: number;
+  priceQuarterlyUzs?: number;
+  priceYearlyUzs?: number;
+  isActive?: boolean;
+}
+
+export interface UpsertGradeSubjectPricingDto {
+  gradeId: number;
+  subjectId: string;
+  priceMonthlyUzs: number;
+  priceQuarterlyUzs: number;
+  priceYearlyUzs: number;
+  applyToAllGradesForSubject?: boolean;
+  applyToAllSubjectsForGrade?: boolean;
 }
 
 // Content Ingestion DTOs

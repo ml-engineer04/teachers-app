@@ -23,6 +23,8 @@ export interface User {
   id: string;
   email: string;
   googleId?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   fullName?: string | null;
   avatarUrl?: string | null;
   emailVerified?: boolean;
@@ -94,6 +96,7 @@ export interface Book {
   version: number;
   status: BookStatus;
   totalPages: number;
+  contentStartPdfPage?: number;
   manifestS3Key?: string | null;
   manifestSha256?: string | null;
   totalSizeBytes?: number;
