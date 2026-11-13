@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ilmçi — Raqamli darsliklar va SmartBoard platformasi</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="/vendor/pdfjs/pdf.min.js"></script>
+    <script>
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
+      }
+    </script>
+  </head>
+  <body class="bg-[#F6F8FC] text-[#0F172A] dark:bg-[#090D18] dark:text-[#F1F5F9] antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
