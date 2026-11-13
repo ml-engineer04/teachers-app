@@ -1,19 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { AppState, BackHandler, Keyboard, Platform, StyleSheet, View, StatusBar } from 'react-native';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { I18nProvider, useI18n } from './src/i18n/I18nContext';
+import { SplashScreen } from './src/screens/SplashScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { PinLockScreen } from './src/screens/PinLockScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { GradeDetailScreen } from './src/screens/GradeDetailScreen';
-import { ReaderScreen } from './src/screens/ReaderScreen';
+import { ReaderScreen, ReaderBookParam } from './src/screens/ReaderScreen';
 import { RequestsScreen } from './src/screens/RequestsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
-import { BottomNavigationDock, BottomNavTab } from './src/components/BottomNavigationDock';
+import {
+  BottomNavigationDock,
+  BottomNavTab,
+} from './src/components/BottomNavigationDock';
 import { SideMenuDrawer } from './src/components/SideMenuDrawer';
 import { secureStorage } from './src/services/storage/secureStorage';
-import { googleAuthService } from './src/services/auth/googleAuthService';
+import { mobileApi } from './src/services/api/mobileApi';
+import { SubscriptionManager } from './src/services/subscription/subscriptionManager';
+import { NotificationBanner } from './src/components/common/NotificationBanner';
+import { DownloadsManager } from './src/services/storage/downloadsManager';
 
-type ScreenState =
+export type ScreenState =
+  | 'SPLASH'
   | 'WELCOME'
   | 'PIN_LOCK'
   | 'HOME'
@@ -22,190 +31,573 @@ type ScreenState =
   | 'REQUESTS'
   | 'SETTINGS';
 
-export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<ScreenState>('WELCOME');
-  const [menuVisible, setMenuVisible] = useState<boolean>(false);
-  const [userProfile, setUserProfile] = useState<{ email: string; name: string; avatar?: string; photoUrl?: string }>({
-    email: '',
-    name: '',
-    avatar: '',
-    photoUrl: undefined,
-  });
-  const [activeGrade, setActiveGrade] = useState<number>(11);
-  const [activeSubject, setActiveSubject] = useState<string>('ENG');
+const AUTO_LOCK_MS = 60 * 1000;
 
-  // Auto-restore authenticated session or prompt for 4-digit PIN unlock
-  useEffect(() => {
-    (async () => {
-      try {
-        const token = await secureStorage.getAccessToken();
-        const profile = await secureStorage.getUserProfile();
-        const hasPin = await secureStorage.hasPinCode();
+function isUnlockedAppScreen(screen: ScreenState): boolean {
+  return (
+    screen === 'HOME' ||
+    screen === 'GRADE_DETAIL' ||
+    screen === 'READER' ||
+    screen === 'REQUESTS' ||
+    screen === 'SETTINGS'
+  );
+}
 
-        if (token && profile && profile.email) {
-          setUserProfile({
-            email: profile.email,
-            name: profile.fullName || profile.name || (profile.email ? profile.email.split('@')[0] : 'O‘qituvchi'),
-            photoUrl: (profile as any).photoUrl || undefined,
-          });
+function AppShell() {
+  const { colors } = useTheme();
+  const { strings } = useI18n();
 
-          // If a 4-digit PIN is configured, show fast PIN Lock screen!
-          if (hasPin) {
-            setCurrentScreen('PIN_LOCK');
-          } else {
-            setCurrentScreen('HOME');
-          }
-        }
-      } catch {}
-    })();
+  const [currentScreen, setCurrentScreen] = useState<ScreenState>('SPLASH');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const screenHistoryRef = useRef<ScreenState[]>([]);
+  const currentScreenRef = useRef<ScreenState>('SPLASH');
+  const preLockScreenRef = useRef<ScreenState | null>(null);
+  const lastActivityAtRef = useRef<number>(Date.now());
+  const lastPersistedActivityRef = useRef<number>(0);
+  const backgroundedAtRef = useRef<number | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  currentScreenRef.current = currentScreen;
+
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
   }, []);
 
+  const lockApp = useCallback(() => {
+    clearIdleTimer();
+    const screenNow = currentScreenRef.current;
+    if (!isUnlockedAppScreen(screenNow)) return;
+    preLockScreenRef.current = screenNow;
+    setIsMenuOpen(false);
+    setCurrentScreen('PIN_LOCK');
+  }, [clearIdleTimer]);
+
+  const scheduleIdleTimer = useCallback(
+    (delayMs = AUTO_LOCK_MS) => {
+      clearIdleTimer();
+      if (!isUnlockedAppScreen(currentScreenRef.current)) return;
+      idleTimerRef.current = setTimeout(() => {
+        lockApp();
+      }, Math.max(250, delayMs));
+    },
+    [clearIdleTimer, lockApp],
+  );
+
+  const recordUserActivity = useCallback(() => {
+    const now = Date.now();
+    lastActivityAtRef.current = now;
+    if (isUnlockedAppScreen(currentScreenRef.current)) {
+      scheduleIdleTimer(AUTO_LOCK_MS);
+      if (now - lastPersistedActivityRef.current >= 5000) {
+        lastPersistedActivityRef.current = now;
+        secureStorage.saveLastActivityAt(now).catch(() => {});
+      }
+    }
+  }, [scheduleIdleTimer]);
+
+  const navigateTo = useCallback(
+    (nextScreen: ScreenState, options?: { reset?: boolean }) => {
+      recordUserActivity();
+      setCurrentScreen((prev) => {
+        if (
+          options?.reset ||
+          nextScreen === 'HOME' ||
+          nextScreen === 'WELCOME' ||
+          nextScreen === 'SPLASH' ||
+          nextScreen === 'PIN_LOCK'
+        ) {
+          screenHistoryRef.current = [];
+        } else if (
+          prev !== nextScreen &&
+          prev !== 'SPLASH' &&
+          prev !== 'PIN_LOCK' &&
+          prev !== 'WELCOME'
+        ) {
+          const hist = screenHistoryRef.current;
+          if (hist[hist.length - 1] !== prev) {
+            hist.push(prev);
+            if (hist.length > 15) hist.shift();
+          }
+        }
+        return nextScreen;
+      });
+    },
+    [],
+  );
+
+  const goBackScreen = useCallback(() => {
+    const prevScreen = screenHistoryRef.current.pop();
+    setCurrentScreen(prevScreen || 'HOME');
+  }, []);
+
+  const [userProfile, setUserProfile] = useState<{
+    name: string;
+    email: string;
+    photoUrl?: string;
+  }>({
+    name: '',
+    email: '',
+    photoUrl: undefined,
+  });
+
+  const [activeGrade, setActiveGrade] = useState<number>(4);
+  const [activeSubjectCode, setActiveSubjectCode] = useState<string | undefined>(undefined);
+  const activeSubjectCodeRef = useRef<string | undefined>(undefined);
+  activeSubjectCodeRef.current = activeSubjectCode;
+  const bootstrappedRef = useRef<boolean>(false);
+  const [selectedPlan, setSelectedPlan] = useState<'MONTHLY' | 'THREE_MONTHS' | 'YEARLY'>(
+    'THREE_MONTHS',
+  );
+  const [activeBook, setActiveBook] = useState<ReaderBookParam | undefined>(undefined);
+  const [activeDaysRemaining, setActiveDaysRemaining] = useState<number | undefined>(undefined);
+
+  const refreshSubscriptionSummary = useCallback(async (): Promise<number | undefined> => {
+    try {
+      const accessList = await SubscriptionManager.syncFromBackend();
+      const activeList = accessList.filter(
+        (a) => a.status === 'ACTIVE' || a.status === 'EXPIRING_SOON',
+      );
+      const firstActive = activeList[0];
+      if (firstActive) {
+        setActiveGrade((prev) =>
+          activeList.some((a) => a.gradeId === prev) ? prev : firstActive.gradeId,
+        );
+        if (firstActive.subjectId && !activeSubjectCodeRef.current) {
+          setActiveSubjectCode(firstActive.subjectId);
+        }
+        setActiveDaysRemaining(firstActive.daysRemaining);
+        return firstActive.gradeId;
+      } else {
+        setActiveDaysRemaining(undefined);
+      }
+    } catch {}
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    if (isUnlockedAppScreen(currentScreen)) {
+      lastActivityAtRef.current = Date.now();
+      scheduleIdleTimer(AUTO_LOCK_MS);
+    } else {
+      clearIdleTimer();
+    }
+    return () => clearIdleTimer();
+  }, [currentScreen, scheduleIdleTimer, clearIdleTimer]);
+
+  useEffect(() => {
+    const kbShowSub = Keyboard.addListener('keyboardDidShow', recordUserActivity);
+    const kbHideSub = Keyboard.addListener('keyboardDidHide', recordUserActivity);
+    let cleanupWeb: (() => void) | undefined;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const events = ['pointerdown', 'keydown', 'touchstart', 'wheel'];
+      events.forEach((ev) => window.addEventListener(ev, recordUserActivity, { passive: true }));
+      cleanupWeb = () => {
+        events.forEach((ev) => window.removeEventListener(ev, recordUserActivity));
+      };
+    }
+    return () => {
+      kbShowSub.remove();
+      kbHideSub.remove();
+      cleanupWeb?.();
+    };
+  }, [recordUserActivity]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'background' || next === 'inactive') {
+        clearIdleTimer();
+        if (isUnlockedAppScreen(currentScreenRef.current)) {
+          const now = Date.now();
+          backgroundedAtRef.current = now;
+          lastPersistedActivityRef.current = now;
+          secureStorage.saveLastActivityAt(now).catch(() => {});
+        }
+        return;
+      }
+
+      if (next === 'active') {
+        const bgAt = backgroundedAtRef.current;
+        backgroundedAtRef.current = null;
+        if (isUnlockedAppScreen(currentScreenRef.current)) {
+          const now = Date.now();
+          const bgElapsed = bgAt ? now - bgAt : 0;
+          const idleElapsed = now - lastActivityAtRef.current;
+          if (bgElapsed >= AUTO_LOCK_MS || idleElapsed >= AUTO_LOCK_MS) {
+            lockApp();
+            return;
+          }
+          lastActivityAtRef.current = now;
+          scheduleIdleTimer(AUTO_LOCK_MS);
+        }
+        refreshSubscriptionSummary();
+      }
+    });
+    return () => sub.remove();
+  }, [clearIdleTimer, lockApp, refreshSubscriptionSummary, scheduleIdleTimer]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isMenuOpen) {
+        setIsMenuOpen(false);
+        return true;
+      }
+      if (
+        currentScreen === 'GRADE_DETAIL' ||
+        currentScreen === 'REQUESTS' ||
+        currentScreen === 'SETTINGS'
+      ) {
+        goBackScreen();
+        return true;
+      }
+      if (currentScreen === 'READER') {
+        goBackScreen();
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [isMenuOpen, currentScreen, goBackScreen]);
+
+  useEffect(() => {
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
+    let mounted = true;
+
+    const bootstrapSession = async () => {
+      const minSplashDelay = new Promise((res) => setTimeout(res, 750));
+      try {
+        const [token, profile, hasPin, lastActiveAt] = await Promise.all([
+          secureStorage.getAccessToken(),
+          secureStorage.getUserProfile(),
+          secureStorage.hasPinCode(),
+          secureStorage.getLastActivityAt(),
+        ]);
+
+        if (token && profile?.email) {
+          let resolvedName = profile.fullName || profile.name || profile.email.split('@')[0];
+          let resolvedPhoto = profile.avatarUrl || profile.photoUrl;
+
+          try {
+            const remote = await mobileApi.getProfile();
+            const remoteUser = remote?.user || remote;
+            if (remoteUser?.email) {
+              resolvedName = remoteUser.fullName || resolvedName;
+              resolvedPhoto = remoteUser.avatarUrl || resolvedPhoto;
+              await secureStorage.saveUserProfile({
+                ...profile,
+                ...remoteUser,
+                name: resolvedName,
+              });
+            }
+          } catch {}
+
+          await Promise.all([
+            refreshSubscriptionSummary(),
+            DownloadsManager.init().catch(() => {}),
+          ]);
+          await minSplashDelay;
+          if (!mounted) return;
+
+          setUserProfile({
+            name: resolvedName,
+            email: profile.email,
+            photoUrl: resolvedPhoto,
+          });
+          const elapsedSinceExit = lastActiveAt ? Date.now() - lastActiveAt : 0;
+          const shouldLockOnBoot = hasPin || (lastActiveAt !== null && elapsedSinceExit >= AUTO_LOCK_MS);
+          if (!shouldLockOnBoot) {
+            const now = Date.now();
+            lastActivityAtRef.current = now;
+            secureStorage.saveLastActivityAt(now).catch(() => {});
+          }
+          setCurrentScreen(shouldLockOnBoot ? 'PIN_LOCK' : 'HOME');
+          return;
+        }
+      } catch {}
+
+      await minSplashDelay;
+      if (mounted) setCurrentScreen('WELCOME');
+    };
+
+    bootstrapSession();
+    return () => {
+      mounted = false;
+    };
+    // Run strictly once on app mount; re-running on state changes would re-lock to PIN_LOCK.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSignInSuccess = async (user: {
+    email: string;
+    name: string;
+    avatar?: string;
+    photoUrl?: string;
+  }) => {
+    const resolvedPhoto = user.photoUrl || user.avatar;
+    setUserProfile({
+      name: user.name || user.email.split('@')[0],
+      email: user.email,
+      photoUrl: resolvedPhoto,
+    });
+    await refreshSubscriptionSummary();
+    const now = Date.now();
+    lastActivityAtRef.current = now;
+    lastPersistedActivityRef.current = now;
+    backgroundedAtRef.current = null;
+    preLockScreenRef.current = null;
+    secureStorage.saveLastActivityAt(now).catch(() => {});
+    setCurrentScreen('HOME');
+  };
+
   const handleLogout = async () => {
-    await googleAuthService.signOut();
-    await secureStorage.clearPinCode();
-    setUserProfile({ email: '', name: '', avatar: '', photoUrl: undefined });
-    setCurrentScreen('WELCOME');
+    try {
+      const deviceId = await secureStorage.getOrCreateDeviceId();
+      await mobileApi.logout(deviceId);
+    } catch {}
+    await secureStorage.clearAuthTokens();
+    SubscriptionManager.clearCache();
+    setIsMenuOpen(false);
+    setActiveBook(undefined);
+    setUserProfile({ name: '', email: '', photoUrl: undefined });
+    navigateTo('WELCOME', { reset: true });
   };
 
   const handleResetPinAndRelogin = async () => {
     await secureStorage.clearPinCode();
-    await secureStorage.clearAuthTokens();
-    setUserProfile({ email: '', name: '', avatar: '', photoUrl: undefined });
-    setCurrentScreen('WELCOME');
+    await handleLogout();
   };
 
+  const openBookInReader = (book: {
+    id: string;
+    title: string;
+    gradeId: number;
+    subjectId: string;
+    totalPages: number;
+    contentStartPdfPage?: number;
+    type?: string;
+    initialPage?: number;
+  }) => {
+    setActiveBook({
+      id: book.id,
+      title: book.title,
+      gradeId: book.gradeId,
+      subjectId: book.subjectId,
+      totalPages: book.totalPages || 6,
+      contentStartPdfPage: book.contentStartPdfPage,
+      type: book.type,
+      initialPage: book.initialPage,
+    });
+    navigateTo('READER');
+  };
+
+  const effectiveUserName = userProfile.name || strings.common.userFallback;
+  const isSplash = currentScreen === 'SPLASH';
   const showBottomDock =
-    currentScreen !== 'WELCOME' &&
-    currentScreen !== 'PIN_LOCK' &&
-    currentScreen !== 'READER';
+    currentScreen === 'HOME' ||
+    currentScreen === 'GRADE_DETAIL' ||
+    currentScreen === 'REQUESTS' ||
+    currentScreen === 'SETTINGS';
+
+  const activeNavTab: BottomNavTab =
+    currentScreen === 'GRADE_DETAIL'
+      ? 'GRADE_DETAIL'
+      : currentScreen === 'REQUESTS'
+      ? 'REQUESTS'
+      : currentScreen === 'SETTINGS'
+      ? 'SETTINGS'
+      : 'HOME';
 
   return (
-    <View style={[styles.root, currentScreen === 'READER' && { backgroundColor: '#0F172A' }]}>
-      <StatusBar style={currentScreen === 'READER' ? 'light' : 'dark'} />
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: isSplash ? '#070B19' : colors.background },
+      ]}
+      onStartShouldSetResponderCapture={() => {
+        recordUserActivity();
+        return false;
+      }}
+      onMoveShouldSetResponderCapture={() => {
+        recordUserActivity();
+        return false;
+      }}
+    >
+      <StatusBar
+        barStyle={isSplash ? 'light-content' : colors.statusBarStyle}
+        backgroundColor={isSplash ? '#070B19' : colors.background}
+      />
 
-      {/* Screen 1: Welcome (Email + OTP + Set PIN / Google Sign-In) */}
+      {currentScreen === 'SPLASH' && <SplashScreen />}
+
       {currentScreen === 'WELCOME' && (
-        <WelcomeScreen
-          onGoogleSignIn={(user) => {
-            setUserProfile(user);
-            setCurrentScreen('HOME');
-          }}
-        />
+        <WelcomeScreen onGoogleSignIn={handleSignInSuccess} />
       )}
 
-      {/* Screen 1B: Fast 4-Digit PIN Unlock (For returning users) */}
       {currentScreen === 'PIN_LOCK' && (
         <PinLockScreen
           userEmail={userProfile.email}
-          userName={userProfile.name}
-          onUnlockSuccess={() => setCurrentScreen('HOME')}
+          userName={effectiveUserName}
+          photoUrl={userProfile.photoUrl}
+          onUnlockSuccess={() => {
+            const now = Date.now();
+            lastActivityAtRef.current = now;
+            lastPersistedActivityRef.current = now;
+            backgroundedAtRef.current = null;
+            secureStorage.saveLastActivityAt(now).catch(() => {});
+            refreshSubscriptionSummary();
+            const targetScreen = preLockScreenRef.current || 'HOME';
+            preLockScreenRef.current = null;
+            setCurrentScreen(targetScreen);
+          }}
           onResetPin={handleResetPinAndRelogin}
         />
       )}
 
-      {/* Screen 2: Home Dashboard */}
       {currentScreen === 'HOME' && (
         <HomeScreen
           userEmail={userProfile.email}
-          userName={userProfile.name}
-          onOpenMenu={() => setMenuVisible(true)}
-          onOpenReader={(grade, subjectCode, bookType) => {
-            setActiveGrade(grade);
-            setActiveSubject(subjectCode);
-            setCurrentScreen('READER');
-          }}
+          userName={effectiveUserName}
+          photoUrl={userProfile.photoUrl}
+          onOpenMenu={() => setIsMenuOpen(true)}
+          onOpenReader={openBookInReader}
           onOpenGradeDetail={(grade, subjectCode) => {
             setActiveGrade(grade);
-            setActiveSubject(subjectCode);
-            setCurrentScreen('GRADE_DETAIL');
+            setActiveSubjectCode(subjectCode);
+            navigateTo('GRADE_DETAIL');
           }}
-          onOpenRequests={() => setCurrentScreen('REQUESTS')}
-          onOpenSettings={() => setCurrentScreen('SETTINGS')}
+          onOpenRequests={(grade, subjectCode) => {
+            if (grade) setActiveGrade(grade);
+            setActiveSubjectCode(subjectCode);
+            navigateTo('REQUESTS');
+          }}
+          onOpenSettings={() => navigateTo('SETTINGS')}
         />
       )}
 
-      {/* Screen 3: Grade Detail & Subjects */}
       {currentScreen === 'GRADE_DETAIL' && (
         <GradeDetailScreen
           grade={activeGrade}
-          userName={userProfile.name || 'O‘qituvchi'}
-          initialSubjectCode={activeSubject}
-          onBack={() => setCurrentScreen('HOME')}
-          onOpenReader={(grade, subjectCode, bookType) => {
-            setActiveGrade(grade);
-            setActiveSubject(subjectCode);
-            setCurrentScreen('READER');
-          }}
+          userName={effectiveUserName}
+          initialSubjectCode={activeSubjectCode}
+          onBack={goBackScreen}
+          onOpenReader={openBookInReader}
           onRequestAccess={(grade, subjectCode, plan) => {
             setActiveGrade(grade);
-            setActiveSubject(subjectCode);
-            setCurrentScreen('REQUESTS');
+            setActiveSubjectCode(subjectCode);
+            if (plan === 'MONTHLY' || plan === 'THREE_MONTHS' || plan === 'YEARLY') {
+              setSelectedPlan(plan);
+            }
+            navigateTo('REQUESTS');
           }}
         />
       )}
 
-      {/* Digital Book Reader (Page Curl, Hotspots, Teacher's Answers Modal) */}
       {currentScreen === 'READER' && (
         <ReaderScreen
+          book={activeBook}
+          initialPage={activeBook?.initialPage}
           userEmail={userProfile.email}
-          onExit={() => setCurrentScreen('HOME')}
-        />
-      )}
-
-      {/* Requests Screen (Monthly, 3-Month, Yearly Plans + Phone Input) */}
-      {currentScreen === 'REQUESTS' && (
-        <RequestsScreen
-          initialGrade={activeGrade}
-          initialSubject={activeSubject}
-          onBack={() => setCurrentScreen('HOME')}
-          onGradeGranted={(grade, subjectCode, plan) => {
-            setActiveGrade(grade);
-            setActiveSubject(subjectCode);
-            setCurrentScreen('HOME');
+          userId={userProfile.email || 'teacher_user'}
+          onExit={goBackScreen}
+          onOpenSettings={() => navigateTo('SETTINGS')}
+          onRenewSubscription={() => {
+            if (activeBook?.gradeId) setActiveGrade(activeBook.gradeId);
+            if (activeBook?.subjectId) setActiveSubjectCode(activeBook.subjectId);
+            navigateTo('REQUESTS');
           }}
         />
       )}
 
-      {/* Settings Screen */}
+      {currentScreen === 'REQUESTS' && (
+        <RequestsScreen
+          selectedGrade={activeGrade}
+          selectedSubjectCode={activeSubjectCode}
+          initialPlan={selectedPlan}
+          onBack={goBackScreen}
+          onRequestSubmittedAndApproved={refreshSubscriptionSummary}
+        />
+      )}
+
       {currentScreen === 'SETTINGS' && (
         <SettingsScreen
+          userName={effectiveUserName}
           userEmail={userProfile.email}
-          userName={userProfile.name || 'O‘qituvchi'}
-          onBack={() => setCurrentScreen('HOME')}
+          photoUrl={userProfile.photoUrl}
+          onBack={goBackScreen}
+          onOpenReader={(b) => {
+            DownloadsManager.init().catch(() => {});
+            openBookInReader(b);
+          }}
+          onOpenRequests={(gradeId, subjectId) => {
+            if (gradeId) setActiveGrade(gradeId);
+            if (subjectId) setActiveSubjectCode(subjectId);
+            navigateTo('REQUESTS');
+          }}
+          onProfileUpdated={({ name, photoUrl }) =>
+            setUserProfile((prev) => ({
+              ...prev,
+              name,
+              ...(photoUrl !== undefined ? { photoUrl } : {}),
+            }))
+          }
+          onResetPin={handleResetPinAndRelogin}
           onLogout={handleLogout}
         />
       )}
 
-      {/* Persistent Floating Bottom Navigation Dock across all main screens */}
       {showBottomDock && (
         <BottomNavigationDock
-          currentTab={currentScreen as BottomNavTab}
-          onSelectTab={(tab) => setCurrentScreen(tab)}
+          currentTab={activeNavTab}
+          onSelectTab={async (tab) => {
+            const resolvedActiveGrade = await refreshSubscriptionSummary();
+            if (tab === 'GRADE_DETAIL' && resolvedActiveGrade) {
+              setActiveGrade(resolvedActiveGrade);
+            }
+            if (tab === 'HOME') navigateTo('HOME', { reset: true });
+            if (tab === 'GRADE_DETAIL') navigateTo('GRADE_DETAIL');
+            if (tab === 'REQUESTS') navigateTo('REQUESTS');
+            if (tab === 'SETTINGS') navigateTo('SETTINGS');
+          }}
         />
       )}
 
-      {/* Sliding Side Navigation Menu Drawer */}
       <SideMenuDrawer
-        visible={menuVisible}
-        onClose={() => setMenuVisible(false)}
-        userName={userProfile.name}
+        visible={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        userName={effectiveUserName}
         userEmail={userProfile.email}
+        photoUrl={userProfile.photoUrl}
         activeGrade={activeGrade}
+        activeDaysRemaining={activeDaysRemaining}
         currentScreen={currentScreen}
-        onNavigate={(screen) => setCurrentScreen(screen)}
+        onNavigate={(screen) => {
+          setIsMenuOpen(false);
+          navigateTo(screen);
+        }}
         onLogout={handleLogout}
       />
+
+      <NotificationBanner />
     </View>
   );
 }
 
+export default function App() {
+  return (
+    <ThemeProvider>
+      <I18nProvider>
+        <AppShell />
+      </I18nProvider>
+    </ThemeProvider>
+  );
+}
+
 const styles = StyleSheet.create({
-  root: {
+  container: {
     flex: 1,
-    width: '100%',
-    minWidth: '100%',
-    alignSelf: 'stretch',
-    overflow: 'hidden',
-    backgroundColor: '#F8FAFC',
   },
 });

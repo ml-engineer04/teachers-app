@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,36 +6,113 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  BackHandler,
+  Platform,
 } from 'react-native';
 import { secureStorage } from '../services/storage/secureStorage';
 import { UserAvatar } from '../components/common/UserAvatar';
+import { notify } from '../services/notifications/notificationService';
+import { DS } from '../theme/designSystem';
+import { useTheme } from '../theme/ThemeContext';
+import { useI18n } from '../i18n/I18nContext';
 
 interface PinLockScreenProps {
   userEmail: string;
   userName?: string;
+  photoUrl?: string;
   onUnlockSuccess: () => void;
   onResetPin: () => void;
 }
 
+type PinMode = 'LOADING' | 'VERIFY' | 'CREATE' | 'CONFIRM';
+
+/**
+ * PIN Lock Screen (supports Light/Dark mode and uz/ru/en i18n)
+ */
 export const PinLockScreen: React.FC<PinLockScreenProps> = ({
   userEmail,
-  userName = 'O‘qituvchi',
+  userName,
+  photoUrl,
   onUnlockSuccess,
   onResetPin,
 }) => {
+  const { colors, isDark } = useTheme();
+  const { strings } = useI18n();
+  const displayName = userName?.trim() || strings.common.userFallback;
+
+  const [mode, setMode] = useState<PinMode>('LOADING');
   const [pin, setPin] = useState<string>('');
+  const [draftPin, setDraftPin] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [verifying, setVerifying] = useState<boolean>(false);
 
+  useEffect(() => {
+    let active = true;
+    secureStorage
+      .hasPinCode()
+      .then((hasPin) => {
+        if (!active) return;
+        setMode(hasPin ? 'VERIFY' : 'CREATE');
+      })
+      .catch(() => {
+        if (active) setMode('CREATE');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (mode === 'CONFIRM') {
+        setMode('CREATE');
+        setDraftPin('');
+        setPin('');
+        setErrorMsg(null);
+        return true;
+      }
+      return true;
+    });
+    return () => sub.remove();
+  }, [mode]);
+
   const handleKeyPress = async (digit: string) => {
-    if (verifying || pin.length >= 4) return;
+    if (verifying || mode === 'LOADING' || pin.length >= 4) return;
 
     setErrorMsg(null);
     const newPin = pin + digit;
     setPin(newPin);
 
-    // When 4 digits are completed, verify immediately
     if (newPin.length === 4) {
+      if (mode === 'CREATE') {
+        setDraftPin(newPin);
+        setTimeout(() => {
+          setPin('');
+          setMode('CONFIRM');
+        }, 160);
+        return;
+      }
+
+      if (mode === 'CONFIRM') {
+        if (newPin !== draftPin) {
+          setErrorMsg(strings.pin.mismatchPin);
+          notify.error(strings.common.error, strings.pin.mismatchPin);
+          setTimeout(() => {
+            setPin('');
+            setDraftPin('');
+            setMode('CREATE');
+          }, 420);
+          return;
+        }
+        setVerifying(true);
+        await secureStorage.savePinCode(newPin);
+        setVerifying(false);
+        notify.success(strings.common.success, strings.pin.pinSaved);
+        onUnlockSuccess();
+        return;
+      }
+
       setVerifying(true);
       const isValid = await secureStorage.verifyPinCode(newPin);
       setVerifying(false);
@@ -43,10 +120,11 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
       if (isValid) {
         onUnlockSuccess();
       } else {
-        setErrorMsg('Noto‘g‘ri PIN kod! Qaytadan kiriting.');
+        setErrorMsg(strings.pin.wrongPin);
+        notify.error(strings.common.error, strings.pin.wrongPin);
         setTimeout(() => {
           setPin('');
-        }, 400);
+        }, 420);
       }
     }
   };
@@ -57,25 +135,50 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
     setPin(pin.slice(0, -1));
   };
 
+  const titleLabel =
+    mode === 'CREATE'
+      ? strings.pin.setupTitle
+      : mode === 'CONFIRM'
+      ? strings.pin.confirmTitle
+      : mode === 'VERIFY'
+      ? strings.pin.enterTitle
+      : strings.common.loading;
+
+  const subtitleLabel =
+    mode === 'CREATE'
+      ? strings.pin.setupSubtitle
+      : mode === 'CONFIRM'
+      ? strings.pin.confirmSubtitle
+      : mode === 'VERIFY'
+      ? strings.pin.enterSubtitle
+      : strings.common.loading;
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.appBrandRow}>
-          <Text style={styles.brandEmoji}>📚</Text>
-          <Text style={styles.brandTitle}>SmartTeacherBook</Text>
-        </View>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.glowTop,
+          { backgroundColor: isDark ? 'rgba(79, 70, 229, 0.22)' : 'rgba(79, 70, 229, 0.08)' },
+        ]}
+      />
+      <View
+        style={[
+          styles.glowBottom,
+          { backgroundColor: isDark ? 'rgba(56, 189, 248, 0.14)' : 'rgba(14, 165, 233, 0.08)' },
+        ]}
+      />
 
-      {/* Main Center Area */}
       <View style={styles.centerContent}>
-        {/* User Badge */}
-        <UserAvatar name={userName} email={userEmail} size={68} style={{ marginBottom: 12 }} />
+        <View style={[styles.avatarRing, { borderColor: colors.primary + '55' }]}>
+          <UserAvatar name={displayName} email={userEmail} photoUrl={photoUrl} size={74} />
+        </View>
 
-        <Text style={styles.welcomeText}>Xush kelibsiz, {userName}!</Text>
-        {userEmail ? <Text style={styles.emailText}>{userEmail}</Text> : null}
-
-        <Text style={styles.pinInstruction}>Ilovaga kirish uchun 4 xonali PIN kodni tering</Text>
+        <Text style={[styles.userNameText, { color: colors.textPrimary }]}>{displayName}</Text>
+        {userEmail ? (
+          <Text style={[styles.userEmailText, { color: colors.primary }]}>{userEmail}</Text>
+        ) : null}
+        <Text style={[styles.lockTitle, { color: colors.textPrimary }]}>{titleLabel}</Text>
+        <Text style={[styles.lockSubtitle, { color: colors.textSecondary }]}>{subtitleLabel}</Text>
 
         {/* 4 Circular PIN Dots */}
         <View style={styles.dotsRow}>
@@ -87,102 +190,93 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
                 key={index}
                 style={[
                   styles.dot,
-                  isFilled && styles.dotFilled,
-                  isError && styles.dotError,
+                  { borderColor: colors.borderStrong },
+                  isFilled && {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.primary,
+                    shadowColor: colors.primary,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.6,
+                    shadowRadius: 8,
+                  },
+                  isError && {
+                    borderColor: colors.danger,
+                    backgroundColor: colors.danger,
+                  },
                 ]}
               />
             );
           })}
         </View>
 
-        {/* Error Alert */}
         {errorMsg ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>⚠️ {errorMsg}</Text>
+          <View style={[styles.errorPill, { backgroundColor: colors.dangerSoft }]}>
+            <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {errorMsg}</Text>
           </View>
         ) : (
-          <View style={{ height: 26 }} />
+          <View style={{ height: 28 }} />
         )}
 
-        {verifying && (
-          <View style={{ height: 20, marginBottom: 10 }}>
-            <ActivityIndicator size="small" color="#0F2942" />
-          </View>
-        )}
+        {verifying && <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 4 }} />}
       </View>
 
-      {/* Numeric Keypad (NumPad) */}
+      {/* Translucent Circular NumPad */}
       <View style={styles.keypad}>
-        {/* Row 1 */}
-        <View style={styles.keypadRow}>
-          {['1', '2', '3'].map((num) => (
-            <TouchableOpacity
-              key={num}
-              style={styles.keyBtn}
-              onPress={() => handleKeyPress(num)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.keyNumberText}>{num}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {[
+          ['1', '2', '3'],
+          ['4', '5', '6'],
+          ['7', '8', '9'],
+        ].map((row, rIdx) => (
+          <View key={rIdx} style={styles.keypadRow}>
+            {row.map((num) => (
+              <TouchableOpacity
+                key={num}
+                style={[
+                  styles.keyBtn,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    shadowColor: colors.shadowColor,
+                  },
+                ]}
+                onPress={() => handleKeyPress(num)}
+                activeOpacity={0.65}
+              >
+                <Text style={[styles.keyNumberText, { color: colors.textPrimary }]}>{num}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ))}
 
-        {/* Row 2 */}
         <View style={styles.keypadRow}>
-          {['4', '5', '6'].map((num) => (
-            <TouchableOpacity
-              key={num}
-              style={styles.keyBtn}
-              onPress={() => handleKeyPress(num)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.keyNumberText}>{num}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Row 3 */}
-        <View style={styles.keypadRow}>
-          {['7', '8', '9'].map((num) => (
-            <TouchableOpacity
-              key={num}
-              style={styles.keyBtn}
-              onPress={() => handleKeyPress(num)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.keyNumberText}>{num}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Row 4: Empty space, '0', Backspace */}
-        <View style={styles.keypadRow}>
-          <View style={styles.keyBtnEmpty} />
-
+          <View style={styles.keyBtnGhost}>
+            <Text style={styles.biometricGlyph}>🛡️</Text>
+          </View>
           <TouchableOpacity
-            style={styles.keyBtn}
+            style={[
+              styles.keyBtn,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                shadowColor: colors.shadowColor,
+              },
+            ]}
             onPress={() => handleKeyPress('0')}
-            activeOpacity={0.7}
+            activeOpacity={0.65}
           >
-            <Text style={styles.keyNumberText}>0</Text>
+            <Text style={[styles.keyNumberText, { color: colors.textPrimary }]}>0</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.keyBtn}
-            onPress={handleDelete}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.deleteKeyText}>⌫</Text>
+          <TouchableOpacity style={styles.keyBtnGhost} onPress={handleDelete} activeOpacity={0.65}>
+            <Text style={[styles.deleteKeyText, { color: colors.textSecondary }]}>⌫</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Forgot PIN / Reset Account Option */}
-      <View style={styles.footer}>
-        <TouchableOpacity onPress={onResetPin} activeOpacity={0.7} style={styles.resetBtn}>
-          <Text style={styles.resetBtnText}>PIN kodni unutdingizmi? / Boshqa hisob bilan kirish</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.forgotBtn} onPress={onResetPin} activeOpacity={0.75}>
+        <Text style={[styles.forgotText, { color: colors.primary }]}>
+          {strings.pin.forgotPinLogout}
+        </Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -190,153 +284,128 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingBottom: 26,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  header: {
-    alignItems: 'center',
-    paddingTop: 8,
+  glowTop: {
+    position: 'absolute',
+    top: -120,
+    left: -80,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
   },
-  appBrandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  brandEmoji: {
-    fontSize: 22,
-  },
-  brandTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F2942',
-    letterSpacing: -0.3,
+  glowBottom: {
+    position: 'absolute',
+    bottom: -140,
+    right: -100,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
   },
   centerContent: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingTop: 44,
+    paddingHorizontal: 24,
   },
-  avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+  avatarRing: {
+    padding: 4,
+    borderRadius: 44,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
     marginBottom: 12,
   },
-  avatarEmoji: {
-    fontSize: 38,
-  },
-  welcomeText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F2942',
-    marginBottom: 2,
-  },
-  emailText: {
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 16,
-  },
-  pinInstruction: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
-    marginBottom: 20,
+  userNameText: {
+    fontSize: 20,
+    fontWeight: '800',
     textAlign: 'center',
+  },
+  userEmailText: {
+    fontSize: 13,
+    marginTop: 3,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  lockTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  lockSubtitle: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 24,
   },
   dotsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     gap: 18,
-    marginBottom: 12,
   },
   dot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
   },
-  dotFilled: {
-    borderColor: '#0F2942',
-    backgroundColor: '#0F2942',
-  },
-  dotError: {
-    borderColor: '#EF4444',
-    backgroundColor: '#EF4444',
-  },
-  errorBox: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+  errorPill: {
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: DS.radius.pill,
   },
   errorText: {
-    color: '#EF4444',
     fontSize: 12,
     fontWeight: '700',
   },
   keypad: {
-    width: '100%',
-    maxWidth: 320,
-    alignSelf: 'center',
-    gap: 12,
-    marginBottom: 16,
+    paddingHorizontal: 42,
+    gap: 14,
   },
   keypadRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   keyBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  keyBtnEmpty: {
-    width: 72,
-    height: 72,
+  keyBtnGhost: {
+    width: 68,
+    height: 68,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   keyNumberText: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#0F2942',
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  biometricGlyph: {
+    fontSize: 22,
+    opacity: 0.65,
   },
   deleteKeyText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#64748B',
+    fontSize: 22,
+    fontWeight: '600',
   },
-  footer: {
+  forgotBtn: {
     alignItems: 'center',
-    paddingBottom: 8,
+    paddingVertical: 10,
   },
-  resetBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  resetBtnText: {
-    fontSize: 12,
+  forgotText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#2563EB',
-    textAlign: 'center',
   },
 });

@@ -1,575 +1,1047 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
-  SafeAreaView,
-  Alert,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import {
+  AccessRequest,
+  AccessRequestStatus,
+  Grade,
+  SubscriptionPlan,
+} from '@smartteacherbook/shared';
+import { DS } from '../theme/designSystem';
+import { useTheme } from '../theme/ThemeContext';
+import { useI18n } from '../i18n/I18nContext';
 import { mobileApi } from '../services/api/mobileApi';
 import { SubscriptionManager } from '../services/subscription/subscriptionManager';
-import { SubscriptionPlan } from '@smartteacherbook/shared';
+import { OfflineScreen } from '../components/common/OfflineScreen';
+import { notify } from '../services/notifications/notificationService';
+import { offlineCatalogCache } from '../services/storage/offlineCatalogCache';
+import {
+  formatUzPhone,
+  isValidUzPhone,
+  UZ_PHONE_MAX_LENGTH,
+  UZ_PHONE_PREFIX,
+} from '../utils/uzPhone';
 
 interface RequestsScreenProps {
-  initialGrade?: number;
-  initialSubject?: string;
-  initialPlan?: string;
-  onBack: () => void;
-  onGradeGranted: (grade: number, subjectCode: string, plan: string) => void;
+  selectedGrade?: number;
+  selectedSubjectCode?: string;
+  initialPlan?: 'MONTHLY' | 'THREE_MONTHS' | 'YEARLY';
+  onBack?: () => void;
+  onRequestSubmittedAndApproved?: () => void;
 }
 
 export const RequestsScreen: React.FC<RequestsScreenProps> = ({
-  initialGrade = 11,
-  initialSubject = 'ENG',
-  initialPlan = 'MONTHLY',
+  selectedGrade = 4,
+  selectedSubjectCode,
+  initialPlan = 'THREE_MONTHS',
   onBack,
-  onGradeGranted,
+  onRequestSubmittedAndApproved,
 }) => {
-  const [phone, setPhone] = useState('+998 ');
-  const [selectedGrade, setSelectedGrade] = useState<number>(initialGrade);
-  const [selectedSubject, setSelectedSubject] = useState<string>(initialSubject);
+  const { colors } = useTheme();
+  const { language, strings, t, formatGrade, formatSubject } = useI18n();
+
+  const [grade, setGrade] = useState<number>(selectedGrade);
+  const [availableGrades, setAvailableGrades] = useState<Grade[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('sub_eng');
+  const [plans, setPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>(
-    (initialPlan as SubscriptionPlan) || SubscriptionPlan.MONTHLY,
+    (SubscriptionPlan as any)[initialPlan] || SubscriptionPlan.THREE_MONTHS,
   );
-  const [requestSubmitted, setRequestSubmitted] = useState<boolean>(false);
+  const [phone, setPhone] = useState<string>(UZ_PHONE_PREFIX);
+  const [requests, setRequests] = useState<AccessRequest[]>([]);
+  const [activeSubs, setActiveSubs] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [isOffline, setIsOffline] = useState<boolean>(false);
 
-  const [pricingPlans, setPricingPlans] = useState<any[]>([
-    { id: 'MONTHLY', name: '1 Oylik (30 kun)', durationDays: 30, priceUzs: selectedGrade === 11 ? 119000 : 99000, sub: 'Sinov uchun qulay' },
-    { id: 'THREE_MONTHS', name: '3 Oylik (90 kun)', durationDays: 90, priceUzs: selectedGrade === 11 ? 299000 : 249000, sub: 'Choraklik eng ommabop' },
-    { id: 'YEARLY', name: '1 Yillik (365 kun)', durationDays: 365, priceUzs: selectedGrade === 11 ? 890000 : 799000, sub: 'Butun o‘quv yili uchun' },
-  ]);
-
-  const [subjects, setSubjects] = useState<any[]>([
-    { code: 'ENG', name: 'Ingliz tili', icon: '🇬🇧' },
-    { code: 'MATH', name: 'Matematika', icon: '📐' },
-    { code: 'PHYS', name: 'Fizika', icon: '⚛️' },
-    { code: 'CHEM', name: 'Kimyo', icon: '🧪' },
-    { code: 'BIO', name: 'Biologiya', icon: '🧬' },
-    { code: 'UZB', name: 'Ona tili', icon: '📖' },
-  ]);
+  const [submittedInfo, setSubmittedInfo] = useState<{
+    grade: number;
+    subjectName: string;
+    planName: string;
+    priceUzs: number;
+    phone: string;
+  } | null>(null);
 
   useEffect(() => {
-    mobileApi.getPricingPlans().then((data) => {
-      if (Array.isArray(data) && data.length > 0) setPricingPlans(data);
-    }).catch(() => {});
+    setGrade(selectedGrade);
+  }, [selectedGrade]);
 
-    mobileApi.getSubjects().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setSubjects(data.map((s) => ({
-          code: s.code,
-          name: s.name,
-          icon: s.icon || '📚',
-        })));
-      }
-    }).catch(() => {});
-  }, []);
-
-  const getPrice = () => {
-    const found = pricingPlans.find((p) => p.id === selectedPlan);
-    if (found && found.priceUzs) {
-      return `${Number(found.priceUzs).toLocaleString('uz-UZ')} UZS`;
+  useEffect(() => {
+    if (initialPlan && (SubscriptionPlan as any)[initialPlan]) {
+      setSelectedPlan((SubscriptionPlan as any)[initialPlan]);
     }
-    if (selectedPlan === SubscriptionPlan.MONTHLY) return '119,000 UZS';
-    if (selectedPlan === SubscriptionPlan.THREE_MONTHS) return '299,000 UZS';
-    return '890,000 UZS';
+  }, [initialPlan]);
+
+  const loadData = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const online = await mobileApi.checkConnectivity();
+        if (!online) {
+          setIsOffline(true);
+          if (!silent) setLoading(false);
+          return;
+        }
+        setIsOffline(false);
+
+        const [gradesData, subList, myReqs] = await Promise.all([
+          mobileApi.getGrades(),
+          mobileApi.getSubjects(),
+          mobileApi.getMyRequests(),
+        ]);
+
+        if (Array.isArray(gradesData)) {
+          const sortedGrades = [...gradesData].sort((a, b) => a.gradeNumber - b.gradeNumber);
+          setAvailableGrades(sortedGrades);
+          offlineCatalogCache.saveGrades(sortedGrades);
+          if (sortedGrades.length > 0 && !sortedGrades.some((g) => g.gradeNumber === grade)) {
+            setGrade(sortedGrades[0].gradeNumber);
+          }
+        }
+
+        setSubjects(subList);
+        offlineCatalogCache.saveSubjects(subList);
+        setRequests(myReqs || []);
+
+        if (subList.length > 0) {
+          if (selectedSubjectCode) {
+            const match = subList.find(
+              (s) =>
+                s.code?.toUpperCase() === selectedSubjectCode.toUpperCase() ||
+                s.id === selectedSubjectCode,
+            );
+            if (match) {
+              setSelectedSubjectId(match.id);
+            } else {
+              setSelectedSubjectId(subList[0].id);
+            }
+          } else {
+            setSelectedSubjectId((prev) =>
+              subList.some((s) => s.id === prev) ? prev : subList[0].id,
+            );
+          }
+        }
+
+        const syncedSubs = await SubscriptionManager.syncFromBackend();
+        setActiveSubs(syncedSubs.filter((a) => SubscriptionManager.isAccessValid(a)));
+        if (myReqs?.some((r) => r.status === AccessRequestStatus.PAID_APPROVED)) {
+          onRequestSubmittedAndApproved?.();
+        }
+      } catch (err: any) {
+        if (err?.isNetworkError) {
+          setIsOffline(true);
+          notify.warning(strings.modals.offlineTitle, strings.modals.offlineDesc);
+        } else {
+          notify.error(strings.common.error, err?.message || strings.common.unknownError);
+        }
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [
+      selectedSubjectCode,
+      onRequestSubmittedAndApproved,
+      grade,
+      strings.modals.offlineTitle,
+      strings.modals.offlineDesc,
+      strings.common.error,
+      strings.common.unknownError,
+    ],
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData(true);
+    mobileApi
+      .getPricingPlans(grade, selectedSubjectId || undefined)
+      .then((planList) => {
+        if (Array.isArray(planList) && planList.length > 0) {
+          setPlans(planList);
+        }
+      })
+      .catch(() => {});
+    setRefreshing(false);
+  }, [loadData, grade, selectedSubjectId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    mobileApi
+      .getPricingPlans(grade, selectedSubjectId || undefined)
+      .then((planList) => {
+        if (Array.isArray(planList) && planList.length > 0) {
+          setPlans(planList);
+        }
+      })
+      .catch(() => {});
+  }, [grade, selectedSubjectId]);
+
+  const activeSubject = subjects.find((s) => s.id === selectedSubjectId) || subjects[0];
+  const canonicalSubjectKey = (val?: string | null) =>
+    (val || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^sub_/, '')
+      .replace(/^english$/, 'eng')
+      .replace(/^matematika$/, 'math')
+      .replace(/^physics$/, 'phys')
+      .replace(/^fizika$/, 'phys')
+      .replace(/^ona tili$/, 'uzb');
+
+  const selectedSubKey = canonicalSubjectKey(
+    activeSubject?.code || activeSubject?.id || selectedSubjectId,
+  );
+
+  const duplicateRequest = requests.find((r) => {
+    if (Number(r.gradeId) !== Number(grade)) return false;
+    const reqKey = canonicalSubjectKey((r as any).subjectId || r.subjectName);
+    if (selectedSubKey && reqKey && reqKey !== selectedSubKey) return false;
+    return (
+      r.status === AccessRequestStatus.PENDING ||
+      r.status === AccessRequestStatus.AWAITING_PAYMENT ||
+      r.status === AccessRequestStatus.PAID_APPROVED
+    );
+  });
+
+  const duplicateActiveSub = activeSubs.find((s) => {
+    if (Number(s.gradeId) !== Number(grade)) return false;
+    const subKey = canonicalSubjectKey(s.subjectId);
+    return !selectedSubKey || !subKey || subKey === selectedSubKey;
+  });
+
+  const localizedSubjectName = formatSubject(activeSubject?.name, activeSubject?.id);
+
+  const duplicateBlockReason = duplicateActiveSub
+    ? `${formatGrade(grade)} (${localizedSubjectName}) — ${strings.common.active}`
+    : duplicateRequest
+    ? duplicateRequest.status === AccessRequestStatus.PAID_APPROVED
+      ? `${formatGrade(grade)} (${localizedSubjectName}) — ${strings.requests.statusApproved}`
+      : `${formatGrade(grade)} (${localizedSubjectName}) — ${strings.requests.statusPending}`
+    : null;
+
+  const getPlanShortLabel = (planId: string) => {
+    if (planId === 'MONTHLY') return t('common.months', { n: 1 });
+    if (planId === 'THREE_MONTHS') return t('common.months', { n: 3 });
+    if (planId === 'YEARLY') return t('common.months', { n: 12 });
+    return planId;
+  };
+
+  const activePlanObj = plans.find((p) => p.id === selectedPlan) || {
+    id: selectedPlan,
+    name: getPlanShortLabel(selectedPlan),
+    priceUzs: selectedPlan === 'YEARLY' ? 890000 : selectedPlan === 'MONTHLY' ? 119000 : 299000,
+    durationDays: selectedPlan === 'YEARLY' ? 365 : selectedPlan === 'MONTHLY' ? 30 : 90,
   };
 
   const handleSubmit = async () => {
-    if (phone.length < 13) {
-      Alert.alert('Xatolik', 'Iltimos, to‘liq telefon raqamingizni kiriting (+998 XX XXX XX XX)');
+    if (duplicateBlockReason) {
+      notify.warning(strings.common.warning, duplicateBlockReason);
+      return;
+    }
+
+    const formattedPhone = formatUzPhone(phone);
+    if (!isValidUzPhone(formattedPhone)) {
+      notify.warning(strings.common.warning, strings.requests.phoneError);
       return;
     }
 
     setSubmitting(true);
     try {
-      await mobileApi.createAccessRequest({
-        gradeId: selectedGrade,
-        subjectId: selectedSubject,
+      const created = await mobileApi.createAccessRequest({
+        gradeId: grade,
+        subjectId: activeSubject?.id || selectedSubjectId,
         plan: selectedPlan,
-        phoneNumber: phone,
+        phoneNumber: formattedPhone.trim(),
       });
-      setRequestSubmitted(true);
-    } catch {
-      // Fallback works automatically
-      setRequestSubmitted(true);
+
+      const refreshed = await mobileApi.getMyRequests();
+      setRequests(refreshed || []);
+
+      notify.success(strings.common.success, strings.requests.submitSuccess);
+      setSubmittedInfo({
+        grade,
+        subjectName: formatSubject(created.subjectName || activeSubject?.name, activeSubject?.id),
+        planName: getPlanShortLabel(selectedPlan),
+        priceUzs: created.priceUzs || activePlanObj.priceUzs,
+        phone: formattedPhone.trim(),
+      });
+    } catch (err: any) {
+      if (err?.isNetworkError) {
+        setIsOffline(true);
+        notify.error(strings.modals.offlineTitle, strings.modals.offlineDesc);
+      } else {
+        notify.error(strings.common.error, err?.message || strings.common.unknownError);
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSimulateApproval = () => {
-    const days = selectedPlan === SubscriptionPlan.MONTHLY ? 30 : selectedPlan === SubscriptionPlan.THREE_MONTHS ? 90 : 365;
-    const planName = selectedPlan === SubscriptionPlan.MONTHLY ? '1 Oylik' : selectedPlan === SubscriptionPlan.THREE_MONTHS ? '3 Oylik' : '1 Yillik';
-    SubscriptionManager.grantDemoAccess(selectedGrade, planName, days);
-
-    Alert.alert(
-      'To‘lov Tasdiqlandi! 🎉',
-      `Administrator to‘lovingizni qabul qildi. ${selectedGrade}-sinf darsliklari uchun ${days} kunlik RSA litsenziya berildi.`,
-      [
-        {
-          text: 'Darsliklarni Ochish',
-          onPress: () => onGradeGranted(selectedGrade, selectedSubject, selectedPlan),
-        },
-      ],
-    );
+  const getStatusMeta = (status: AccessRequestStatus) => {
+    switch (status) {
+      case AccessRequestStatus.PAID_APPROVED:
+        return {
+          label: `${strings.requests.statusApproved} ✅`,
+          bg: colors.accentSoft,
+          text: colors.accent,
+        };
+      case AccessRequestStatus.AWAITING_PAYMENT:
+        return {
+          label: strings.requests.statusPending,
+          bg: colors.primarySoft,
+          text: colors.primaryText,
+        };
+      case AccessRequestStatus.REJECTED:
+        return {
+          label: strings.requests.statusRejected,
+          bg: colors.dangerSoft,
+          text: colors.danger,
+        };
+      case AccessRequestStatus.EXPIRED:
+        return {
+          label: strings.modals.expiredTitle,
+          bg: colors.surfaceAlt,
+          text: colors.textMuted,
+        };
+      default:
+        return {
+          label: strings.requests.statusPending,
+          bg: colors.warningSoft,
+          text: colors.warning,
+        };
+    }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.topHeader}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
-          <Text style={styles.backArrow}>←</Text>
+  const localeTag = language === 'ru' ? 'ru-RU' : language === 'en' ? 'en-US' : 'uz-UZ';
+
+  if (isOffline) {
+    return <OfflineScreen onRetry={loadData} onContinueOffline={onBack} retrying={loading} />;
+  }
+
+  if (submittedInfo) {
+    return (
+      <View style={[styles.successScreen, { backgroundColor: colors.background }]}>
+        <View style={[styles.successHalo, { backgroundColor: colors.accentSoft }]}>
+          <View style={[styles.successCircle, { backgroundColor: colors.accent }]}>
+            <Svg width={44} height={44} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M5 13l4 4L19 7"
+                stroke="#FFFFFF"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </View>
+        </View>
+
+        <Text style={[styles.successTitle, { color: colors.textPrimary }]}>
+          {strings.requests.submitSuccess}
+        </Text>
+        <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
+          {strings.requests.paymentBoxBody} ({submittedInfo.phone})
+        </Text>
+
+        <View
+          style={[
+            styles.summaryPillCard,
+            { backgroundColor: colors.cardBg, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.summaryTop, { color: colors.textPrimary }]}>
+            {formatGrade(submittedInfo.grade)} • {submittedInfo.subjectName}
+          </Text>
+          <Text style={[styles.summaryBottom, { color: colors.primaryText }]}>
+            {submittedInfo.planName} • {submittedInfo.priceUzs.toLocaleString()}{' '}
+            {strings.common.currencySom}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.successPrimaryBtn, { backgroundColor: colors.primary }]}
+          onPress={() => {
+            setSubmittedInfo(null);
+            if (onBack) onBack();
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.successPrimaryBtnText, { color: colors.onPrimary }]}>
+            {strings.nav.home}
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.screenTitle}>Ruxsat So‘rash & Obuna</Text>
-        <View style={{ width: 44 }} />
+
+        <TouchableOpacity
+          style={styles.successSecondaryBtn}
+          onPress={() => {
+            setSubmittedInfo(null);
+            loadData();
+          }}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.successSecondaryBtnText, { color: colors.primaryText }]}>
+            {strings.requests.historyTitle}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Top Header */}
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+        ]}
+      >
+        <View style={[styles.headerLeft, { flex: 1 }]}>
+          {onBack && (
+            <TouchableOpacity
+              style={[styles.iconBtn, { backgroundColor: colors.backgroundSecondary }]}
+              onPress={onBack}
+            >
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M15 18l-6-6 6-6"
+                  stroke={colors.textPrimary}
+                  strokeWidth={2.2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+              {strings.requests.headerTitle}
+            </Text>
+            <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
+              {strings.requests.headerSubtitle}
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {!requestSubmitted ? (
-          <View style={styles.card}>
-            <View style={styles.iconCircle}>
-              <Text style={styles.iconEmoji}>📞</Text>
-            </View>
-
-            <Text style={styles.title}>Darsliklarga Ruxsat So‘rash</Text>
-            <Text style={styles.subtitle}>
-              Telefon raqamingizni qoldiring. Administratorimiz tez orada qo‘ng‘iroq qilib, darsliklarga kirish huquqini ochib beradi.
-            </Text>
-
-            {/* Select Grade */}
-            <Text style={styles.inputLabel}>SINFNI TANLANG</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 16 }}>
-              {Array.from({ length: 11 }, (_, i) => i + 1).map((g) => (
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Step 1: Active Grades */}
+        <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>
+          1. {strings.requests.gradeLabel}
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.gradeStrip}
+        >
+          {availableGrades.length === 0 && !loading ? (
+            <Text style={{ fontSize: 13, color: colors.textMuted }}>{strings.common.noData}</Text>
+          ) : (
+            (availableGrades.length > 0
+              ? availableGrades.map((g) => g.gradeNumber)
+              : [grade]
+            ).map((g) => {
+              const active = grade === g;
+              return (
                 <TouchableOpacity
                   key={g}
-                  style={[styles.selectPill, selectedGrade === g && styles.selectPillActive]}
-                  onPress={() => setSelectedGrade(g)}
+                  style={[
+                    styles.gradePill,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    active && { backgroundColor: colors.primary, borderColor: colors.primary },
+                  ]}
+                  onPress={() => setGrade(g)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={[styles.selectPillText, selectedGrade === g && styles.selectPillTextActive]}>
-                    {g}-sinf
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Select Subject */}
-            <Text style={styles.inputLabel}>FANNI TANLANG</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 16 }}>
-              {subjects.map((s) => (
-                <TouchableOpacity
-                  key={s.code}
-                  style={[styles.subjectPill, selectedSubject === s.code && styles.subjectPillActive]}
-                  onPress={() => setSelectedSubject(s.code)}
-                >
-                  <Text style={{ fontSize: 14, marginRight: 4 }}>{s.icon}</Text>
-                  <Text style={[styles.subjectPillText, selectedSubject === s.code && styles.subjectPillTextActive]}>
-                    {s.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Select Plan */}
-            <Text style={styles.inputLabel}>TARIF REJASI</Text>
-            <View style={styles.plansContainer}>
-              {pricingPlans.map((plan) => {
-                const planKey = (plan.id || 'MONTHLY') as SubscriptionPlan;
-                const isSelected = selectedPlan === planKey;
-                return (
-                  <TouchableOpacity
-                    key={plan.id}
-                    style={[styles.planOption, isSelected && styles.planOptionActive]}
-                    onPress={() => setSelectedPlan(planKey)}
+                  <Text
+                    style={[
+                      styles.gradePillText,
+                      { color: active ? colors.onPrimary : colors.textSecondary },
+                    ]}
                   >
-                    <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]} />
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={styles.planTitle}>{plan.name || `${plan.durationDays} kunlik`}</Text>
-                      <Text style={styles.planSub}>{plan.sub || (plan.badge ? `⭐ ${plan.badge}` : `${plan.durationDays} kun litsenziya`)}</Text>
-                    </View>
-                    <Text style={styles.planPriceText}>{(plan.priceUzs || 0).toLocaleString('uz-UZ')} UZS</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                    {formatGrade(g)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
 
-            {/* Phone Input */}
-            <Text style={styles.inputLabel}>BOG‘LANISH UCHUN TELEFON RAQAMINGIZ</Text>
-            <View style={styles.inputWrap}>
-              <Text style={styles.inputIcon}>📱</Text>
-              <TextInput
-                style={styles.textInput}
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                placeholder="+998 90 123 45 67"
-              />
-            </View>
-
-            {/* Price Preview & Submit */}
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>To‘lov miqdori:</Text>
-              <Text style={styles.summaryPrice}>{getPrice()}</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.submitButton}
-              activeOpacity={0.85}
-              onPress={handleSubmit}
-              disabled={submitting}
-            >
-              <Text style={styles.submitButtonText}>
-                {submitting ? 'Yuborilmoqda...' : 'So‘rovni Yuborish ›'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          /* Confirmation Screen after submitting */
-          <View style={styles.successCard}>
-            <View style={styles.successIconCircle}>
-              <Text style={{ fontSize: 32 }}>✓</Text>
-            </View>
-
-            <Text style={styles.successTitle}>So‘rovingiz Qabul Qilindi!</Text>
-            <Text style={styles.successText}>
-              <Text style={{ fontWeight: 'bold' }}>{phone}</Text> raqamingizga tez orada operatorimiz qo‘ng‘iroq qiladi va to‘lovdan so‘ng {selectedGrade}-sinf darsliklari ochiladi.
-            </Text>
-
-            <View style={styles.orderSummary}>
-              <View style={styles.orderRow}>
-                <Text style={styles.orderLabel}>Sinf:</Text>
-                <Text style={styles.orderVal}>{selectedGrade}-sinf</Text>
-              </View>
-              <View style={styles.orderRow}>
-                <Text style={styles.orderLabel}>Fan:</Text>
-                <Text style={styles.orderVal}>{subjects.find((s) => s.code === selectedSubject)?.name}</Text>
-              </View>
-              <View style={styles.orderRow}>
-                <Text style={styles.orderLabel}>Reja:</Text>
-                <Text style={styles.orderVal}>
-                  {selectedPlan === SubscriptionPlan.MONTHLY ? '1 Oylik (30 kun)' : selectedPlan === SubscriptionPlan.THREE_MONTHS ? '3 Oylik (90 kun)' : '1 Yillik'}
+        {/* Step 2: Subjects */}
+        <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>
+          2. {strings.requests.subjectLabel}
+        </Text>
+        <View style={styles.subjectGrid}>
+          {subjects.map((sub) => {
+            const active = sub.id === selectedSubjectId;
+            return (
+              <TouchableOpacity
+                key={sub.id}
+                style={[
+                  styles.subjectChip,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  active && { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+                ]}
+                onPress={() => setSelectedSubjectId(sub.id)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.subjectIcon}>{sub.icon || '📘'}</Text>
+                <Text
+                  style={[
+                    styles.subjectName,
+                    { color: active ? colors.primaryText : colors.textSecondary },
+                  ]}
+                >
+                  {formatSubject(sub.name, sub.id)}
                 </Text>
-              </View>
-              <View style={styles.orderRow}>
-                <Text style={styles.orderLabel}>Narxi:</Text>
-                <Text style={[styles.orderVal, { color: '#059669', fontWeight: '900' }]}>{getPrice()}</Text>
-              </View>
-              <View style={styles.orderRow}>
-                <Text style={styles.orderLabel}>Holat:</Text>
-                <Text style={[styles.orderVal, { color: '#D97706', fontWeight: '900' }]}>Kutilmoqda (PENDING)</Text>
-              </View>
-            </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-            {/* Demo Simulation Action Button */}
-            <TouchableOpacity
-              style={styles.demoSimulateButton}
-              onPress={handleSimulateApproval}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.demoSimulateText}>
-                ⚡ Demo: Operator Tasdiqlashini Sinash
-              </Text>
-            </TouchableOpacity>
+        {/* Step 3: Pricing Plans */}
+        <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>
+          3. {strings.requests.planLabel}
+        </Text>
+        <View style={styles.planList}>
+          {plans.map((plan) => {
+            const isSelected = selectedPlan === plan.id;
+            return (
+              <TouchableOpacity
+                key={plan.id}
+                style={[
+                  styles.planCard,
+                  {
+                    backgroundColor: isSelected ? colors.primarySoft : colors.cardBg,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => setSelectedPlan(plan.id)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.planLeft}>
+                  <View
+                    style={[
+                      styles.radioOuter,
+                      { borderColor: isSelected ? colors.primary : colors.textMuted },
+                    ]}
+                  >
+                    {isSelected && (
+                      <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.planTitleRow}>
+                      <Text style={[styles.planTitle, { color: colors.textPrimary }]}>
+                        {getPlanShortLabel(plan.id)}
+                      </Text>
+                    </View>
+                    <Text style={[styles.planDesc, { color: colors.textSecondary }]}>
+                      {plan.durationDays || 30} d.
+                    </Text>
+                  </View>
+                </View>
+                <Text
+                  style={[
+                    styles.planPrice,
+                    { color: isSelected ? colors.primaryText : colors.textPrimary },
+                  ]}
+                >
+                  {Number(plan.priceUzs || 0).toLocaleString()} {strings.common.currencySom}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-            <TouchableOpacity style={styles.doneButton} onPress={onBack} activeOpacity={0.8}>
-              <Text style={styles.doneButtonText}>Bosh Sahifaga Qaytish</Text>
-            </TouchableOpacity>
+        {/* Step 4: Phone Input */}
+        <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>
+          4. {strings.requests.phoneLabel}
+        </Text>
+        <View
+          style={[
+            styles.phoneCard,
+            { backgroundColor: colors.cardBg, borderColor: colors.border },
+          ]}
+        >
+          <TextInput
+            style={[
+              styles.phoneInput,
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.textPrimary,
+                borderColor: colors.border,
+              },
+            ]}
+            value={phone}
+            onChangeText={(text) => setPhone(formatUzPhone(text))}
+            placeholder={strings.requests.phonePlaceholder}
+            placeholderTextColor={colors.placeholder}
+            keyboardType="phone-pad"
+            maxLength={UZ_PHONE_MAX_LENGTH}
+          />
+          <Text style={[styles.phoneHint, { color: colors.textMuted }]}>
+            {strings.requests.paymentBoxBody}
+          </Text>
+        </View>
+
+        {duplicateBlockReason && (
+          <View
+            style={{
+              backgroundColor: colors.warningSoft,
+              borderColor: colors.warning,
+              borderWidth: 1,
+              borderRadius: 12,
+              padding: 12,
+              marginTop: 12,
+            }}
+          >
+            <Text style={{ color: colors.warning, fontSize: 13, fontWeight: '700' }}>
+              ⚠️ {duplicateBlockReason}
+            </Text>
           </View>
         )}
+
+        {/* Submit CTA */}
+        <TouchableOpacity
+          style={[
+            styles.submitBtn,
+            { backgroundColor: colors.primary, shadowColor: colors.primary },
+            (submitting || Boolean(duplicateBlockReason)) && { opacity: 0.55 },
+          ]}
+          onPress={handleSubmit}
+          disabled={submitting || Boolean(duplicateBlockReason)}
+          activeOpacity={0.85}
+        >
+          {submitting ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={[styles.submitBtnText, { color: colors.onPrimary }]}>
+              {duplicateBlockReason
+                ? duplicateBlockReason
+                : `${strings.requests.submitBtn} • ${Number(activePlanObj.priceUzs || 0).toLocaleString()} ${strings.common.currencySom}`}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Requests History */}
+        <View style={styles.historyHeader}>
+          <Text style={[styles.historyTitle, { color: colors.textPrimary }]}>
+            {strings.requests.historyTitle}
+          </Text>
+          <Text
+            style={[
+              styles.historyCount,
+              { color: colors.primaryText, backgroundColor: colors.primarySoft },
+            ]}
+          >
+            {requests.length}
+          </Text>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
+        ) : requests.length === 0 ? (
+          <View
+            style={[
+              styles.emptyBox,
+              { backgroundColor: colors.cardBg, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              {strings.requests.noHistory}
+            </Text>
+          </View>
+        ) : (
+          requests.map((req) => {
+            const st = getStatusMeta(req.status);
+            return (
+              <View
+                key={req.id}
+                style={[
+                  styles.historyCard,
+                  { backgroundColor: colors.cardBg, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.historyTop}>
+                  <Text style={[styles.historyItemTitle, { color: colors.textPrimary }]}>
+                    {formatGrade(req.gradeId)} •{' '}
+                    {formatSubject(req.subjectName, (req as any).subjectId)}
+                  </Text>
+                  <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
+                    <Text style={[styles.statusText, { color: st.text }]}>{st.label}</Text>
+                  </View>
+                </View>
+                <View style={styles.historyMetaRow}>
+                  <Text style={[styles.historyMetaText, { color: colors.textSecondary }]}>
+                    {getPlanShortLabel(req.plan)} • {Number(req.priceUzs || 0).toLocaleString()}{' '}
+                    {strings.common.currencySom}
+                  </Text>
+                  <Text style={[styles.historyDate, { color: colors.textMuted }]}>
+                    {new Date(req.createdAt).toLocaleDateString(localeTag)}
+                  </Text>
+                </View>
+                {!!req.internalNote && (
+                  <Text
+                    style={[
+                      styles.historyNote,
+                      {
+                        color: colors.textSecondary,
+                        backgroundColor: colors.backgroundSecondary,
+                      },
+                    ]}
+                  >
+                    {strings.requests.adminCommentLabel} {req.internalNote}
+                  </Text>
+                )}
+              </View>
+            );
+          })
+        )}
+
+        <View style={{ height: 32 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
-  topHeader: {
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
+  headerLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
-  backArrow: {
-    fontSize: 20,
-    color: '#0F172A',
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
     fontWeight: '800',
   },
-  screenTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
+  headerSub: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  scroll: {
+    flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 110,
+    padding: 16,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  iconEmoji: {
-    fontSize: 26,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 18,
-    marginTop: 6,
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#475569',
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  selectPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  selectPillActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
-  },
-  selectPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  selectPillTextActive: {
-    color: '#FFFFFF',
-  },
-  subjectPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  subjectPillActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#2563EB',
-  },
-  subjectPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  subjectPillTextActive: {
-    color: '#2563EB',
-  },
-  plansContainer: {
-    gap: 8,
-    marginBottom: 20,
-  },
-  planOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  planOptionActive: {
-    borderColor: '#2563EB',
-    backgroundColor: '#F0F7FF',
-  },
-  radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#CBD5E1',
-  },
-  radioCircleActive: {
-    borderColor: '#2563EB',
-    backgroundColor: '#2563EB',
-  },
-  planTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  planSub: {
-    fontSize: 10,
-    color: '#64748B',
-  },
-  planPriceText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#059669',
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-    marginBottom: 20,
-  },
-  inputIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  textInput: {
-    flex: 1,
-    height: 48,
+  sectionLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    marginBottom: 10,
+    marginTop: 12,
   },
-  summaryBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderColor: '#F1F5F9',
-    marginBottom: 16,
+  gradeStrip: {
+    gap: 8,
+    paddingBottom: 4,
   },
-  summaryLabel: {
+  gradePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  gradePillText: {
     fontSize: 13,
-    color: '#64748B',
+    fontWeight: '700',
+  },
+  subjectGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  subjectChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  subjectIcon: {
+    fontSize: 15,
+  },
+  subjectName: {
+    fontSize: 13,
     fontWeight: '600',
   },
-  summaryPrice: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#059669',
+  planList: {
+    gap: 10,
   },
-  submitButton: {
-    backgroundColor: '#0F172A',
-    paddingVertical: 16,
-    borderRadius: 20,
+  planCard: {
+    borderRadius: DS.radius.md,
+    padding: 14,
+    borderWidth: 1.5,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  submitButtonText: {
-    color: '#FFFFFF',
+  planLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+  },
+  planTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  planTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  planDesc: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  planPrice: {
     fontSize: 14,
     fontWeight: '800',
   },
-  successCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 26,
-    alignItems: 'center',
+  phoneCard: {
+    borderRadius: DS.radius.md,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  successIconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#DCFCE7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
+  phoneInput: {
+    height: 44,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 0,
+    fontSize: 15,
+    fontWeight: '600',
+    borderWidth: 1,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#0F172A',
-    textAlign: 'center',
-  },
-  successText: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 20,
+  phoneHint: {
+    fontSize: 11,
     marginTop: 8,
-    marginBottom: 20,
+    lineHeight: 16,
   },
-  orderSummary: {
-    width: '100%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    padding: 16,
-    gap: 8,
-    marginBottom: 20,
-  },
-  orderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  orderLabel: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  orderVal: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  demoSimulateButton: {
-    width: '100%',
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FCD34D',
-    paddingVertical: 13,
-    borderRadius: 18,
+  submitBtn: {
+    marginTop: 18,
+    borderRadius: DS.radius.md,
+    paddingVertical: 15,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  submitBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingHorizontal: 10,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 26,
     marginBottom: 10,
   },
-  demoSimulateText: {
-    color: '#92400E',
+  historyTitle: {
+    fontSize: 16,
     fontWeight: '800',
-    fontSize: 12,
   },
-  doneButton: {
+  historyCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 99,
+  },
+  emptyBox: {
+    borderRadius: DS.radius.md,
+    padding: 16,
+    borderWidth: 1,
+  },
+  emptyText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  historyCard: {
+    borderRadius: DS.radius.md,
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  historyTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  historyItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  statusPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  historyMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  historyMetaText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  historyDate: {
+    fontSize: 11,
+  },
+  historyNote: {
+    fontSize: 12,
+    marginTop: 6,
+    padding: 8,
+    borderRadius: 8,
+  },
+  successScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  successHalo: {
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 22,
+  },
+  successCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  successSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 320,
+    marginBottom: 20,
+  },
+  summaryPillCard: {
     width: '100%',
-    backgroundColor: '#0F172A',
+    maxWidth: 320,
+    borderRadius: DS.radius.md,
     paddingVertical: 14,
-    borderRadius: 18,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  summaryTop: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  summaryBottom: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  successPrimaryBtn: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: DS.radius.md,
+    paddingVertical: 15,
     alignItems: 'center',
   },
-  doneButtonText: {
-    color: '#FFFFFF',
+  successPrimaryBtnText: {
+    fontSize: 15,
     fontWeight: '800',
+  },
+  successSecondaryBtn: {
+    marginTop: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  successSecondaryBtnText: {
     fontSize: 13,
+    fontWeight: '700',
   },
 });

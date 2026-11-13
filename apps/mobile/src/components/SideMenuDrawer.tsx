@@ -1,24 +1,29 @@
 import React from 'react';
 import {
+  Modal,
   View,
   Text,
   TouchableOpacity,
-  Modal,
   StyleSheet,
   ScrollView,
   SafeAreaView,
   Dimensions,
 } from 'react-native';
 import { UserAvatar } from './common/UserAvatar';
+import { useTheme } from '../theme/ThemeContext';
+import { useI18n } from '../i18n/I18nContext';
+import type { AppLanguage } from '../services/storage/appPreferences';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface SideMenuDrawerProps {
   visible: boolean;
   onClose: () => void;
   userName?: string;
   userEmail?: string;
+  photoUrl?: string;
   activeGrade?: number;
+  activeDaysRemaining?: number;
   currentScreen: string;
   onNavigate: (screen: 'HOME' | 'GRADE_DETAIL' | 'READER' | 'REQUESTS' | 'SETTINGS') => void;
   onLogout: () => void;
@@ -27,202 +32,212 @@ interface SideMenuDrawerProps {
 export const SideMenuDrawer: React.FC<SideMenuDrawerProps> = ({
   visible,
   onClose,
-  userName = 'O‘qituvchi',
+  userName,
   userEmail = '',
-  activeGrade = 11,
+  photoUrl,
+  activeGrade,
+  activeDaysRemaining,
   currentScreen,
   onNavigate,
   onLogout,
 }) => {
-  const [currentLang, setCurrentLang] = React.useState<'UZ' | 'EN'>('UZ');
+  const { colors, isDark } = useTheme();
+  const { strings, language, setLanguage, formatGrade } = useI18n();
+
+  const resolvedName = userName || strings.common.userFallback;
 
   const menuItems: Array<{
-    id: 'HOME' | 'GRADE_DETAIL' | 'READER' | 'REQUESTS' | 'SETTINGS';
+    id: 'HOME' | 'GRADE_DETAIL' | 'REQUESTS' | 'SETTINGS';
     title: string;
     subtitle: string;
     icon: string;
-    badge?: string;
   }> = [
     {
       id: 'HOME',
-      title: 'Bosh Sahifa',
-      subtitle: 'Dars jadvali va davom ettirish',
+      title: strings.nav.home,
+      subtitle: strings.home.recommendedTitle,
       icon: '🏠',
     },
     {
       id: 'GRADE_DETAIL',
-      title: 'Sinflar & Darsliklar',
-      subtitle: '1–11 sinf kitoblari va audio/video',
+      title: strings.nav.grades,
+      subtitle: strings.grades.headerSubtitle,
       icon: '📚',
-      badge: '1–11',
-    },
-    {
-      id: 'READER',
-      title: 'Raqamli Kitobxon',
-      subtitle: '3D varaqlash va mashq javoblari',
-      icon: '📖',
-      badge: '3D Curl',
     },
     {
       id: 'REQUESTS',
-      title: 'Obuna & Savdo Stoli',
-      subtitle: '1, 3 va 12 oylik darslik to‘plamlari',
+      title: strings.nav.requests,
+      subtitle: strings.requests.headerSubtitle,
       icon: '💳',
-      badge: 'Faol',
     },
     {
       id: 'SETTINGS',
-      title: 'Sozlamalar & Qurilmalar',
-      subtitle: '2-qurilma nazorati va profil',
+      title: strings.nav.settings,
+      subtitle: strings.settings.headerSubtitle,
       icon: '⚙️',
     },
   ];
 
-  const handleItemPress = (screen: 'HOME' | 'GRADE_DETAIL' | 'READER' | 'REQUESTS' | 'SETTINGS') => {
+  const handleItemPress = (screen: 'HOME' | 'GRADE_DETAIL' | 'REQUESTS' | 'SETTINGS') => {
     onClose();
-    setTimeout(() => {
-      onNavigate(screen);
-    }, 150);
+    setTimeout(() => onNavigate(screen), 120);
   };
 
   const handleLogoutPress = () => {
     onClose();
-    setTimeout(() => {
-      onLogout();
-    }, 150);
+    setTimeout(() => onLogout(), 120);
   };
 
   if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        {/* Dark Backdrop (Tap to close) */}
-        <TouchableOpacity
-          style={styles.backdropTouch}
-          activeOpacity={1}
-          onPress={onClose}
-        />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+        <TouchableOpacity style={styles.backdropTouch} activeOpacity={1} onPress={onClose} />
 
-        {/* Sliding Side Drawer Sheet on the LEFT */}
-        <SafeAreaView style={styles.drawerSheet}>
-          <ScrollView
-            contentContainerStyle={styles.drawerScroll}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header: User Profile Card */}
-            <View style={styles.profileHeader}>
+        <SafeAreaView style={[styles.drawerSheet, { backgroundColor: colors.surface }]}>
+          <ScrollView contentContainerStyle={styles.drawerScroll} showsVerticalScrollIndicator={false}>
+            {/* Header Card */}
+            <View
+              style={[
+                styles.profileHeader,
+                { backgroundColor: isDark ? '#17224B' : '#1E293B' },
+              ]}
+            >
               <View style={styles.headerTopRow}>
-                <UserAvatar name={userName} email={userEmail} size={50} />
-
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={onClose}
-                  activeOpacity={0.7}
-                >
+                <UserAvatar name={resolvedName} email={userEmail} photoUrl={photoUrl} size={52} />
+                <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
                   <Text style={styles.closeIcon}>✕</Text>
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.userName}>{userName}</Text>
-              <Text style={styles.userEmail}>{userEmail}</Text>
+              <Text style={styles.userName}>{resolvedName}</Text>
+              {!!userEmail && <Text style={styles.userEmail}>{userEmail}</Text>}
 
               <View style={styles.statusPill}>
-                <View style={styles.greenPulse} />
+                <View style={styles.greenDot} />
                 <Text style={styles.statusText}>
-                  Faol Obuna • {activeGrade}-sinf (25 kun)
+                  {activeGrade
+                    ? `${strings.home.activePlanBadge} • ${formatGrade(activeGrade)}${
+                        activeDaysRemaining ? ` (${activeDaysRemaining} d)` : ''
+                      }`
+                    : strings.common.teacher}
                 </Text>
               </View>
             </View>
 
-            {/* Language Quick Switcher */}
-            <View style={styles.langBar}>
-              <Text style={styles.langLabel}>Ilova Tili:</Text>
-              <View style={styles.langToggleWrap}>
-                <TouchableOpacity
-                  style={[styles.langBtn, currentLang === 'UZ' && styles.langBtnActive]}
-                  onPress={() => setCurrentLang('UZ')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.langBtnText, currentLang === 'UZ' && styles.langBtnTextActive]}>
-                    🇺🇿 O‘zbek
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.langBtn, currentLang === 'EN' && styles.langBtnActive]}
-                  onPress={() => setCurrentLang('EN')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.langBtnText, currentLang === 'EN' && styles.langBtnTextActive]}>
-                    🇬🇧 English
-                  </Text>
-                </TouchableOpacity>
+            {/* 3-Way Language Switcher (UZ / RU / EN) */}
+            <View style={[styles.langBar, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.langLabel, { color: colors.textSecondary }]}>
+                {strings.drawer.language}:
+              </Text>
+              <View style={[styles.langToggleWrap, { backgroundColor: colors.surfaceAlt }]}>
+                {(
+                  [
+                    { code: 'uz', label: 'O‘Z' },
+                    { code: 'ru', label: 'РУ' },
+                    { code: 'en', label: 'EN' },
+                  ] as Array<{ code: AppLanguage; label: string }>
+                ).map((item) => {
+                  const active = language === item.code;
+                  return (
+                    <TouchableOpacity
+                      key={item.code}
+                      style={[
+                        styles.langBtn,
+                        active && { backgroundColor: colors.primaryDark },
+                      ]}
+                      onPress={() => setLanguage(item.code)}
+                    >
+                      <Text
+                        style={[
+                          styles.langBtnText,
+                          { color: active ? colors.onPrimary : colors.textSecondary },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
-            {/* Menu Items List */}
+            {/* Nav List */}
             <View style={styles.menuList}>
-              <Text style={styles.menuSectionTitle}>ASOSIY MENYU</Text>
-
+              <Text style={[styles.menuSectionTitle, { color: colors.textMuted }]}>
+                {strings.drawer.navigation.toUpperCase()}
+              </Text>
               {menuItems.map((item) => {
                 const isActive = currentScreen === item.id;
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.menuItem, isActive && styles.menuItemActive]}
+                    style={[
+                      styles.menuItem,
+                      isActive && { backgroundColor: colors.primarySoft },
+                    ]}
                     onPress={() => handleItemPress(item.id)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.75}
                   >
-                    <View style={[styles.menuIconBox, isActive && styles.menuIconBoxActive]}>
+                    <View
+                      style={[
+                        styles.menuIconBox,
+                        { backgroundColor: isActive ? colors.cardBg : colors.surfaceAlt },
+                      ]}
+                    >
                       <Text style={styles.menuEmoji}>{item.icon}</Text>
                     </View>
-
                     <View style={styles.menuTextBox}>
-                      <View style={styles.titleRow}>
-                        <Text style={[styles.menuTitle, isActive && styles.menuTitleActive]}>
-                          {item.title}
-                        </Text>
-                        {item.badge && (
-                          <View style={styles.badgePill}>
-                            <Text style={styles.badgeText}>{item.badge}</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                      <Text
+                        style={[
+                          styles.menuTitle,
+                          { color: isActive ? colors.primaryText : colors.textPrimary },
+                        ]}
+                      >
+                        {item.title}
+                      </Text>
+                      <Text style={[styles.menuSubtitle, { color: colors.textMuted }]} numberOfLines={1}>
+                        {item.subtitle}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Security & Info Box */}
-            <View style={styles.securityBox}>
-              <Text style={styles.securityTitle}>🛡️ Xavfsizlik & Oflayn Rejim</Text>
-              <Text style={styles.securityDesc}>
-                Android Keystore AES-256-GCM apparat shifrlash faol. Darsliklar qurilmada 100% himoyalangan.
+            {/* Offline Notice */}
+            <View
+              style={[
+                styles.securityBox,
+                { backgroundColor: colors.primarySoft, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.securityTitle, { color: colors.primaryText }]}>
+                🛡️ AES-256-GCM
+              </Text>
+              <Text style={[styles.securityDesc, { color: colors.textSecondary }]}>
+                {strings.drawer.offlineNotice}
               </Text>
             </View>
 
-            {/* Logout Button */}
             <TouchableOpacity
-              style={styles.logoutBtn}
+              style={[styles.logoutBtn, { backgroundColor: colors.dangerSoft }]}
               onPress={handleLogoutPress}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
-              <Text style={styles.logoutIcon}>🚪</Text>
-              <Text style={styles.logoutText}>Akkauntdan Chiqish</Text>
+              <Text style={[styles.logoutText, { color: colors.danger }]}>
+                {strings.drawer.logout}
+              </Text>
             </TouchableOpacity>
 
-            {/* Footer Version Info */}
             <View style={styles.footerInfo}>
-              <Text style={styles.appTitle}>SmartTeacherBook</Text>
-              <Text style={styles.versionText}>Versiya 1.0.0 (Build 6) • Android 15</Text>
+              <Text style={[styles.appTitle, { color: colors.textPrimary }]}>
+                {strings.common.appName}
+              </Text>
+              <Text style={[styles.versionText, { color: colors.textMuted }]}>
+                v2.0
+              </Text>
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -233,184 +248,133 @@ export const SideMenuDrawer: React.FC<SideMenuDrawerProps> = ({
 
 const styles = StyleSheet.create({
   modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 99999,
+    flex: 1,
+    flexDirection: 'row',
   },
   backdropTouch: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    zIndex: 100000,
+    flex: 1,
   },
   drawerSheet: {
     position: 'absolute',
     top: 0,
-    left: 0,
     bottom: 0,
-    width: 310,
-    maxWidth: '82%',
-    backgroundColor: '#FFFFFF',
-    zIndex: 100001,
+    left: 0,
+    width: Math.min(SCREEN_WIDTH * 0.82, 320),
     shadowColor: '#000',
-    shadowOffset: { width: 8, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 30,
+    shadowOffset: { width: 6, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 16,
   },
   drawerScroll: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   profileHeader: {
-    backgroundColor: '#F0FDF4',
-    padding: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-    marginBottom: 16,
+    padding: 20,
+    paddingTop: 28,
+    borderBottomRightRadius: 24,
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  avatarCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarEmoji: {
-    fontSize: 28,
+    marginBottom: 14,
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.06)',
-    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   closeIcon: {
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   userName: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   userEmail: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#CBD5E1',
     marginTop: 2,
-    fontWeight: '500',
+    marginBottom: 12,
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     alignSelf: 'flex-start',
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 14,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderRadius: 99,
   },
-  greenPulse: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#16A34A',
+  greenDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
     marginRight: 6,
   },
   statusText: {
+    color: '#6EE7B7',
     fontSize: 11,
-    fontWeight: '800',
-    color: '#15803D',
+    fontWeight: '700',
   },
   langBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    padding: 12,
-    borderRadius: 18,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
   },
   langLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
   },
   langToggleWrap: {
     flexDirection: 'row',
-    gap: 4,
+    padding: 3,
+    borderRadius: 10,
+    gap: 2,
   },
   langBtn: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 10,
-  },
-  langBtnActive: {
-    backgroundColor: '#0F172A',
+    borderRadius: 8,
   },
   langBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
-  },
-  langBtnTextActive: {
-    color: '#FFFFFF',
   },
   menuList: {
-    marginBottom: 20,
+    padding: 16,
   },
   menuSectionTitle: {
     fontSize: 10,
-    fontWeight: '900',
-    color: '#94A3B8',
+    fontWeight: '800',
     letterSpacing: 1,
     marginBottom: 10,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 18,
+    padding: 10,
+    borderRadius: 14,
     marginBottom: 6,
   },
-  menuItemActive: {
-    backgroundColor: '#F1F5F9',
-  },
   menuIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  menuIconBoxActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
   },
   menuEmoji: {
     fontSize: 18,
@@ -418,91 +382,50 @@ const styles = StyleSheet.create({
   menuTextBox: {
     flex: 1,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   menuTitle: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#1E293B',
-  },
-  menuTitleActive: {
-    color: '#0F172A',
-    fontWeight: '900',
-  },
-  badgePill: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#2563EB',
+    fontWeight: '700',
   },
   menuSubtitle: {
     fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
+    marginTop: 2,
   },
   securityBox: {
-    backgroundColor: '#F8FAFC',
-    padding: 14,
-    borderRadius: 18,
+    marginHorizontal: 16,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 16,
   },
   securityTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#0F172A',
     marginBottom: 4,
   },
   securityDesc: {
-    fontSize: 10,
-    color: '#64748B',
-    lineHeight: 15,
+    fontSize: 11,
+    lineHeight: 16,
   },
   logoutBtn: {
-    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 13,
+    borderRadius: 14,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-    marginBottom: 16,
-  },
-  logoutIcon: {
-    fontSize: 15,
-    marginRight: 6,
   },
   logoutText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#DC2626',
   },
   footerInfo: {
+    marginTop: 18,
     alignItems: 'center',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
   },
   appTitle: {
     fontSize: 12,
-    fontWeight: '900',
-    color: '#0F172A',
+    fontWeight: '800',
   },
   versionText: {
     fontSize: 10,
-    color: '#94A3B8',
     marginTop: 2,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,43 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
-  Modal,
+  BackHandler,
+  RefreshControl,
+  KeyboardAvoidingView,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Rect, Circle, Polygon } from 'react-native-svg';
 import { mobileApi } from '../services/api/mobileApi';
-import { googleAuthService } from '../services/auth/googleAuthService';
+import { googleAuthService, GoogleAuthOutcome } from '../services/auth/googleAuthService';
+import {
+  generateOidcNonce,
+  mountGoogleGisButton,
+} from '../services/auth/googleWebGis';
 import { secureStorage } from '../services/storage/secureStorage';
 import { DeviceLimitModal } from '../components/DeviceLimitModal';
+import { BrandLogo } from '../components/common/BrandLogo';
+import { OfflineScreen } from '../components/common/OfflineScreen';
+import { notify } from '../services/notifications/notificationService';
+import { DS } from '../theme/designSystem';
+import { useTheme } from '../theme/ThemeContext';
+import { useI18n } from '../i18n/I18nContext';
+import type { AppLanguage } from '../services/storage/appPreferences';
 
 interface WelcomeScreenProps {
   onGoogleSignIn: (user: { email: string; name: string; avatar?: string; photoUrl?: string }) => void;
 }
 
-// Official Google 'G' 4-color Vector Logo
+type AuthStep =
+  | 'INPUT_EMAIL'
+  | 'INPUT_CODE'
+  | 'FORGOT_PASSWORD'
+  | 'LINK_GOOGLE'
+  | 'SET_PIN'
+  | 'CONFIRM_PIN';
+
+type AuthMode = 'LOGIN' | 'REGISTER';
+type VerificationPurpose = 'EMAIL_VERIFY' | 'OTP_LOGIN';
+type RetryAction = 'LOGIN' | 'VERIFY_CODE' | 'LINK_GOOGLE' | 'GOOGLE_NATIVE' | null;
+
 const GoogleLogoIcon = ({ size = 20 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Path
@@ -43,29 +67,107 @@ const GoogleLogoIcon = ({ size = 20 }: { size?: number }) => (
   </Svg>
 );
 
+const HeroSceneIllustration = ({ dark = false }: { dark?: boolean }) => (
+  <Svg width="100%" height={126} viewBox="0 0 300 130" fill="none">
+    <Circle
+      cx="60"
+      cy="40"
+      r="30"
+      fill={dark ? 'rgba(99, 102, 241, 0.18)' : '#DBEAFE'}
+      opacity="0.8"
+    />
+    <Circle
+      cx="245"
+      cy="36"
+      r="24"
+      fill={dark ? 'rgba(129, 140, 248, 0.16)' : '#E0E7FF'}
+      opacity="0.85"
+    />
+    <Rect
+      x="75"
+      y="54"
+      width="150"
+      height="58"
+      rx="8"
+      fill={dark ? '#19233C' : '#FFFFFF'}
+      stroke={dark ? '#334368' : '#C7D2FE'}
+      strokeWidth="1.5"
+    />
+    <Polygon
+      points="150,24 232,54 68,54"
+      fill={dark ? '#25335E' : '#E0E7FF'}
+      stroke={dark ? '#6366F1' : '#818CF8'}
+      strokeWidth="1.5"
+    />
+    <Rect x="136" y="74" width="28" height="38" rx="6" fill={dark ? '#5558EC' : '#4F46E5'} />
+    <Rect x="92" y="68" width="24" height="18" rx="4" fill={dark ? '#25335E' : '#DBEAFE'} />
+    <Rect x="184" y="68" width="24" height="18" rx="4" fill={dark ? '#25335E' : '#DBEAFE'} />
+    <Circle
+      cx="44"
+      cy="72"
+      r="18"
+      fill={dark ? '#1E294D' : '#EEF2FF'}
+      stroke={dark ? '#3B4C7A' : '#C7D2FE'}
+      strokeWidth="1.5"
+    />
+    <Path d="M38 69L48 64V76L38 81V69Z" fill={dark ? '#A5B4FC' : '#4F46E5'} />
+    <Circle
+      cx="256"
+      cy="72"
+      r="18"
+      fill={dark ? 'rgba(251, 191, 36, 0.16)' : '#FEF3C7'}
+      stroke={dark ? 'rgba(251, 191, 36, 0.4)' : '#FDE68A'}
+      strokeWidth="1.5"
+    />
+    <Polygon points="256,64 265,69 256,74 247,69" fill={dark ? '#FBBF24' : '#D97706'} />
+    <Rect x="252" y="73" width="8" height="4" rx="2" fill="#F59E0B" />
+  </Svg>
+);
+
+const tr = (lang: AppLanguage, uz: string, ru: string, en: string) =>
+  lang === 'ru' ? ru : lang === 'en' ? en : uz;
+
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) => {
-  const [language, setLanguage] = useState<'uz' | 'en'>('uz');
+  const { colors, isDark } = useTheme();
+  const { language, setLanguage, strings, t } = useI18n();
+  const [step, setStep] = useState<AuthStep>('INPUT_EMAIL');
+  const [authMode, setAuthMode] = useState<AuthMode>('LOGIN');
+  const [verificationPurpose, setVerificationPurpose] = useState<VerificationPurpose>('EMAIL_VERIFY');
 
-  // Multi-step authentication flow:
-  // 1. INPUT_EMAIL: Enter Gmail
-  // 2. INPUT_CODE: Enter 6-digit OTP from email
-  // 3. SET_PIN: Create 4-digit PIN for subsequent logins
-  // 4. CONFIRM_PIN: Confirm the 4-digit PIN
-  const [step, setStep] = useState<'INPUT_EMAIL' | 'INPUT_CODE' | 'SET_PIN' | 'CONFIRM_PIN'>(
-    'INPUT_EMAIL'
-  );
-
-  // Email OTP state
+  // Credentials & form inputs
   const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpLoading, setOtpLoading] = useState(false);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
 
-  // 4-Digit PIN Creation state
+  // Forgot / Reset password state
+  const [resetCode, setResetCode] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetCodeSent, setResetCodeSent] = useState(false);
+
+  // Google account linking state (Scenario C)
+  const [linkingToken, setLinkingToken] = useState<string | null>(null);
+  const [linkingEmail, setLinkingEmail] = useState('');
+  const [linkingHasPassword, setLinkingHasPassword] = useState(true);
+  const [linkingMethod, setLinkingMethod] = useState<'PASSWORD' | 'CODE'>('PASSWORD');
+  const [linkingPassword, setLinkingPassword] = useState('');
+  const [linkingCode, setLinkingCode] = useState('');
+  const [linkingCodeSent, setLinkingCodeSent] = useState(false);
+
+  // 6-box OTP state
+  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const otpInputRefs = useRef<Array<TextInput | null>>([]);
+  const [focusedOtpIdx, setFocusedOtpIdx] = useState<number | null>(null);
+  const [resendSeconds, setResendSeconds] = useState(45);
+
+  // PIN creation state
   const [firstPin, setFirstPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
 
-  // Authenticated user holding state (before PIN setup completes)
+  // Pending authenticated user before PIN step completes
   const [pendingUser, setPendingUser] = useState<{
     email: string;
     name: string;
@@ -73,155 +175,619 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
     photoUrl?: string;
   } | null>(null);
 
-  // Google OAuth loading state
+  // Loading & feedback state
+  const [authLoading, setAuthLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [webGoogleModalVisible, setWebGoogleModalVisible] = useState(false);
-  const [webEmailInput, setWebEmailInput] = useState('');
-  const [webNameInput, setWebNameInput] = useState('');
-
-  // Two-Device Limit state
-  const [limitModalVisible, setLimitModalVisible] = useState(false);
-  const [conflictingDevices, setConflictingDevices] = useState<any[]>([]);
-  const [pendingUserId, setPendingUserId] = useState<string | undefined>(undefined);
-
-  // Status feedback
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  /**
-   * STEP 1: Send OTP to Gmail
-   */
-  const handleSendOtp = async () => {
-    if (!email || !email.includes('@')) {
-      setErrorMsg(
-        language === 'uz'
-          ? 'Iltimos, to‘g‘ri Gmail elektron pochtangizni kiriting'
-          : 'Please enter a valid Gmail address'
-      );
+  useEffect(() => {
+    if (errorMsg) notify.error(strings.common.error, errorMsg);
+  }, [errorMsg, strings.common.error]);
+
+  useEffect(() => {
+    if (successMsg) notify.success(strings.common.success, successMsg);
+  }, [successMsg, strings.common.success]);
+
+  // Device limit & offline state
+  const [limitModalVisible, setLimitModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (limitModalVisible) {
+        setLimitModalVisible(false);
+        return true;
+      }
+      if (step !== 'INPUT_EMAIL') {
+        setStep('INPUT_EMAIL');
+        return true;
+      }
+      if (authMode === 'REGISTER') {
+        setAuthMode('LOGIN');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [limitModalVisible, step, authMode]);
+  const [conflictingDevices, setConflictingDevices] = useState<any[]>([]);
+  const [pendingUserId, setPendingUserId] = useState<string | undefined>(undefined);
+  const [lastRetryAction, setLastRetryAction] = useState<RetryAction>(null);
+  const [isOfflineError, setIsOfflineError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setErrorMsg(null);
+    setIsOfflineError(false);
+    await mobileApi.checkConnectivity().catch(() => false);
+    setRefreshing(false);
+  };
+
+  // Web GIS button mounting
+  const gisContainerRef = useRef<any>(null);
+  const googleConfigured = googleAuthService.isGoogleClientConfigured();
+  const [gisMounted, setGisMounted] = useState(false);
+
+  const completeAuthenticatedSession = async (res: {
+    accessToken: string;
+    refreshToken: string;
+    user: any;
+  }) => {
+    await googleAuthService.persistSessionResponse(res);
+    const userObj = {
+      email: res.user.email,
+      name: res.user.fullName || res.user.email.split('@')[0],
+      avatar: '',
+      photoUrl: res.user.avatarUrl || undefined,
+    };
+
+    const hasPin = await secureStorage.hasPinCode();
+    if (hasPin) {
+      onGoogleSignIn(userObj);
+    } else {
+      setPendingUser(userObj);
+      setStep('SET_PIN');
+    }
+  };
+
+  const handleGoogleOutcome = async (outcome: GoogleAuthOutcome) => {
+    setGoogleLoading(false);
+
+    if (outcome.success && outcome.user) {
+      const userObj = {
+        email: outcome.user.email,
+        name: outcome.user.fullName || outcome.user.email.split('@')[0],
+        avatar: '',
+        photoUrl: outcome.user.avatarUrl || undefined,
+      };
+      const hasPin = await secureStorage.hasPinCode();
+      if (hasPin) {
+        onGoogleSignIn(userObj);
+      } else {
+        setPendingUser(userObj);
+        setStep('SET_PIN');
+      }
       return;
     }
+
+    if (outcome.deviceLimitExceeded) {
+      setLastRetryAction('GOOGLE_NATIVE');
+      setConflictingDevices(outcome.conflictingDevices || []);
+      setPendingUserId(outcome.userId);
+      setLimitModalVisible(true);
+      return;
+    }
+
+    if (outcome.requiresAccountLinking && outcome.linkToken) {
+      setLinkingToken(outcome.linkToken);
+      setLinkingEmail(outcome.linkingEmail || '');
+      const hasPwd = Boolean(outcome.linkingHasPassword);
+      setLinkingHasPassword(hasPwd);
+      setLinkingMethod(hasPwd ? 'PASSWORD' : 'CODE');
+      setLinkingPassword('');
+      setLinkingCode('');
+      setLinkingCodeSent(false);
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      setStep('LINK_GOOGLE');
+      return;
+    }
+
+    if (outcome.errorMessage) {
+      setErrorMsg(outcome.errorMessage);
+    }
+  };
+
+  const handleWebCredentialRef = useRef<(cred: string, nonce: string) => void>(() => {});
+  handleWebCredentialRef.current = async (credential: string, nonce: string) => {
     setErrorMsg(null);
     setSuccessMsg(null);
-    setOtpLoading(true);
+    setGoogleLoading(true);
+    const outcome = await googleAuthService.signInWithCredential({
+      idToken: credential,
+      nonce,
+    });
+    await handleGoogleOutcome(outcome);
+  };
 
+  useEffect(() => {
+    if (Platform.OS !== 'web' || step !== 'INPUT_EMAIL' || authMode !== 'LOGIN' || !googleConfigured) {
+      setGisMounted(false);
+      return;
+    }
+
+    let cancelled = false;
+    const mount = async () => {
+      const el = gisContainerRef.current as HTMLElement | null;
+      if (!el || typeof HTMLElement === 'undefined' || !(el instanceof HTMLElement)) {
+        return;
+      }
+      const nonce = generateOidcNonce();
+      const ok = await mountGoogleGisButton({
+        container: el,
+        nonce,
+        locale: language,
+        width: 360,
+        onCredential: (credential, usedNonce) => {
+          if (!cancelled) {
+            handleWebCredentialRef.current(credential, usedNonce);
+          }
+        },
+        onError: (msg) => {
+          if (!cancelled) {
+            setErrorMsg(msg);
+          }
+        },
+      });
+      if (!cancelled) {
+        setGisMounted(ok);
+      }
+    };
+
+    mount();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, authMode, googleConfigured, language]);
+
+  // Countdown timer for 6-digit verification resend
+  useEffect(() => {
+    if (step !== 'INPUT_CODE' || resendSeconds <= 0) return;
+    const t = setInterval(() => {
+      setResendSeconds((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [step, resendSeconds]);
+
+  const formatTimer = (secs: number) => {
+    const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+    const ss = String(secs % 60).padStart(2, '0');
+    return `${mm}:${ss}`;
+  };
+
+  const clearFeedback = () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+  };
+
+  const handleApiError = (err: any, fallbackMsg: string, retryAction: RetryAction = null) => {
+    if (err?.isNetworkError) {
+      setIsOfflineError(true);
+      notify.error(strings.modals.offlineTitle, strings.modals.offlineDesc);
+      return;
+    }
+    if (err?.status === 403 && (err?.data?.code === 'DEVICE_LIMIT_EXCEEDED' || err?.data?.devices)) {
+      setLastRetryAction(retryAction);
+      setConflictingDevices(err.data.devices || []);
+      setPendingUserId(err.data.userId);
+      setLimitModalVisible(true);
+      return;
+    }
+    setErrorMsg(err?.message || fallbackMsg);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Email + Password Login
+  // ---------------------------------------------------------------------------
+  const handleEmailLogin = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMsg(strings.auth.invalidEmail);
+      return;
+    }
+    if (!password) {
+      setErrorMsg(strings.auth.fillAllFields);
+      return;
+    }
+
+    clearFeedback();
+    setAuthLoading(true);
     try {
-      const cleanEmail = email.trim().toLowerCase();
-      await mobileApi.sendOtp(cleanEmail);
-      setOtpLoading(false);
-      setSuccessMsg(
-        language === 'uz'
-          ? `6 xonali tasdiqlash kodi ${cleanEmail} manziliga jo‘natildi!`
-          : `Verification code sent to ${cleanEmail}!`
-      );
-      setStep('INPUT_CODE');
-    } catch {
-      setOtpLoading(false);
-      setErrorMsg(
-        language === 'uz'
-          ? 'Tasdiqlash kodini yuborishda xatolik yuz berdi. Internetni tekshiring.'
-          : 'Failed to send verification code. Check your network.'
+      const res = await mobileApi.loginWithEmail(cleanEmail, password);
+      setAuthLoading(false);
+      await completeAuthenticatedSession(res);
+    } catch (err: any) {
+      setAuthLoading(false);
+      if (err?.status === 403 && err?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        setVerificationPurpose('EMAIL_VERIFY');
+        setOtpDigits(['', '', '', '', '', '']);
+        setResendSeconds(45);
+        await mobileApi.resendEmailVerification(cleanEmail).catch(() => {});
+        setSuccessMsg(
+          tr(
+            language,
+            'Emailingiz hali tasdiqlanmagan. Pochtadagi 6 xonali kodni kiriting.',
+            'Email ещё не подтверждён. Введите 6-значный код из письма.',
+            'Email not verified yet. Enter the 6-digit code sent to your inbox.',
+          ),
+        );
+        setStep('INPUT_CODE');
+        return;
+      }
+      handleApiError(
+        err,
+        tr(
+          language,
+          'Email yoki parol noto‘g‘ri.',
+          'Неверный email или пароль.',
+          'Invalid email or password.',
+        ),
+        'LOGIN',
       );
     }
   };
 
-  /**
-   * STEP 2: Verify 6-digit OTP Code
-   */
-  const handleVerifyOtp = async () => {
-    if (!otpCode || otpCode.length < 6) {
+  // ---------------------------------------------------------------------------
+  // Email + Password Registration
+  // ---------------------------------------------------------------------------
+  const handleEmailRegister = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMsg(strings.auth.invalidEmail);
+      return;
+    }
+    if (!password || password.length < 8) {
       setErrorMsg(
-        language === 'uz'
-          ? '6 xonali tasdiqlash kodini to‘liq kiriting'
-          : 'Please enter the 6-digit verification code'
+        tr(
+          language,
+          'Parol kamida 8 ta belgidan iborat bo‘lishi kerak',
+          'Пароль должен содержать минимум 8 символов',
+          'Password must be at least 8 characters',
+        ),
       );
       return;
     }
-    setErrorMsg(null);
-    setOtpLoading(true);
 
+    clearFeedback();
+    setAuthLoading(true);
     try {
-      const cleanEmail = email.trim().toLowerCase();
-      const res = await mobileApi.verifyOtp(cleanEmail, otpCode.trim());
-      setOtpLoading(false);
-
-      if (res && res.user) {
-        if (res.accessToken && res.refreshToken) {
-          await secureStorage.saveTokens(res.accessToken, res.refreshToken);
-          await secureStorage.saveUserProfile(res.user);
-        }
-
-        const userObj = {
-          email: res.user.email,
-          name: res.user.fullName || res.user.email.split('@')[0],
-          avatar: '',
-          photoUrl: (res.user as any)?.photoUrl || undefined,
-        };
-
-        // Check if device already has a 4-digit PIN code configured
-        const hasPin = await secureStorage.hasPinCode();
-        if (hasPin) {
-          // Already configured, log in immediately
-          onGoogleSignIn(userObj);
-        } else {
-          // First-time login: Prompt user to set a 4-digit PIN!
-          setPendingUser(userObj);
-          setStep('SET_PIN');
-        }
-      }
+      const res = await mobileApi.registerWithEmail({
+        email: cleanEmail,
+        password,
+        firstName: firstName.trim() || undefined,
+        lastName: lastName.trim() || undefined,
+      });
+      setAuthLoading(false);
+      setVerificationPurpose('EMAIL_VERIFY');
+      setOtpDigits(['', '', '', '', '', '']);
+      setResendSeconds(45);
+      setSuccessMsg(res.message);
+      setStep('INPUT_CODE');
     } catch (err: any) {
-      setOtpLoading(false);
-
-      // Check if 2-Device Limit was exceeded
-      if (err?.status === 403 && (err?.data?.code === 'DEVICE_LIMIT_EXCEEDED' || err?.data?.devices)) {
-        setConflictingDevices(err.data.devices || []);
-        setPendingUserId(err.data.userId);
-        setLimitModalVisible(true);
-        return;
-      }
-
-      setErrorMsg(
-        language === 'uz'
-          ? 'Kiritilgan tasdiqlash kodi noto‘g‘ri yoki muddati o‘tgan!'
-          : 'Invalid or expired verification code!'
+      setAuthLoading(false);
+      handleApiError(
+        err,
+        tr(
+          language,
+          'Ro‘yxatdan o‘tishda xatolik yuz berdi.',
+          'Ошибка при регистрации.',
+          'Registration failed.',
+        ),
       );
     }
   };
 
-  /**
-   * STEP 3 & 4: 4-Digit PIN Setup
-   */
-  const handleNumPadPress = async (digit: string) => {
-    setPinError(null);
+  // ---------------------------------------------------------------------------
+  // Email OTP Send / Resend & Verify (Both EMAIL_VERIFY and OTP_LOGIN)
+  // ---------------------------------------------------------------------------
+  const handleSendCode = async (overridePurpose?: VerificationPurpose) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMsg(strings.auth.invalidEmail);
+      return;
+    }
 
+    const activePurpose = overridePurpose || verificationPurpose;
+    clearFeedback();
+    setAuthLoading(true);
+    setIsOfflineError(false);
+
+    try {
+      if (activePurpose === 'EMAIL_VERIFY') {
+        await mobileApi.resendEmailVerification(cleanEmail);
+      } else {
+        await mobileApi.sendOtp(cleanEmail);
+      }
+      setAuthLoading(false);
+      setOtpDigits(['', '', '', '', '', '']);
+      setResendSeconds(45);
+      setStep('INPUT_CODE');
+    } catch (err: any) {
+      setAuthLoading(false);
+      handleApiError(
+        err,
+        tr(
+          language,
+          'Tasdiqlash kodini yuborishda xatolik yuz berdi.',
+          'Не удалось отправить код подтверждения.',
+          'Failed to send verification code.',
+        ),
+      );
+    }
+  };
+
+  const handleOtpBoxChange = (idx: number, val: string) => {
+    clearFeedback();
+    const cleaned = val.replace(/[^0-9]/g, '');
+
+    if (cleaned.length >= 6) {
+      const arr = cleaned.slice(0, 6).split('');
+      setOtpDigits(arr);
+      otpInputRefs.current[5]?.focus();
+      return;
+    }
+
+    const next = [...otpDigits];
+    next[idx] = cleaned.slice(-1);
+    setOtpDigits(next);
+
+    if (cleaned && idx < 5) {
+      otpInputRefs.current[idx + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyPress = (idx: number, key: string) => {
+    if (key === 'Backspace' && !otpDigits[idx] && idx > 0) {
+      const next = [...otpDigits];
+      next[idx - 1] = '';
+      setOtpDigits(next);
+      otpInputRefs.current[idx - 1]?.focus();
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    const code = otpDigits.join('');
+    if (code.length < 6) {
+      setErrorMsg(
+        tr(
+          language,
+          '6 xonali tasdiqlash kodini to‘liq kiriting',
+          'Введите 6-значный код подтверждения полностью',
+          'Please enter all 6 verification digits',
+        ),
+      );
+      return;
+    }
+
+    clearFeedback();
+    setAuthLoading(true);
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const res =
+        verificationPurpose === 'EMAIL_VERIFY'
+          ? await mobileApi.verifyEmail(cleanEmail, code)
+          : await mobileApi.verifyOtp(cleanEmail, code);
+
+      setAuthLoading(false);
+      if (res && res.user) {
+        await completeAuthenticatedSession(res);
+      }
+    } catch (err: any) {
+      setAuthLoading(false);
+      handleApiError(
+        err,
+        tr(
+          language,
+          'Kiritilgan tasdiqlash kodi noto‘g‘ri yoki muddati o‘tgan!',
+          'Неверный или просроченный код подтверждения!',
+          'Invalid or expired verification code!',
+        ),
+        'VERIFY_CODE',
+      );
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Forgot / Reset Password Flow
+  // ---------------------------------------------------------------------------
+  const handleSendResetCode = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMsg(strings.auth.invalidEmail);
+      return;
+    }
+    clearFeedback();
+    setAuthLoading(true);
+    try {
+      const res = await mobileApi.forgotPassword(cleanEmail);
+      setAuthLoading(false);
+      setResetCodeSent(true);
+      setSuccessMsg(res.message);
+    } catch (err: any) {
+      setAuthLoading(false);
+      handleApiError(
+        err,
+        tr(
+          language,
+          'Parolni tiklash kodini yuborishda xatolik yuz berdi.',
+          'Не удалось отправить код сброса пароля.',
+          'Failed to send password reset code.',
+        ),
+      );
+    }
+  };
+
+  const handleResetPasswordSubmit = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (resetCode.trim().length !== 6) {
+      setErrorMsg(
+        tr(language, '6 xonali kodni kiriting', 'Введите 6-значный код', 'Enter the 6-digit code'),
+      );
+      return;
+    }
+    if (resetNewPassword.length < 8) {
+      setErrorMsg(
+        tr(
+          language,
+          'Yangi parol kamida 8 ta belgidan iborat bo‘lishi kerak',
+          'Новый пароль должен содержать минимум 8 символов',
+          'New password must be at least 8 characters',
+        ),
+      );
+      return;
+    }
+
+    clearFeedback();
+    setAuthLoading(true);
+    try {
+      const res = await mobileApi.resetPassword(cleanEmail, resetCode.trim(), resetNewPassword);
+      setAuthLoading(false);
+      setResetCode('');
+      setResetNewPassword('');
+      setResetCodeSent(false);
+      setPassword('');
+      setAuthMode('LOGIN');
+      setStep('INPUT_EMAIL');
+      setSuccessMsg(res.message);
+    } catch (err: any) {
+      setAuthLoading(false);
+      handleApiError(
+        err,
+        tr(
+          language,
+          'Parolni yangilashda xatolik yuz berdi.',
+          'Ошибка при обновлении пароля.',
+          'Failed to update password.',
+        ),
+      );
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Verified Google Account Linking (Scenario C)
+  // ---------------------------------------------------------------------------
+  const handleSendGoogleLinkCode = async () => {
+    if (!linkingToken) return;
+    clearFeedback();
+    setAuthLoading(true);
+    try {
+      const res = await mobileApi.sendGoogleLinkCode(linkingToken);
+      setAuthLoading(false);
+      setLinkingCodeSent(true);
+      setSuccessMsg(res.message);
+    } catch (err: any) {
+      setAuthLoading(false);
+      handleApiError(
+        err,
+        tr(
+          language,
+          'Bog‘lash kodini yuborishda xatolik yuz berdi.',
+          'Не удалось отправить код привязки.',
+          'Failed to send linking code.',
+        ),
+      );
+    }
+  };
+
+  const handleConfirmLinkGoogle = async () => {
+    if (!linkingToken) return;
+    if (linkingMethod === 'PASSWORD' && !linkingPassword) {
+      setErrorMsg(
+        tr(
+          language,
+          'Joriy parolingizni kiriting',
+          'Введите текущий пароль',
+          'Enter your existing password',
+        ),
+      );
+      return;
+    }
+    if (linkingMethod === 'CODE' && linkingCode.trim().length !== 6) {
+      setErrorMsg(
+        tr(
+          language,
+          '6 xonali email kodni kiriting',
+          'Введите 6-значный код из письма',
+          'Enter the 6-digit email code',
+        ),
+      );
+      return;
+    }
+
+    clearFeedback();
+    setAuthLoading(true);
+    try {
+      const res = await mobileApi.linkGoogleAccount({
+        linkToken: linkingToken,
+        password: linkingMethod === 'PASSWORD' ? linkingPassword : undefined,
+        otpCode: linkingMethod === 'CODE' ? linkingCode.trim() : undefined,
+      });
+      setAuthLoading(false);
+      await completeAuthenticatedSession(res);
+    } catch (err: any) {
+      setAuthLoading(false);
+      handleApiError(
+        err,
+        tr(
+          language,
+          'Hisobni tasdiqlab bo‘lmadi. Ma’lumotlarni tekshiring.',
+          'Не удалось подтвердить владение аккаунтом.',
+          'Could not verify account ownership.',
+        ),
+        'LINK_GOOGLE',
+      );
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Native Google Sign-In & Web fallback configuration notice
+  // ---------------------------------------------------------------------------
+  const handlePressGoogle = async () => {
+    clearFeedback();
+    if (!googleConfigured && Platform.OS === 'web') {
+      setErrorMsg(strings.auth.googleNotConfigured);
+      return;
+    }
+
+    setGoogleLoading(true);
+    const outcome = await googleAuthService.signInWithGoogle();
+    await handleGoogleOutcome(outcome);
+  };
+
+  // ---------------------------------------------------------------------------
+  // 4-Digit App PIN Setup
+  // ---------------------------------------------------------------------------
+  const handlePinPadPress = async (digit: string) => {
+    setPinError(null);
     if (step === 'SET_PIN') {
       if (firstPin.length >= 4) return;
-      const nextPin = firstPin + digit;
-      setFirstPin(nextPin);
-
-      if (nextPin.length === 4) {
-        // Move to confirmation step after short pause
-        setTimeout(() => {
-          setStep('CONFIRM_PIN');
-        }, 250);
+      const next = firstPin + digit;
+      setFirstPin(next);
+      if (next.length === 4) {
+        setTimeout(() => setStep('CONFIRM_PIN'), 220);
       }
     } else if (step === 'CONFIRM_PIN') {
       if (confirmPin.length >= 4) return;
-      const nextConfirm = confirmPin + digit;
-      setConfirmPin(nextConfirm);
-
-      if (nextConfirm.length === 4) {
-        if (nextConfirm === firstPin) {
-          // PIN Match! Save securely in hardware storage
+      const next = confirmPin + digit;
+      setConfirmPin(next);
+      if (next.length === 4) {
+        if (next === firstPin) {
           await secureStorage.savePinCode(firstPin);
-          if (pendingUser) {
-            onGoogleSignIn(pendingUser);
-          }
+          if (pendingUser) onGoogleSignIn(pendingUser);
         } else {
-          setPinError(
-            language === 'uz'
-              ? 'PIN kodlar mos kelmadi! Qaytadan kiriting.'
-              : 'PIN codes do not match! Please try again.'
-          );
+          setPinError(strings.pin.mismatchPin);
           setTimeout(() => {
             setFirstPin('');
             setConfirmPin('');
@@ -232,518 +798,1094 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
     }
   };
 
-  const handleNumPadDelete = () => {
+  const handlePinPadDelete = () => {
     setPinError(null);
-    if (step === 'SET_PIN') {
-      setFirstPin(firstPin.slice(0, -1));
-    } else if (step === 'CONFIRM_PIN') {
-      setConfirmPin(confirmPin.slice(0, -1));
-    }
-  };
-
-  /**
-   * Google OAuth Handler
-   */
-  const handlePressGoogle = async () => {
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    if (Platform.OS === 'web') {
-      setWebGoogleModalVisible(true);
-      return;
-    }
-
-    await executeGoogleAuth();
-  };
-
-  const executeGoogleAuth = async (userEmail?: string, userName?: string) => {
-    setErrorMsg(null);
-    setGoogleLoading(true);
-
-    try {
-      const result = await googleAuthService.signIn(userEmail, userName);
-      setGoogleLoading(false);
-
-      if (result.success && result.tokens) {
-        setWebGoogleModalVisible(false);
-        const userObj = {
-          email: result.tokens.user.email,
-          name: result.tokens.user.fullName || (userEmail ? userEmail.split('@')[0] : 'O‘qituvchi'),
-          avatar: '',
-          photoUrl: (result.tokens.user as any)?.photoUrl || undefined,
-        };
-
-        const hasPin = await secureStorage.hasPinCode();
-        if (hasPin) {
-          onGoogleSignIn(userObj);
-        } else {
-          // First-time login: Prompt user to set 4-digit PIN!
-          setPendingUser(userObj);
-          setStep('SET_PIN');
-        }
-        return;
-      }
-
-      if (result.deviceLimitExceeded) {
-        setWebGoogleModalVisible(false);
-        setConflictingDevices(result.activeDevices || []);
-        setPendingUserId(result.userId);
-        setLimitModalVisible(true);
-        return;
-      }
-
-      if (result.errorMessage) {
-        setErrorMsg(result.errorMessage);
-      }
-    } catch (err: any) {
-      setGoogleLoading(false);
-      setErrorMsg(
-        err.message ||
-          (language === 'uz' ? 'Google orqali kirishda xatolik yuz berdi' : 'Google sign-in failed')
-      );
-    }
-  };
-
-  const handleConfirmWebGoogleAuth = async () => {
-    if (!webEmailInput || !webEmailInput.includes('@')) {
-      setErrorMsg(
-        language === 'uz'
-          ? 'Iltimos, to‘g‘ri Gmail elektron pochtangizni kiriting'
-          : 'Please enter a valid Gmail address'
-      );
-      return;
-    }
-    const cleanEmail = webEmailInput.trim().toLowerCase();
-    const cleanName =
-      webNameInput.trim() ||
-      cleanEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-
-    await executeGoogleAuth(cleanEmail, cleanName);
+    if (step === 'SET_PIN') setFirstPin(firstPin.slice(0, -1));
+    else if (step === 'CONFIRM_PIN') setConfirmPin(confirmPin.slice(0, -1));
   };
 
   const handleDeviceEvictedAndRetry = async () => {
     setLimitModalVisible(false);
-    if (step === 'INPUT_CODE') {
-      await handleVerifyOtp();
-    } else {
-      await executeGoogleAuth();
-    }
+    if (lastRetryAction === 'LOGIN') await handleEmailLogin();
+    else if (lastRetryAction === 'VERIFY_CODE') await handleVerifyCode();
+    else if (lastRetryAction === 'LINK_GOOGLE') await handleConfirmLinkGoogle();
+    else if (lastRetryAction === 'GOOGLE_NATIVE' && Platform.OS !== 'web') await handlePressGoogle();
   };
 
+  if (isOfflineError) {
+    return (
+      <OfflineScreen
+        language={language}
+        retrying={authLoading}
+        onRetry={async () => {
+          setAuthLoading(true);
+          const ok = await mobileApi.checkConnectivity();
+          setAuthLoading(false);
+          if (ok) setIsOfflineError(false);
+        }}
+      />
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top Bar: Brand + Language Toggle */}
-      <View style={styles.topBar}>
-        <View style={styles.appBrandRow}>
-          <Text style={styles.brandEmoji}>📚</Text>
-          <Text style={styles.brandTitle}>SmartTeacherBook</Text>
-        </View>
-
-        <View style={styles.langPill}>
-          <TouchableOpacity
-            style={[styles.langBtn, language === 'uz' && styles.langBtnActive]}
-            onPress={() => setLanguage('uz')}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Top Language Switcher Bar */}
+      {step === 'INPUT_EMAIL' && authMode === 'LOGIN' && (
+        <View style={styles.topLangBar}>
+          <View
+            style={[
+              styles.langPill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
           >
-            <Text style={[styles.langBtnText, language === 'uz' && styles.langBtnTextActive]}>
-              UZ
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.langBtn, language === 'en' && styles.langBtnActive]}
-            onPress={() => setLanguage('en')}
-          >
-            <Text style={[styles.langBtnText, language === 'en' && styles.langBtnTextActive]}>
-              EN
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Hero Decorative Header */}
-        <View style={styles.heroSection}>
-          <View style={styles.ringOuter} />
-          <View style={styles.ringMiddle} />
-          <View style={styles.ringInner} />
-
-          <View style={styles.avatarCard}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarEmoji}>🎓</Text>
-            </View>
-            <View style={styles.floatingBadge}>
-              <Text style={styles.floatingBadgeText}>✨ O‘qituvchi Portali</Text>
-            </View>
+            {(['uz', 'ru', 'en'] as const).map((langKey) => {
+              const active = language === langKey;
+              return (
+                <TouchableOpacity
+                  key={langKey}
+                  style={[
+                    styles.langBtn,
+                    active && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setLanguage(langKey)}
+                >
+                  <Text
+                    style={[
+                      styles.langBtnText,
+                      { color: active ? colors.onPrimary : colors.textSecondary },
+                    ]}
+                  >
+                    {langKey.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
+      )}
 
-        {/* Card: Authentication & PIN Setup */}
-        <View style={styles.authCard}>
-          {/* ========================================================================= */}
-          {/* STAGE 1: ENTER GMAIL ADDRESS                                              */}
-          {/* ========================================================================= */}
-          {step === 'INPUT_EMAIL' && (
-            <View>
-              <Text style={styles.mainTitle}>
-                {language === 'uz' ? 'O‘qituvchi Kabinetiga Kirish' : 'Teacher Portal Sign In'}
-              </Text>
-              <Text style={styles.mainSubtitle}>
-                {language === 'uz'
-                  ? 'Gmail pochtangizni kiriting — bir martalik tasdiqlash kodi yuboriladi'
-                  : 'Enter your Gmail to receive a 6-digit verification code'}
-              </Text>
+      {/* =================================================================== */}
+      {/* SCREEN 1: LOGIN / REGISTER / GOOGLE AUTH ENTRY                       */}
+      {/* =================================================================== */}
+      {step === 'INPUT_EMAIL' && (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, width: '100%' }}
+        >
+          <ScrollView
+            contentContainerStyle={styles.welcomeScroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={colors.primary}
+              />
+            }
+          >
+            {authMode === 'LOGIN' ? (
+              <>
+                <View style={[styles.brandCenter, { marginBottom: 16 }]}>
+                  <BrandLogo size={56} withContainer darkSurface={isDark} />
+                </View>
+
+                <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>
+                  {strings.welcome.title}
+                </Text>
+                <Text style={[styles.welcomeSub, { color: colors.textSecondary }]}>
+                  {strings.welcome.subtitle}
+                </Text>
 
               {errorMsg && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>⚠️ {errorMsg}</Text>
+                <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
+                  <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {errorMsg}</Text>
+                </View>
+              )}
+              {successMsg && (
+                <View
+                  style={[
+                    styles.successBox,
+                    {
+                      backgroundColor: colors.accentSoft,
+                      borderColor: colors.accent + '44',
+                    },
+                  ]}
+                >
+                  <Text style={[styles.successText, { color: colors.accent }]}>✅ {successMsg}</Text>
                 </View>
               )}
 
-              <Text style={styles.inputLabel}>
-                {language === 'uz' ? 'GMAIL ELEKTRON POCHTA' : 'GMAIL ADDRESS'}
-              </Text>
-              <TextInput
-                style={styles.textInput}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="masalan: oqituvchi@gmail.com"
-                placeholderTextColor="#94A3B8"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoFocus
-              />
-
-              <TouchableOpacity
-                style={styles.primaryBtn}
-                onPress={handleSendOtp}
-                disabled={otpLoading}
-                activeOpacity={0.85}
+              {/* Login: Email + Password */}
+              <View
+                style={[
+                  styles.emailInputWrap,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border },
+                ]}
               >
-                {otpLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>
-                    {language === 'uz' ? 'Tasdiqlash Kodini Olish →' : 'Send Verification Code →'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              {/* OR Divider */}
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>{language === 'uz' ? 'YOKI' : 'OR'}</Text>
-                <View style={styles.dividerLine} />
+                <Text style={styles.emailIcon}>✉️</Text>
+                <TextInput
+                  style={[styles.emailInput, { color: colors.textPrimary }]}
+                  value={email}
+                  onChangeText={(t) => {
+                    clearFeedback();
+                    setEmail(t);
+                  }}
+                  placeholder={strings.auth.emailPlaceholder}
+                  placeholderTextColor={colors.placeholder}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
               </View>
 
-              {/* Alternative: Google Sign-In Button */}
-              <TouchableOpacity
-                style={styles.googleBtn}
-                onPress={handlePressGoogle}
-                disabled={googleLoading}
-                activeOpacity={0.85}
+              <View
+                style={[
+                  styles.emailInputWrap,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border },
+                ]}
               >
-                {googleLoading ? (
-                  <ActivityIndicator color="#4285F4" size="small" />
-                ) : (
-                  <View style={styles.googleBtnInner}>
-                    <GoogleLogoIcon size={20} />
-                    <Text style={styles.googleBtnText}>
-                      {language === 'uz' ? 'Google hisobingiz bilan kirish' : 'Continue with Google'}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
+                <Text style={styles.emailIcon}>🔒</Text>
+                <TextInput
+                  style={[styles.emailInput, { color: colors.textPrimary }]}
+                  value={password}
+                  onChangeText={(t) => {
+                    clearFeedback();
+                    setPassword(t);
+                  }}
+                  placeholder={strings.auth.passwordLabel}
+                  placeholderTextColor={colors.placeholder}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  style={styles.eyeToggleBtn}
+                >
+                  <Text style={styles.eyeToggleText}>{showPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
+              </View>
 
-          {/* ========================================================================= */}
-          {/* STAGE 2: ENTER 6-DIGIT OTP CODE                                           */}
-          {/* ========================================================================= */}
-          {step === 'INPUT_CODE' && (
-            <View>
-              <Text style={styles.mainTitle}>
-                {language === 'uz' ? 'Tasdiqlash Kodini Kiriting' : 'Enter Verification Code'}
-              </Text>
-              <Text style={styles.mainSubtitle}>
-                {language === 'uz'
-                  ? `6 xonali kod ${email} manziliga yuborildi`
-                  : `6-digit code was sent to ${email}`}
-              </Text>
-
-              {errorMsg && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>⚠️ {errorMsg}</Text>
-                </View>
-              )}
-
-              {successMsg && (
-                <View style={styles.successBox}>
-                  <Text style={styles.successText}>📩 {successMsg}</Text>
-                </View>
-              )}
-
-              <View style={styles.codeSentHeader}>
-                <Text style={styles.codeSentText}>
-                  {language === 'uz' ? 'Pochta:' : 'Email:'}{' '}
-                  <Text style={{ fontWeight: 'bold', color: '#0F2942' }}>{email}</Text>
-                </Text>
-                <TouchableOpacity onPress={() => setStep('INPUT_EMAIL')}>
-                  <Text style={styles.changeEmailText}>
-                    {language === 'uz' ? 'O‘zgartirish' : 'Change'}
+              <View style={styles.forgotRow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    clearFeedback();
+                    setResetCodeSent(false);
+                    setStep('FORGOT_PASSWORD');
+                  }}
+                >
+                  <Text style={[styles.forgotLink, { color: colors.primaryText }]}>
+                    {strings.auth.forgotLink}
                   </Text>
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.inputLabel}>
-                {language === 'uz' ? '6 XONALI TASDIQLASH KODI' : '6-DIGIT VERIFICATION CODE'}
-              </Text>
-              <TextInput
-                style={[styles.textInput, styles.otpInput]}
-                value={otpCode}
-                onChangeText={setOtpCode}
-                placeholder="••••••"
-                placeholderTextColor="#94A3B8"
-                keyboardType="number-pad"
-                maxLength={6}
-                autoFocus
-              />
-
               <TouchableOpacity
-                style={styles.primaryBtn}
-                onPress={handleVerifyOtp}
-                disabled={otpLoading}
+                style={[
+                  styles.primaryPillBtn,
+                  { backgroundColor: colors.primary, shadowColor: colors.primary },
+                ]}
+                onPress={handleEmailLogin}
+                disabled={authLoading}
                 activeOpacity={0.85}
               >
-                {otpLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                {authLoading ? (
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
-                  <Text style={styles.primaryBtnText}>
-                    {language === 'uz' ? 'Tizimga Kirish ✓' : 'Verify & Enter ✓'}
+                  <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
+                    {strings.auth.loginButton}
                   </Text>
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.resendBtn}
-                onPress={handleSendOtp}
-                disabled={otpLoading}
-              >
-                <Text style={styles.resendBtnText}>
-                  {language === 'uz' ? 'Kodni qayta jo‘natish' : 'Resend code'}
+              <View style={styles.dividerRow}>
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.textMuted }]}>
+                  {strings.auth.orDivider.toUpperCase()}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* ========================================================================= */}
-          {/* STAGE 3 & 4: CREATE 4-DIGIT QUICK UNLOCK PIN CODE                         */}
-          {/* ========================================================================= */}
-          {(step === 'SET_PIN' || step === 'CONFIRM_PIN') && (
-            <View style={styles.pinSetupSection}>
-              <View style={styles.pinShieldBadge}>
-                <Text style={styles.pinShieldIcon}>🔐</Text>
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
               </View>
 
-              <Text style={styles.mainTitle}>
-                {step === 'SET_PIN'
-                  ? language === 'uz'
-                    ? '4 xonali PIN kod o‘rnating'
-                    : 'Create 4-Digit PIN'
-                  : language === 'uz'
-                  ? 'PIN kodni tasdiqlang'
-                  : 'Confirm Your PIN'}
+              {Platform.OS === 'web' && googleConfigured ? (
+                <View style={styles.gisHostOuter}>
+                  <View ref={gisContainerRef} style={styles.gisHostInner} />
+                  {!gisMounted && !googleLoading && (
+                    <TouchableOpacity
+                      style={[
+                        styles.googlePillBtn,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                      ]}
+                      onPress={handlePressGoogle}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.googleInner}>
+                        <GoogleLogoIcon size={18} />
+                        <Text style={[styles.googlePillText, { color: colors.textPrimary }]}>
+                          {strings.auth.googleButton}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  {googleLoading && (
+                    <View style={styles.googleLoadingRow}>
+                      <ActivityIndicator color={colors.primary} size="small" />
+                      <Text style={[styles.googleLoadingText, { color: colors.primary }]}>
+                        {tr(
+                          language,
+                          'Google hisobingiz tekshirilmoqda...',
+                          'Проверка аккаунта Google...',
+                          'Verifying Google account...',
+                        )}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.googlePillBtn,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                  ]}
+                  onPress={handlePressGoogle}
+                  disabled={googleLoading}
+                  activeOpacity={0.85}
+                >
+                  {googleLoading ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <View style={styles.googleInner}>
+                      <GoogleLogoIcon size={18} />
+                      <Text style={[styles.googlePillText, { color: colors.textPrimary }]}>
+                        {strings.auth.googleButton}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.registerOutlineBtn,
+                  { backgroundColor: colors.primarySoft, borderColor: colors.primary + '44' },
+                ]}
+                onPress={() => {
+                  clearFeedback();
+                  setAuthMode('REGISTER');
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.registerOutlineText, { color: colors.primaryText }]}>
+                  {strings.welcome.createAccount}
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={[styles.termsText, { color: colors.textMuted }]}>
+                {tr(
+                  language,
+                  'Maxfiylik siyosati • Foydalanish shartlari',
+                  'Политика конфиденциальности • Условия использования',
+                  'Privacy Policy • Terms of Service',
+                )}
+              </Text>
+            </>
+          ) : (
+            <>
+              {/* Register View */}
+              <View style={[styles.topBackBar, { marginBottom: 8 }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.backIconBtn,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                  ]}
+                  onPress={() => {
+                    clearFeedback();
+                    setAuthMode('LOGIN');
+                  }}
+                >
+                  <Text style={[styles.backArrow, { color: colors.textPrimary }]}>←</Text>
+                </TouchableOpacity>
+                <View style={styles.brandCenter}>
+                  <BrandLogo size={38} withContainer darkSurface={isDark} />
+                </View>
+                <View style={{ width: 38 }} />
+              </View>
+
+              <Text style={[styles.welcomeTitle, { marginBottom: 4, color: colors.textPrimary }]}>
+                {strings.auth.registerTitle}
+              </Text>
+              <Text style={[styles.welcomeSub, { marginBottom: 18, color: colors.textSecondary }]}>
+                {strings.auth.registerSubtitle}
               </Text>
 
-              <Text style={styles.mainSubtitle}>
-                {step === 'SET_PIN'
-                  ? language === 'uz'
-                    ? 'Keyingi safar Gmail va kod kiritmasdan, ushbu 4 talik parol bilan tez kirasiz'
-                    : 'Unlock quickly using this 4-digit code'
-                  : language === 'uz'
-                  ? 'O‘rnatilgan 4 xonali parolni qayta tering'
-                  : 'Re-enter your 4-digit code'}
-              </Text>
-
-              {pinError && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>⚠️ {pinError}</Text>
+              {errorMsg && (
+                <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
+                  <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {errorMsg}</Text>
+                </View>
+              )}
+              {successMsg && (
+                <View
+                  style={[
+                    styles.successBox,
+                    {
+                      backgroundColor: colors.accentSoft,
+                      borderColor: colors.accent + '44',
+                    },
+                  ]}
+                >
+                  <Text style={[styles.successText, { color: colors.accent }]}>✅ {successMsg}</Text>
                 </View>
               )}
 
-              {/* 4 Dots */}
-              <View style={styles.dotsRow}>
-                {[0, 1, 2, 3].map((idx) => {
-                  const currentLen = step === 'SET_PIN' ? firstPin.length : confirmPin.length;
-                  const isFilled = currentLen > idx;
-                  const isErr = !!pinError;
-                  return (
-                    <View
-                      key={idx}
-                      style={[
-                        styles.dot,
-                        isFilled && styles.dotFilled,
-                        isErr && styles.dotError,
-                      ]}
-                    />
-                  );
-                })}
-              </View>
-
-              {/* NumPad Keyboard */}
-              <View style={styles.keypad}>
-                <View style={styles.keypadRow}>
-                  {['1', '2', '3'].map((num) => (
-                    <TouchableOpacity
-                      key={num}
-                      style={styles.keyBtn}
-                      onPress={() => handleNumPadPress(num)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.keyNumberText}>{num}</Text>
-                    </TouchableOpacity>
-                  ))}
+              <View style={styles.nameRow}>
+                <View
+                  style={[
+                    styles.emailInputWrap,
+                    styles.nameInputHalf,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.emailInput, { color: colors.textPrimary }]}
+                    value={firstName}
+                    onChangeText={(t) => {
+                      clearFeedback();
+                      setFirstName(t);
+                    }}
+                    placeholder={tr(language, 'Ism', 'Имя', 'First name')}
+                    placeholderTextColor={colors.placeholder}
+                  />
                 </View>
-
-                <View style={styles.keypadRow}>
-                  {['4', '5', '6'].map((num) => (
-                    <TouchableOpacity
-                      key={num}
-                      style={styles.keyBtn}
-                      onPress={() => handleNumPadPress(num)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.keyNumberText}>{num}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <View style={styles.keypadRow}>
-                  {['7', '8', '9'].map((num) => (
-                    <TouchableOpacity
-                      key={num}
-                      style={styles.keyBtn}
-                      onPress={() => handleNumPadPress(num)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.keyNumberText}>{num}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <View style={styles.keypadRow}>
-                  <View style={styles.keyBtnEmpty} />
-                  <TouchableOpacity
-                    style={styles.keyBtn}
-                    onPress={() => handleNumPadPress('0')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.keyNumberText}>0</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.keyBtn}
-                    onPress={handleNumPadDelete}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.deleteKeyText}>⌫</Text>
-                  </TouchableOpacity>
+                <View
+                  style={[
+                    styles.emailInputWrap,
+                    styles.nameInputHalf,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.emailInput, { color: colors.textPrimary }]}
+                    value={lastName}
+                    onChangeText={(t) => {
+                      clearFeedback();
+                      setLastName(t);
+                    }}
+                    placeholder={tr(language, 'Familiya', 'Фамилия', 'Last name')}
+                    placeholderTextColor={colors.placeholder}
+                  />
                 </View>
               </View>
-            </View>
-          )}
 
-          {/* Security Features Badges */}
-          <View style={styles.securityRow}>
-            <View style={styles.securityBadge}>
-              <Text style={styles.securityBadgeText}>🔒 256-bit Shifrlangan</Text>
-            </View>
-            <View style={styles.securityBadge}>
-              <Text style={styles.securityBadgeText}>📱 2 ta qurilma limiti</Text>
-            </View>
-          </View>
-
-          {/* Footer Notice */}
-          <Text style={styles.footerNotice}>
-            {language === 'uz'
-              ? 'Tizimga kirish orqali Foydalanish shartlari va Maxfiylik siyosatiga rozilik bildirasiz.'
-              : 'By signing in, you agree to our Terms of Service and Privacy Policy.'}
-          </Text>
-        </View>
-      </ScrollView>
-
-      {/* Web Browser Google Sign-In Prompt Modal */}
-      <Modal visible={webGoogleModalVisible} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View style={styles.googleIconBadge}>
-                <GoogleLogoIcon size={24} />
-              </View>
-              <Text style={styles.modalTitle}>
-                {language === 'uz' ? 'Google Hisobingiz' : 'Google Account'}
-              </Text>
-            </View>
-
-            <Text style={styles.modalDesc}>
-              {language === 'uz'
-                ? 'SmartTeacherBook tizimiga kirish uchun o‘z Gmail elektron pochtangizni kiriting:'
-                : 'Enter your Gmail address to sign in to SmartTeacherBook:'}
-            </Text>
-
-            <Text style={styles.fieldLabel}>
-              {language === 'uz' ? 'GMAIL ELEKTRON POCHTA *' : 'GMAIL ADDRESS *'}
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              value={webEmailInput}
-              onChangeText={setWebEmailInput}
-              placeholder="masalan: oqituvchi@gmail.com"
-              placeholderTextColor="#94A3B8"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoFocus
-            />
-
-            <Text style={[styles.fieldLabel, { marginTop: 10 }]}>
-              {language === 'uz' ? 'ISM VA FAMILIYA (IXTIYORIY)' : 'FULL NAME (OPTIONAL)'}
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              value={webNameInput}
-              onChangeText={setWebNameInput}
-              placeholder="masalan: Nigora Karimova"
-              placeholderTextColor="#94A3B8"
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelModalBtn}
-                onPress={() => setWebGoogleModalVisible(false)}
-                activeOpacity={0.7}
+              <View
+                style={[
+                  styles.emailInputWrap,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border },
+                ]}
               >
-                <Text style={styles.cancelModalBtnText}>
-                  {language === 'uz' ? 'Bekor qilish' : 'Cancel'}
-                </Text>
-              </TouchableOpacity>
+                <Text style={styles.emailIcon}>✉️</Text>
+                <TextInput
+                  style={[styles.emailInput, { color: colors.textPrimary }]}
+                  value={email}
+                  onChangeText={(t) => {
+                    clearFeedback();
+                    setEmail(t);
+                  }}
+                  placeholder={strings.auth.emailPlaceholder}
+                  placeholderTextColor={colors.placeholder}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+
+              <View
+                style={[
+                  styles.emailInputWrap,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border },
+                ]}
+              >
+                <Text style={styles.emailIcon}>🔒</Text>
+                <TextInput
+                  style={[styles.emailInput, { color: colors.textPrimary }]}
+                  value={password}
+                  onChangeText={(t) => {
+                    clearFeedback();
+                    setPassword(t);
+                  }}
+                  placeholder={tr(
+                    language,
+                    'Parol (kamida 8 ta belgi)',
+                    'Пароль (минимум 8 символов)',
+                    'Password (min 8 characters)',
+                  )}
+                  placeholderTextColor={colors.placeholder}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  style={styles.eyeToggleBtn}
+                >
+                  <Text style={styles.eyeToggleText}>{showPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
-                style={styles.submitModalBtn}
-                onPress={handleConfirmWebGoogleAuth}
-                disabled={googleLoading}
+                style={[
+                  styles.primaryPillBtn,
+                  { marginTop: 6, backgroundColor: colors.primary, shadowColor: colors.primary },
+                ]}
+                onPress={handleEmailRegister}
+                disabled={authLoading}
                 activeOpacity={0.85}
               >
-                {googleLoading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                {authLoading ? (
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
-                  <Text style={styles.submitModalBtnText}>
-                    {language === 'uz' ? 'Kirish →' : 'Sign In →'}
+                  <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
+                    {strings.auth.registerButton}
                   </Text>
                 )}
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.switchBackToLoginBtn}
+                onPress={() => {
+                  clearFeedback();
+                  setAuthMode('LOGIN');
+                }}
+              >
+                <Text style={[styles.switchBackToLoginText, { color: colors.primaryText }]}>
+                  {strings.auth.haveAccountPrompt} {strings.auth.loginTab}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </ScrollView>
+        </KeyboardAvoidingView>
+      )}
+
+      {/* =================================================================== */}
+      {/* SCREEN 2: 6-DIGIT VERIFICATION CODE (EMAIL_VERIFY / OTP_LOGIN)       */}
+      {/* =================================================================== */}
+      {step === 'INPUT_CODE' && (
+        <View
+          style={[
+            styles.otpContainer,
+            { backgroundColor: colors.background },
+            Platform.OS === 'web' ? ({ overflowY: 'auto' } as any) : null,
+          ]}
+        >
+          <View style={styles.topBackBar}>
+            <TouchableOpacity
+              style={[
+                styles.backIconBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+              onPress={() => {
+                clearFeedback();
+                setStep('INPUT_EMAIL');
+              }}
+            >
+              <Text style={[styles.backArrow, { color: colors.textPrimary }]}>←</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.otpCenter}>
+            <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft }]}>
+              <Svg width={52} height={52} viewBox="0 0 64 64" fill="none">
+                <Rect x="8" y="16" width="44" height="32" rx="6" fill="#4F46E5" />
+                <Path
+                  d="M10 18L30 33L50 18"
+                  stroke="#FFFFFF"
+                  strokeWidth="2.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <Circle cx="50" cy="44" r="10" fill="#10B981" stroke="#FFFFFF" strokeWidth="2.5" />
+                <Path
+                  d="M46 44L49 47L55 41"
+                  stroke="#FFFFFF"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </View>
+
+            <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>
+              {verificationPurpose === 'EMAIL_VERIFY'
+                ? strings.auth.verifyTitle
+                : strings.auth.codeLabel}
+            </Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>
+              {t('auth.verifySubtitle', { email })}
+            </Text>
+
+            {errorMsg && (
+              <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
+                <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {errorMsg}</Text>
+              </View>
+            )}
+            {successMsg && (
+              <View
+                style={[
+                  styles.successBox,
+                  { backgroundColor: colors.accentSoft, borderColor: colors.accent + '44' },
+                ]}
+              >
+                <Text style={[styles.successText, { color: colors.accent }]}>✅ {successMsg}</Text>
+              </View>
+            )}
+
+            <View style={styles.otpRow}>
+              {otpDigits.map((digit, idx) => (
+                <TextInput
+                  key={idx}
+                  ref={(el) => {
+                    otpInputRefs.current[idx] = el;
+                  }}
+                  style={[
+                    styles.otpDigitBox,
+                    {
+                      backgroundColor: digit ? colors.primarySoft : colors.surface,
+                      borderColor:
+                        focusedOtpIdx === idx || digit ? colors.primary : colors.border,
+                      color: colors.textPrimary,
+                    },
+                    focusedOtpIdx === idx ? styles.otpDigitBoxFocused : null,
+                    Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null,
+                  ]}
+                  value={digit}
+                  onChangeText={(val) => handleOtpBoxChange(idx, val)}
+                  onKeyPress={({ nativeEvent }) => handleOtpKeyPress(idx, nativeEvent.key)}
+                  onFocus={() => setFocusedOtpIdx(idx)}
+                  onBlur={() => setFocusedOtpIdx((prev) => (prev === idx ? null : prev))}
+                  keyboardType="number-pad"
+                  inputMode="numeric"
+                  textContentType="oneTimeCode"
+                  returnKeyType={idx === 5 ? 'done' : 'next'}
+                  onSubmitEditing={() => {
+                    if (idx === 5) handleVerifyCode();
+                  }}
+                  maxLength={6}
+                  selectTextOnFocus
+                  autoFocus={idx === 0}
+                />
+              ))}
+            </View>
+
+            <TouchableOpacity
+              disabled={resendSeconds > 0 || authLoading}
+              onPress={() => handleSendCode()}
+              style={styles.resendWrap}
+            >
+              <Text
+                style={[
+                  styles.resendLink,
+                  { color: resendSeconds > 0 ? colors.textSecondary : colors.primaryText },
+                ]}
+              >
+                {resendSeconds > 0
+                  ? `${strings.auth.resendCodeButton} (${formatTimer(resendSeconds)})`
+                  : strings.auth.resendCodeButton}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.primaryPillBtn,
+                { width: '100%', backgroundColor: colors.primary, shadowColor: colors.primary },
+              ]}
+              onPress={handleVerifyCode}
+              disabled={authLoading}
+              activeOpacity={0.85}
+            >
+              {authLoading ? (
+                <ActivityIndicator color={colors.onPrimary} />
+              ) : (
+                <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
+                  {strings.auth.verifyButton}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                clearFeedback();
+                setStep('INPUT_EMAIL');
+              }}
+              style={styles.changeEmailLink}
+            >
+              <Text style={[styles.changeEmailText, { color: colors.textSecondary }]}>
+                {strings.auth.backToLogin}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* =================================================================== */}
+      {/* SCREEN 3: FORGOT / RESET PASSWORD                                    */}
+      {/* =================================================================== */}
+      {step === 'FORGOT_PASSWORD' && (
+        <ScrollView contentContainerStyle={styles.otpCenter} showsVerticalScrollIndicator={false}>
+          <View style={styles.topBackBar}>
+            <TouchableOpacity
+              style={[
+                styles.backIconBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+              onPress={() => {
+                clearFeedback();
+                setResetCodeSent(false);
+                setStep('INPUT_EMAIL');
+              }}
+            >
+              <Text style={[styles.backArrow, { color: colors.textPrimary }]}>←</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft }]}>
+            <Text style={{ fontSize: 32 }}>🔑</Text>
+          </View>
+
+          <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>
+            {resetCodeSent ? strings.auth.resetTitle : strings.auth.forgotTitle}
+          </Text>
+          <Text style={[styles.stepSub, { color: colors.textSecondary }]}>
+            {resetCodeSent ? strings.auth.resetSubtitle : strings.auth.forgotSubtitle}
+          </Text>
+
+          {errorMsg && (
+            <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
+              <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {errorMsg}</Text>
+            </View>
+          )}
+          {successMsg && (
+            <View
+              style={[
+                styles.successBox,
+                { backgroundColor: colors.accentSoft, borderColor: colors.accent + '44' },
+              ]}
+            >
+              <Text style={[styles.successText, { color: colors.accent }]}>✅ {successMsg}</Text>
+            </View>
+          )}
+
+          <View
+            style={[
+              styles.emailInputWrap,
+              { backgroundColor: colors.inputBg, borderColor: colors.border },
+            ]}
+          >
+            <Text style={styles.emailIcon}>✉️</Text>
+            <TextInput
+              style={[styles.emailInput, { color: colors.textPrimary }]}
+              value={email}
+              onChangeText={(t) => {
+                clearFeedback();
+                setEmail(t);
+              }}
+              placeholder={strings.auth.emailPlaceholder}
+              placeholderTextColor={colors.placeholder}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              editable={!resetCodeSent}
+            />
+          </View>
+
+          {resetCodeSent && (
+            <>
+              <View
+                style={[
+                  styles.emailInputWrap,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border },
+                ]}
+              >
+                <Text style={styles.emailIcon}>🔢</Text>
+                <TextInput
+                  style={[styles.emailInput, { color: colors.textPrimary }]}
+                  value={resetCode}
+                  onChangeText={(t) => {
+                    clearFeedback();
+                    setResetCode(t.replace(/[^0-9]/g, '').slice(0, 6));
+                  }}
+                  placeholder={strings.auth.codePlaceholder}
+                  placeholderTextColor={colors.placeholder}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+              </View>
+
+              <View
+                style={[
+                  styles.emailInputWrap,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border },
+                ]}
+              >
+                <Text style={styles.emailIcon}>🔒</Text>
+                <TextInput
+                  style={[styles.emailInput, { color: colors.textPrimary }]}
+                  value={resetNewPassword}
+                  onChangeText={(t) => {
+                    clearFeedback();
+                    setResetNewPassword(t);
+                  }}
+                  placeholder={strings.auth.newPasswordPlaceholder}
+                  placeholderTextColor={colors.placeholder}
+                  secureTextEntry={!showResetPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  onPress={() => setShowResetPassword((p) => !p)}
+                  style={styles.eyeToggleBtn}
+                >
+                  <Text style={styles.eyeToggleText}>{showResetPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.primaryPillBtn,
+              { backgroundColor: colors.primary, shadowColor: colors.primary },
+            ]}
+            onPress={resetCodeSent ? handleResetPasswordSubmit : handleSendResetCode}
+            disabled={authLoading}
+            activeOpacity={0.85}
+          >
+            {authLoading ? (
+              <ActivityIndicator color={colors.onPrimary} />
+            ) : (
+              <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
+                {resetCodeSent ? strings.auth.resetButton : strings.auth.sendCodeButton}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
+      {/* =================================================================== */}
+      {/* SCREEN 4: SECURE GOOGLE ACCOUNT LINKING (SCENARIO C)                 */}
+      {/* =================================================================== */}
+      {step === 'LINK_GOOGLE' && (
+        <ScrollView contentContainerStyle={styles.otpCenter} showsVerticalScrollIndicator={false}>
+          <View style={styles.topBackBar}>
+            <TouchableOpacity
+              style={[
+                styles.backIconBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+              onPress={() => {
+                clearFeedback();
+                setLinkingToken(null);
+                setStep('INPUT_EMAIL');
+              }}
+            >
+              <Text style={[styles.backArrow, { color: colors.textPrimary }]}>←</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft }]}>
+            <GoogleLogoIcon size={34} />
+          </View>
+
+          <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>
+            {tr(
+              language,
+              'Hisobni xavfsiz bog‘lash',
+              'Подтверждение владельца аккаунта',
+              'Verify Account Ownership',
+            )}
+          </Text>
+          <Text style={[styles.stepSub, { color: colors.textSecondary }]}>
+            {tr(
+              language,
+              `${linkingEmail} manzili tizimda mavjud. Google hisobini ulashdan oldin egasi ekanligingizni tasdiqlang.`,
+              `${linkingEmail} уже зарегистрирован. Подтвердите владение аккаунтом перед привязкой Google.`,
+              `${linkingEmail} already exists. Please prove account ownership before linking your Google account.`,
+            )}
+          </Text>
+
+          {errorMsg && (
+            <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
+              <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {errorMsg}</Text>
+            </View>
+          )}
+          {successMsg && (
+            <View
+              style={[
+                styles.successBox,
+                { backgroundColor: colors.accentSoft, borderColor: colors.accent + '44' },
+              ]}
+            >
+              <Text style={[styles.successText, { color: colors.accent }]}>✅ {successMsg}</Text>
+            </View>
+          )}
+
+          {linkingHasPassword && (
+            <View
+              style={[
+                styles.authModeTabs,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.authModeTab,
+                  linkingMethod === 'PASSWORD' && { backgroundColor: colors.primary },
+                ]}
+                onPress={() => {
+                  clearFeedback();
+                  setLinkingMethod('PASSWORD');
+                }}
+              >
+                <Text
+                  style={[
+                    styles.authModeTabText,
+                    {
+                      color:
+                        linkingMethod === 'PASSWORD' ? colors.onPrimary : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {tr(language, 'Parol orqali', 'Через пароль', 'With Password')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.authModeTab,
+                  linkingMethod === 'CODE' && { backgroundColor: colors.primary },
+                ]}
+                onPress={() => {
+                  clearFeedback();
+                  setLinkingMethod('CODE');
+                }}
+              >
+                <Text
+                  style={[
+                    styles.authModeTabText,
+                    { color: linkingMethod === 'CODE' ? colors.onPrimary : colors.textSecondary },
+                  ]}
+                >
+                  {tr(language, 'Email kod bilan', 'Через код на email', 'With Email Code')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {linkingMethod === 'PASSWORD' && linkingHasPassword ? (
+            <View
+              style={[
+                styles.emailInputWrap,
+                { backgroundColor: colors.inputBg, borderColor: colors.border },
+              ]}
+            >
+              <Text style={styles.emailIcon}>🔒</Text>
+              <TextInput
+                style={[styles.emailInput, { color: colors.textPrimary }]}
+                value={linkingPassword}
+                onChangeText={(t) => {
+                  clearFeedback();
+                  setLinkingPassword(t);
+                }}
+                placeholder={tr(
+                  language,
+                  'Mavjud hisob paroli',
+                  'Пароль от аккаунта',
+                  'Existing account password',
+                )}
+                placeholderTextColor={colors.placeholder}
+                secureTextEntry
+                autoCapitalize="none"
+              />
+            </View>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[
+                  styles.googlePillBtn,
+                  {
+                    marginBottom: 12,
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={handleSendGoogleLinkCode}
+                disabled={authLoading}
+              >
+                <Text style={[styles.googlePillText, { color: colors.textPrimary }]}>
+                  {linkingCodeSent ? strings.auth.resendCodeButton : strings.auth.sendCodeButton}
+                </Text>
+              </TouchableOpacity>
+
+              <View
+                style={[
+                  styles.emailInputWrap,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border },
+                ]}
+              >
+                <Text style={styles.emailIcon}>🔢</Text>
+                <TextInput
+                  style={[styles.emailInput, { color: colors.textPrimary }]}
+                  value={linkingCode}
+                  onChangeText={(t) => {
+                    clearFeedback();
+                    setLinkingCode(t.replace(/[^0-9]/g, '').slice(0, 6));
+                  }}
+                  placeholder={strings.auth.codePlaceholder}
+                  placeholderTextColor={colors.placeholder}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+              </View>
+            </>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.primaryPillBtn,
+              { backgroundColor: colors.primary, shadowColor: colors.primary },
+            ]}
+            onPress={handleConfirmLinkGoogle}
+            disabled={authLoading}
+            activeOpacity={0.85}
+          >
+            {authLoading ? (
+              <ActivityIndicator color={colors.onPrimary} />
+            ) : (
+              <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
+                {tr(
+                  language,
+                  'Tasdiqlash va Google ulash',
+                  'Подтвердить и привязать Google',
+                  'Verify & Link Google',
+                )}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
+      {/* =================================================================== */}
+      {/* SCREEN 5: PIN O'RNATISH (SET_PIN / CONFIRM_PIN)                      */}
+      {/* =================================================================== */}
+      {(step === 'SET_PIN' || step === 'CONFIRM_PIN') && (
+        <View style={[styles.pinSetupContainer, { backgroundColor: colors.background }]}>
+          <View style={styles.topBackBar}>
+            <TouchableOpacity
+              style={[
+                styles.backIconBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+              onPress={() => {
+                if (step === 'CONFIRM_PIN') {
+                  setConfirmPin('');
+                  setStep('SET_PIN');
+                }
+              }}
+            >
+              <Text style={[styles.backArrow, { color: colors.textPrimary }]}>‹</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.pinHeaderCenter}>
+            <View style={[styles.lockShieldBadge, { backgroundColor: colors.primarySoft }]}>
+              <Svg width={48} height={48} viewBox="0 0 64 64" fill="none">
+                <Path d="M32 6L52 14V30C52 44 43 54 32 58C21 54 12 44 12 30V14L32 6Z" fill="#4F46E5" />
+                <Rect x="23" y="29" width="18" height="15" rx="3" fill="#FFFFFF" />
+                <Path
+                  d="M27 29V24C27 21.2 29.2 19 32 19C34.8 19 37 21.2 37 24V29"
+                  stroke="#FFFFFF"
+                  strokeWidth="2.8"
+                  strokeLinecap="round"
+                />
+                <Circle cx="32" cy="36.5" r="2" fill="#4F46E5" />
+              </Svg>
+            </View>
+
+            <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>
+              {step === 'SET_PIN' ? strings.pin.setupTitle : strings.pin.confirmTitle}
+            </Text>
+            <Text style={[styles.stepSub, { color: colors.textSecondary }]}>
+              {step === 'SET_PIN' ? strings.pin.setupSubtitle : strings.pin.confirmSubtitle}
+            </Text>
+
+            {pinError && (
+              <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
+                <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {pinError}</Text>
+              </View>
+            )}
+
+            <View style={styles.pinDotsRow}>
+              {[0, 1, 2, 3].map((i) => {
+                const len = step === 'SET_PIN' ? firstPin.length : confirmPin.length;
+                const filled = len > i;
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.pinDot,
+                      { backgroundColor: colors.borderStrong },
+                      filled && { backgroundColor: colors.primary, transform: [{ scale: 1.15 }] },
+                      pinError ? { backgroundColor: colors.danger } : null,
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.keypadWrap}>
+            {[
+              ['1', '2', '3'],
+              ['4', '5', '6'],
+              ['7', '8', '9'],
+            ].map((row, rIdx) => (
+              <View key={rIdx} style={styles.keypadRow}>
+                {row.map((num) => (
+                  <TouchableOpacity
+                    key={num}
+                    style={[
+                      styles.keyBtnLight,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                    ]}
+                    onPress={() => handlePinPadPress(num)}
+                    activeOpacity={0.65}
+                  >
+                    <Text style={[styles.keyTextLight, { color: colors.textPrimary }]}>{num}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
+
+            <View style={styles.keypadRow}>
+              <View style={styles.keyBtnEmpty} />
+              <TouchableOpacity
+                style={[
+                  styles.keyBtnLight,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={() => handlePinPadPress('0')}
+                activeOpacity={0.65}
+              >
+                <Text style={[styles.keyTextLight, { color: colors.textPrimary }]}>0</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.keyBtnLight,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={handlePinPadDelete}
+                activeOpacity={0.65}
+              >
+                <Text style={[styles.keyDeleteLight, { color: colors.textSecondary }]}>⌫</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
-      </Modal>
+      )}
 
-      {/* Two-Device Limit Resolution Modal */}
+      {/* 2-Device Limit Modal */}
       <DeviceLimitModal
         visible={limitModalVisible}
         devices={conflictingDevices}
@@ -758,490 +1900,522 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: DS.colors.bgLight,
   },
-  topBar: {
+  welcomeScroll: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topLangBar: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 4,
+    zIndex: 10,
+  },
+  welcomeHeader: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  brandCenter: {
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 36 : 10,
-    paddingBottom: 10,
-    zIndex: 20,
   },
-  appBrandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  brandText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: DS.colors.navyDeep,
+    marginTop: 6,
+    lineHeight: 19,
   },
-  brandEmoji: {
-    fontSize: 22,
-  },
-  brandTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#0F2942',
-    letterSpacing: -0.3,
+  brandTextBold: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: DS.colors.primary,
+    lineHeight: 19,
   },
   langPill: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: DS.colors.white,
+    borderRadius: 12,
     padding: 3,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: DS.colors.border,
   },
   langBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 16,
+    borderRadius: 9,
   },
   langBtnActive: {
-    backgroundColor: '#0F2942',
+    backgroundColor: DS.colors.primary,
   },
   langBtnText: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#64748B',
+    fontWeight: '700',
+    color: DS.colors.textSecondary,
   },
   langBtnTextActive: {
-    color: '#FFFFFF',
+    color: DS.colors.white,
   },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
-  },
-  heroSection: {
-    height: 160,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  ringOuter: {
-    position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    opacity: 0.5,
-  },
-  ringMiddle: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 2,
-    borderColor: '#93C5FD',
-    opacity: 0.6,
-  },
-  ringInner: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 2.5,
-    borderColor: '#FDBA74',
-    opacity: 0.7,
-  },
-  avatarCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  avatarCircle: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-  },
-  avatarEmoji: {
-    fontSize: 40,
-  },
-  floatingBadge: {
-    backgroundColor: '#0F2942',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: -8,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  floatingBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
+  welcomeTitle: {
+    fontSize: 21,
     fontWeight: '800',
-  },
-  authCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
-    paddingHorizontal: 24,
-    paddingTop: 26,
-    paddingBottom: 36,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 16,
-  },
-  mainTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0F2942',
+    color: DS.colors.navyDeep,
     textAlign: 'center',
-    marginBottom: 6,
-    letterSpacing: -0.4,
+    marginBottom: 4,
   },
-  mainSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+  welcomeSub: {
+    fontSize: 12.5,
+    color: DS.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 20,
+    lineHeight: 18,
+    marginBottom: 12,
     paddingHorizontal: 10,
   },
-  errorBox: {
-    backgroundColor: '#FEF2F2',
+  heroCard: {
+    width: '100%',
+    backgroundColor: DS.colors.white,
+    borderRadius: DS.radius.xl,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: DS.colors.primarySoft,
+    shadowColor: DS.colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  authModeTabs: {
+    width: '100%',
+    flexDirection: 'row',
+    backgroundColor: DS.colors.white,
     borderRadius: 14,
-    padding: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: DS.colors.border,
+    marginBottom: 12,
+    gap: 4,
+  },
+  authModeTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  authModeTabActive: {
+    backgroundColor: DS.colors.primary,
+  },
+  authModeTabText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: DS.colors.textSecondary,
+  },
+  authModeTabTextActive: {
+    color: DS.colors.white,
+  },
+  nameRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  nameInputHalf: {
+    flex: 1,
+  },
+  emailInputWrap: {
+    width: '100%',
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: DS.colors.white,
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: DS.colors.primaryBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 0,
+    marginBottom: 10,
+  },
+  emailIcon: {
+    fontSize: 15,
+    marginRight: 8,
+  },
+  emailInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 42,
+    paddingVertical: 0,
+    fontSize: 14,
+    fontWeight: '500',
+    color: DS.colors.textPrimary,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  eyeToggleBtn: {
+    paddingLeft: 8,
+    paddingVertical: 2,
+  },
+  eyeToggleText: {
+    fontSize: 16,
+  },
+  forgotRow: {
+    width: '100%',
+    alignItems: 'flex-end',
+    marginTop: -2,
+    marginBottom: 10,
+  },
+  forgotLink: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: DS.colors.primary,
+  },
+  primaryPillBtn: {
+    width: '100%',
+    backgroundColor: DS.colors.primary,
+    borderRadius: DS.radius.pill,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: DS.colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  primaryPillText: {
+    color: DS.colors.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  dividerRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 14,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: DS.colors.border,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 11.5,
+    color: DS.colors.textMuted,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  gisHostOuter: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  gisHostInner: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  googleLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  googleLoadingText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: DS.colors.primary,
+  },
+  googlePillBtn: {
+    width: '100%',
+    backgroundColor: DS.colors.white,
+    borderRadius: DS.radius.pill,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#DADCE0',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
   },
+  googleInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  googlePillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F1F1F',
+  },
+  registerOutlineBtn: {
+    width: '100%',
+    backgroundColor: '#EEF2FF',
+    borderRadius: DS.radius.pill,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: DS.colors.primaryBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  registerOutlineText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: DS.colors.primary,
+  },
+  switchBackToLoginBtn: {
+    marginTop: 14,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  switchBackToLoginText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: DS.colors.primary,
+  },
+  termsText: {
+    fontSize: 11,
+    color: DS.colors.textMuted,
+    textAlign: 'center',
+  },
+  errorBox: {
+    width: '100%',
+    backgroundColor: DS.colors.dangerSoft,
+    borderRadius: DS.radius.sm,
+    padding: 10,
+    marginBottom: 10,
+  },
   errorText: {
-    color: '#DC2626',
+    color: DS.colors.danger,
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
   },
   successBox: {
-    backgroundColor: '#F0FDF4',
+    width: '100%',
+    backgroundColor: '#ECFDF5',
+    borderRadius: DS.radius.sm,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 16,
-  },
-  successText: {
-    color: '#15803D',
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  inputLabel: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#64748B',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  textInput: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0F2942',
-    marginBottom: 14,
-  },
-  otpInput: {
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 8,
-    textAlign: 'center',
-  },
-  primaryBtn: {
-    backgroundColor: '#0F2942',
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    shadowColor: '#0F2942',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  codeSentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    borderColor: '#A7F3D0',
+    padding: 10,
     marginBottom: 10,
   },
-  codeSentText: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  changeEmailText: {
-    fontSize: 11,
-    color: '#2563EB',
-    fontWeight: '700',
-  },
-  resendBtn: {
-    marginTop: 12,
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  resendBtnText: {
-    color: '#2563EB',
+  successText: {
+    color: '#065F46',
     fontSize: 12,
     fontWeight: '700',
+    textAlign: 'center',
   },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 18,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E2E8F0',
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#94A3B8',
-  },
-  googleBtn: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#DADCE0',
-    borderRadius: 16,
-    paddingVertical: 13,
+  topBackBar: {
+    width: '100%',
     paddingHorizontal: 20,
+    paddingTop: 12,
+    alignItems: 'flex-start',
+  },
+  backIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: DS.colors.white,
+    borderWidth: 1,
+    borderColor: DS.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backArrow: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: DS.colors.textPrimary,
+  },
+  otpContainer: {
+    flex: 1,
+    backgroundColor: DS.colors.bgLight,
+  },
+  otpCenter: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+  },
+  otpIconBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: DS.colors.primarySoft,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  googleBtnInner: {
+  stepTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: DS.colors.navyDeep,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  stepSub: {
+    fontSize: 13,
+    color: DS.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  otpRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 10,
+    width: '100%',
+    maxWidth: 324,
+    marginBottom: 20,
+    gap: 8,
   },
-  googleBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
+  otpDigitBox: {
+    width: 44,
+    minWidth: 0,
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 54,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    backgroundColor: DS.colors.white,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: DS.colors.border,
+    textAlign: 'center',
+    fontSize: 21,
+    fontWeight: '800',
+    color: DS.colors.navyDeep,
   },
-  // PIN Setup Styles
-  pinSetupSection: {
-    alignItems: 'center',
+  otpDigitBoxFocused: {
+    borderColor: DS.colors.primary,
+    borderWidth: 2,
+    backgroundColor: DS.colors.white,
+    shadowColor: DS.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  otpDigitBoxFilled: {
+    borderColor: DS.colors.primary,
+    backgroundColor: DS.colors.primarySoft,
+  },
+  resendWrap: {
+    marginBottom: 20,
     paddingVertical: 4,
   },
-  pinShieldBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#F1F5F9',
+  resendLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: DS.colors.primary,
+    textDecorationLine: 'underline',
+  },
+  changeEmailLink: {
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  changeEmailText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: DS.colors.textSecondary,
+  },
+  pinSetupContainer: {
+    flex: 1,
+    backgroundColor: DS.colors.bgLight,
+    justifyContent: 'space-between',
+    paddingBottom: 28,
+  },
+  pinHeaderCenter: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  lockShieldBadge: {
+    width: 78,
+    height: 78,
+    borderRadius: 24,
+    backgroundColor: DS.colors.primarySoft,
     justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pinDotsRow: {
+    flexDirection: 'row',
+    gap: 18,
+    marginTop: 6,
     marginBottom: 12,
   },
-  pinShieldIcon: {
-    fontSize: 26,
+  pinDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#CBD5E1',
   },
-  dotsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    marginVertical: 16,
+  pinDotFilled: {
+    backgroundColor: DS.colors.primary,
+    transform: [{ scale: 1.15 }],
   },
-  dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+  pinDotError: {
+    backgroundColor: DS.colors.danger,
   },
-  dotFilled: {
-    borderColor: '#0F2942',
-    backgroundColor: '#0F2942',
-  },
-  dotError: {
-    borderColor: '#EF4444',
-    backgroundColor: '#EF4444',
-  },
-  keypad: {
+  keypadWrap: {
     width: '100%',
-    maxWidth: 290,
-    gap: 10,
-    marginVertical: 10,
+    maxWidth: 340,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    gap: 14,
   },
   keypadRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  keyBtn: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
+  },
+  keyBtnLight: {
+    width: 72,
+    height: 60,
+    borderRadius: 16,
+    backgroundColor: DS.colors.white,
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: DS.colors.border,
   },
   keyBtnEmpty: {
-    width: 66,
-    height: 66,
+    width: 72,
+    height: 60,
   },
-  keyNumberText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0F2942',
-  },
-  deleteKeyText: {
+  keyTextLight: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#64748B',
+    color: DS.colors.navyDeep,
   },
-  securityRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 14,
-    marginBottom: 10,
-  },
-  securityBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  securityBadgeText: {
-    fontSize: 10,
+  keyDeleteLight: {
+    fontSize: 20,
     fontWeight: '700',
-    color: '#475569',
-  },
-  footerNotice: {
-    fontSize: 11,
-    color: '#94A3B8',
-    textAlign: 'center',
-    lineHeight: 16,
-    marginTop: 6,
-  },
-  // Modal Styles
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
-  },
-  googleIconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F2942',
-  },
-  modalDesc: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#64748B',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  modalInput: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#0F2942',
-    marginBottom: 8,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 16,
-  },
-  cancelModalBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-  },
-  cancelModalBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  submitModalBtn: {
-    backgroundColor: '#0F2942',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitModalBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    color: DS.colors.textSecondary,
   },
 });

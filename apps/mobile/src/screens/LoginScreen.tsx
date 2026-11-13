@@ -10,12 +10,18 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
+import { useI18n } from '../i18n/I18nContext';
+import { BrandLogo } from '../components/common/BrandLogo';
 
 interface LoginScreenProps {
   onLoginSuccess: (email: string) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+  const { colors, isDark } = useTheme();
+  const { strings, t } = useI18n();
+
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'EMAIL' | 'OTP'>('EMAIL');
@@ -24,7 +30,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
   const handleSendCode = () => {
     if (!email || !email.includes('@')) {
-      setError('Iltimos, to‘g‘ri email manzil kiriting / Please enter a valid email');
+      setError(strings.auth.invalidEmail);
       return;
     }
     setError(null);
@@ -37,7 +43,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
   const handleVerifyCode = () => {
     if (code.length < 6) {
-      setError('6 xonali kodni kiriting / Enter 6-digit code');
+      setError(strings.auth.codePlaceholder);
       return;
     }
     setLoading(true);
@@ -48,46 +54,64 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Background Decorative Ambient Circles (§11 Design) */}
-      <View style={[styles.bgCircle, styles.circleTopLeft]} />
-      <View style={[styles.bgCircle, styles.circleBottomRight]} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.bgCircle,
+          styles.circleTopLeft,
+          { backgroundColor: isDark ? 'rgba(79, 70, 229, 0.22)' : '#DBEAFE' },
+        ]}
+      />
+      <View
+        style={[
+          styles.bgCircle,
+          styles.circleBottomRight,
+          { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7' },
+        ]}
+      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.content}
       >
-        {/* Soft Glass / Neumorphic Main Login Card */}
-        <View style={styles.card}>
-          {/* Demo Logo Icon Placeholder */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.cardBg,
+              borderColor: colors.border,
+              shadowColor: colors.shadowColor,
+            },
+          ]}
+        >
           <View style={styles.logoContainer}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoEmoji}>📖</Text>
-            </View>
+            <BrandLogo size={54} variant="mark" />
           </View>
 
-          {/* App Title */}
-          <Text style={styles.title}>SmartTeacherBook</Text>
+          <Text style={[styles.tagline, { color: colors.warning }]}>{strings.welcome.badge}</Text>
 
-          {/* School Tagline (§11 Design) */}
-          <Text style={styles.tagline}>TEACH • INSPIRE • GROW</Text>
-
-          {/* Subtitle */}
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {step === 'EMAIL'
-              ? 'Kirish yoki ro‘yxatdan o‘tish uchun emailingizni kiriting'
-              : `${email} manziliga yuborilgan 6 xonali tasdiqlash kodini kiriting`}
+              ? strings.auth.loginSubtitle
+              : t('auth.verifySubtitle', { email })}
           </Text>
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {error && <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>}
 
           {step === 'EMAIL' ? (
             <View style={styles.inputSection}>
-              <Text style={styles.inputLabel}>EMAIL MANZILI</Text>
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{strings.auth.emailLabel}</Text>
               <TextInput
-                style={styles.input}
-                placeholder="teacher@school.uz"
-                placeholderTextColor="#94A3B8"
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderColor: colors.border,
+                    color: colors.textPrimary,
+                  },
+                ]}
+                placeholder={strings.auth.emailPlaceholder}
+                placeholderTextColor={colors.placeholder}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -95,28 +119,38 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               />
 
               <TouchableOpacity
-                style={styles.pillButton}
+                style={[styles.pillButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
                 activeOpacity={0.85}
                 onPress={handleSendCode}
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#0F2942" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <>
-                    <Text style={styles.pillButtonText}>Kodni yuborish</Text>
-                    <Text style={styles.pillButtonArrow}>→</Text>
+                    <Text style={[styles.pillButtonText, { color: colors.onPrimary }]}>
+                      {strings.auth.sendCodeButton}
+                    </Text>
+                    <Text style={[styles.pillButtonArrow, { color: colors.onPrimary }]}>→</Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.inputSection}>
-              <Text style={styles.inputLabel}>TASDIQLASH KODI (6 XONA)</Text>
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>{strings.auth.codeLabel}</Text>
               <TextInput
-                style={[styles.input, styles.otpInput]}
-                placeholder="123456"
-                placeholderTextColor="#94A3B8"
+                style={[
+                  styles.input,
+                  styles.otpInput,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderColor: colors.border,
+                    color: colors.textPrimary,
+                  },
+                ]}
+                placeholder={strings.auth.codePlaceholder}
+                placeholderTextColor={colors.placeholder}
                 keyboardType="number-pad"
                 maxLength={6}
                 value={code}
@@ -124,26 +158,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               />
 
               <TouchableOpacity
-                style={styles.pillButton}
+                style={[styles.pillButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
                 activeOpacity={0.85}
                 onPress={handleVerifyCode}
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#0F2942" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <>
-                    <Text style={styles.pillButtonText}>Tasdiqlash & Kirish</Text>
-                    <Text style={styles.pillButtonArrow}>→</Text>
+                    <Text style={[styles.pillButtonText, { color: colors.onPrimary }]}>
+                      {strings.auth.verifyButton}
+                    </Text>
+                    <Text style={[styles.pillButtonArrow, { color: colors.onPrimary }]}>→</Text>
                   </>
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => setStep('EMAIL')}
-                style={styles.backButton}
-              >
-                <Text style={styles.backButtonText}>Emailni o‘zgartirish</Text>
+              <TouchableOpacity onPress={() => setStep('EMAIL')} style={styles.backButton}>
+                <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>
+                  {strings.common.back}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -156,13 +191,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F7FB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   content: {
+    flex: 1,
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 24,
   },
   bgCircle: {
@@ -172,7 +208,6 @@ const styles = StyleSheet.create({
   circleTopLeft: {
     width: 240,
     height: 240,
-    backgroundColor: '#DBEAFE',
     top: -60,
     left: -60,
     opacity: 0.7,
@@ -180,7 +215,6 @@ const styles = StyleSheet.create({
   circleBottomRight: {
     width: 280,
     height: 280,
-    backgroundColor: '#FEF3C7',
     bottom: -80,
     right: -80,
     opacity: 0.6,
@@ -188,15 +222,12 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    borderRadius: 32, // Spec §11: 24-32px rounded corners
+    borderRadius: 32,
     padding: 32,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.95)',
-    shadowColor: '#0F2942',
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 28,
     elevation: 8,
   },
@@ -207,13 +238,8 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 22,
-    backgroundColor: '#0F2942',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#0F2942',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
     elevation: 5,
   },
   logoEmoji: {
@@ -222,21 +248,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#0F2942',
     letterSpacing: -0.5,
   },
   tagline: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#F59E0B', // Warm school yellow accent
-    letterSpacing: 2.5,
+    letterSpacing: 1.8,
     marginTop: 4,
     marginBottom: 12,
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748B',
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 24,
@@ -245,24 +269,23 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 1.5,
+    letterSpacing: 0.6,
     marginBottom: 8,
   },
   input: {
     width: '100%',
-    height: 52,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
+    height: 44,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: '#0F2942',
+    paddingHorizontal: 14,
+    paddingVertical: 0,
+    fontSize: 14.5,
     fontWeight: '500',
-    marginBottom: 20,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    marginBottom: 18,
   },
   otpInput: {
     textAlign: 'center',
@@ -273,24 +296,20 @@ const styles = StyleSheet.create({
   pillButton: {
     width: '100%',
     height: 54,
-    borderRadius: 9999, // Big pill-shaped button
-    backgroundColor: '#F59E0B', // Warm yellow accent
+    borderRadius: 9999,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 5,
   },
   pillButtonText: {
-    color: '#0F2942',
     fontSize: 15,
     fontWeight: '800',
   },
   pillButtonArrow: {
-    color: '#0F2942',
     fontSize: 18,
     fontWeight: '900',
     marginLeft: 8,
@@ -300,13 +319,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#64748B',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   errorText: {
-    color: '#DC2626',
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '600',
     marginBottom: 12,
     textAlign: 'center',

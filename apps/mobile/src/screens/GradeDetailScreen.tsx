@@ -1,408 +1,943 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
+  AppState,
+  BackHandler,
+  Platform,
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   SafeAreaView,
-  Alert,
+  TextInput,
   Image,
+  ActivityIndicator,
+  RefreshControl,
+  Keyboard,
 } from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { Book, Grade, getBookContentTotalPages } from '@smartteacherbook/shared';
 import { DownloadsManager } from '../services/storage/downloadsManager';
+import { offlineCatalogCache } from '../services/storage/offlineCatalogCache';
 import { SubscriptionManager, GradeAccessInfo } from '../services/subscription/subscriptionManager';
 import { ExpiredAccessModal } from '../components/ExpiredAccessModal';
 import { mobileApi } from '../services/api/mobileApi';
-import { Book } from '@smartteacherbook/shared';
-import { UserAvatar } from '../components/common/UserAvatar';
+import { notify } from '../services/notifications/notificationService';
+import { DS } from '../theme/designSystem';
+import { useTheme } from '../theme/ThemeContext';
+import { useI18n } from '../i18n/I18nContext';
+import { matchesBookSearch } from '../utils/searchMatch';
 
 interface GradeDetailScreenProps {
   grade: number;
   userName?: string;
   initialSubjectCode?: string;
   onBack: () => void;
-  onOpenReader: (grade: number, subjectCode: string, bookType: string) => void;
+  onOpenReader: (book: {
+    id: string;
+    title: string;
+    gradeId: number;
+    subjectId: string;
+    totalPages: number;
+    contentStartPdfPage?: number;
+    type?: string;
+    initialPage?: number;
+  }) => void;
   onRequestAccess: (grade: number, subjectCode: string, plan: string) => void;
 }
 
 export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
-  grade,
-  userName = 'O‘qituvchi',
-  initialSubjectCode = 'ENG',
+  grade: initialGrade,
+  initialSubjectCode = 'ALL',
   onBack,
   onOpenReader,
   onRequestAccess,
 }) => {
-  const [selectedSubject, setSelectedSubject] = useState<string>(initialSubjectCode);
-  const [selectedPlan, setSelectedPlan] = useState<'MONTHLY' | 'THREE_MONTHS' | 'YEARLY'>('MONTHLY');
-  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
-  const [isDownloaded, setIsDownloaded] = useState<boolean>(false);
-  const [gradeAccess, setGradeAccess] = useState<GradeAccessInfo>({
-    gradeId: grade,
-    status: 'ACTIVE',
-    daysRemaining: 25,
-  });
-  const [expiredModalVisible, setExpiredModalVisible] = useState<boolean>(false);
+  const { colors, isDark } = useTheme();
+  const { strings, t, formatGrade, formatSubject, formatBookType } = useI18n();
+
+  const [selectedGrade, setSelectedGrade] = useState<number>(initialGrade || 4);
+  const [selectedSubject, setSelectedSubject] = useState<string>(initialSubjectCode || 'ALL');
+  const [viewMode, setViewMode] = useState<'CATALOG' | 'PLANS'>('CATALOG');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [selectedPlan, setSelectedPlan] = useState<'MONTHLY' | 'THREE_MONTHS' | 'YEARLY'>('THREE_MONTHS');
+  const [selectedBookTypeTab, setSelectedBookTypeTab] = useState<'STUDENT_BOOK' | 'TEACHER_BOOK' | 'WORKBOOK'>('STUDENT_BOOK');
+
+  const [availableGrades, setAvailableGrades] = useState<Grade[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
   const [liveBooks, setLiveBooks] = useState<Book[]>([]);
   const [pricingPlans, setPricingPlans] = useState<any[]>([
-    { id: 'MONTHLY', name: '1 Oylik', durationDays: 30, priceUzs: grade === 11 ? 119000 : 99000, badge: '' },
-    { id: 'THREE_MONTHS', name: '3 Oylik', durationDays: 90, priceUzs: grade === 11 ? 299000 : 249000, badge: 'TEJAMKOR' },
-    { id: 'YEARLY', name: '1 Yillik', durationDays: 365, priceUzs: grade === 11 ? 890000 : 799000, badge: 'ENG FOYDALI' },
+    { id: 'MONTHLY', durationDays: 30, priceUzs: 119000, badge: '' },
+    { id: 'THREE_MONTHS', durationDays: 90, priceUzs: 299000, badge: '★' },
+    { id: 'YEARLY', durationDays: 365, priceUzs: 890000, badge: '' },
   ]);
-
-  const [subjects, setSubjects] = useState<any[]>([
-    { code: 'ENG', name: 'Ingliz tili', icon: '🇬🇧', color: '#2563EB' },
-    { code: 'MATH', name: 'Matematika', icon: '📐', color: '#059669' },
-    { code: 'PHYS', name: 'Fizika', icon: '⚛️', color: '#7C3AED' },
-    { code: 'CHEM', name: 'Kimyo', icon: '🧪', color: '#DB2777' },
-    { code: 'BIO', name: 'Biologiya', icon: '🧬', color: '#0D9488' },
-    { code: 'UZB', name: 'Ona tili', icon: '📖', color: '#EA580C' },
-  ]);
-
-  const currentSubject = subjects.find((s) => s.code === selectedSubject) || subjects[0] || {
-    code: 'ENG',
-    name: 'Ingliz tili',
-    icon: '🇬🇧',
-    color: '#2563EB',
-  };
-
-  useEffect(() => {
-    // Dynamic subjects
-    mobileApi.getSubjects().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setSubjects(data.map((s) => ({
-          code: s.code,
-          name: s.name,
-          icon: s.icon || '📚',
-          color: s.color || '#2563EB',
-        })));
-      }
-    }).catch(() => {});
-
-    // Dynamic pricing plans
-    mobileApi.getPricingPlans().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setPricingPlans(data);
-      }
-    }).catch(() => {});
-
-    // Check download state
-    setIsDownloaded(DownloadsManager.isBundleDownloaded(grade, selectedSubject));
-
-    // Check subscription access state
-    SubscriptionManager.getGradeAccess(grade).then((access) => {
-      setGradeAccess(access);
-    });
-
-    // Fetch live books
-    mobileApi
-      .getAllBooks()
-      .then((data) => {
-        if (Array.isArray(data)) setLiveBooks(data);
-      })
-      .catch(() => {});
-  }, [grade, selectedSubject]);
-
-  // Filter live books for this grade and subject
-  const matchingLive = liveBooks.filter((b) => {
-    const bGrade = b.gradeId || (b as any).grade?.gradeNumber;
-    const matchesGrade = !bGrade || Number(bGrade) === grade;
-    const subjCode = selectedSubject.toLowerCase();
-    const bSubj = (b.subjectId || '').toLowerCase();
-    const matchesSubj =
-      !b.subjectId ||
-      (subjCode === 'eng' && (bSubj.includes('eng') || bSubj.includes('ingliz'))) ||
-      (subjCode === 'math' && (bSubj.includes('math') || bSubj.includes('matem'))) ||
-      (subjCode === 'phys' && (bSubj.includes('phys') || bSubj.includes('fizik'))) ||
-      (subjCode === 'chem' && (bSubj.includes('chem') || bSubj.includes('kimyo'))) ||
-      (subjCode === 'bio' && (bSubj.includes('bio') || bSubj.includes('biolog')));
-    return matchesGrade && matchesSubj;
+  const [gradeAccess, setGradeAccess] = useState<GradeAccessInfo>({
+    gradeId: selectedGrade,
+    status: 'LOCKED',
+    daysRemaining: 0,
   });
 
-  const defaultBooks = [
-    {
-      id: 'sb',
-      type: 'STUDENT_BOOK',
-      title: `${grade}-sinf ${currentSubject.name} (Student's Book)`,
-      subtitle: '142 bet • 24 Audio & 12 Video Hotspots',
-      icon: '📖',
-      iconBg: '#FEF3C7',
-      coverImageUrl: null as string | null,
-      status: isDownloaded ? 'Yuklangan' : 'Oflayn tayyor',
-      size: '42 MB',
-    },
-    {
-      id: 'tb',
-      type: 'TEACHER_BOOK',
-      title: `${grade}-sinf ${currentSubject.name} (Teacher's Book)`,
-      subtitle: '180 bet • Barcha mashqlar javobi bilan',
-      icon: '💡',
-      iconBg: '#DBEAFE',
-      coverImageUrl: null as string | null,
-      status: isDownloaded ? 'Yuklangan' : 'Oflayn tayyor',
-      size: '38 MB',
-    },
-    {
-      id: 'wb',
-      type: 'WORKBOOK',
-      title: `${grade}-sinf ${currentSubject.name} (Workbook)`,
-      subtitle: '96 bet • Mustaqil mashqlar va testlar',
-      icon: '✏️',
-      iconBg: '#FCE7F3',
-      coverImageUrl: null as string | null,
-      status: isDownloaded ? 'Yuklangan' : 'Oflayn tayyor',
-      size: '28 MB',
-    },
-    {
-      id: 'audio',
-      type: 'AUDIO_LIB',
-      title: 'Audio Kutubxona (Listening)',
-      subtitle: '24 ta MP3 trek • Offline o‘ynatish',
-      icon: '🎧',
-      iconBg: '#E0E7FF',
-      coverImageUrl: null as string | null,
-      status: '24 Trek',
-      size: '65 MB',
-    },
-    {
-      id: 'video',
-      type: 'VIDEO_LIB',
-      title: 'Video Darslar (Grammar Focus)',
-      subtitle: '12 ta MP4 video • To‘liq darslik mavzulari',
-      icon: '🎬',
-      iconBg: '#FEF9C3',
-      coverImageUrl: null as string | null,
-      status: '12 Video',
-      size: '140 MB',
-    },
-  ];
+  const [downloadingBookId, setDownloadingBookId] = useState<string | null>(null);
+  const [downloadPercent, setDownloadPercent] = useState<number>(0);
+  const [downloadedTick, setDownloadedTick] = useState(0);
+  const [offlineCovers, setOfflineCovers] = useState<Record<string, string>>({});
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [expiredModalVisible, setExpiredModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const liveCards = matchingLive.map((b) => ({
-    id: b.id,
-    type: b.type || 'STUDENT_BOOK',
-    title: b.title,
-    subtitle: `${b.totalPages || 120} bet • ${b.status === 'PUBLISHED' ? '✓ Nashr etilgan' : 'Qoralama'}`,
-    icon: b.type === 'TEACHER_BOOK' ? '💡' : b.type === 'WORKBOOK' ? '✏️' : '📖',
-    iconBg: b.type === 'TEACHER_BOOK' ? '#DBEAFE' : b.type === 'WORKBOOK' ? '#FCE7F3' : '#FEF3C7',
-    coverImageUrl: b.coverImageUrl || null,
-    status: isDownloaded ? 'Yuklangan' : 'Oflayn tayyor',
-    size: 'PDF',
-  }));
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (expiredModalVisible) {
+        setExpiredModalVisible(false);
+        return true;
+      }
+      if (searchOpen) {
+        setSearchOpen(false);
+        return true;
+      }
+      if (viewMode === 'PLANS') {
+        setViewMode('CATALOG');
+        return true;
+      }
+      onBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [expiredModalVisible, searchOpen, viewMode, onBack]);
 
-  const books = liveCards.length > 0 ? [...liveCards, ...defaultBooks.slice(3)] : defaultBooks;
+  const selectedSubjectObj = subjects.find(
+    (s) => s.code === selectedSubject || s.id === selectedSubject,
+  );
+  const pricingSubjectId =
+    selectedSubject === 'ALL'
+      ? subjects[0]?.id
+      : selectedSubjectObj?.id || selectedSubject;
 
-  const handleDownloadAll = async () => {
-    setDownloadProgress(5);
-    try {
-      await DownloadsManager.downloadBundle(grade, selectedSubject, (percent) => {
-        setDownloadProgress(percent);
-      });
-      setIsDownloaded(true);
-      setDownloadProgress(null);
-      Alert.alert(
-        'Yuklandi! 📥',
-        `${grade}-sinf ${currentSubject.name} to‘liq to‘plami yuklandi va Android Keystore AES-256-GCM bilan shifrlandi!`,
+  const hydrateOfflineCatalog = useCallback(async () => {
+    await DownloadsManager.init();
+    const downloaded = DownloadsManager.listDownloadedBundles();
+    const [cachedGrades, cachedSubjects, cachedBooks, access] = await Promise.all([
+      offlineCatalogCache.getGrades(),
+      offlineCatalogCache.getSubjects(),
+      offlineCatalogCache.getBooks(),
+      SubscriptionManager.getGradeAccess(selectedGrade),
+    ]);
+
+    const booksList = offlineCatalogCache.mergeBooksWithDownloads(cachedBooks, downloaded);
+    if (booksList.length > 0) setLiveBooks(booksList);
+
+    if (cachedGrades && cachedGrades.length > 0) {
+      const sorted = [...cachedGrades].sort((a, b) => a.gradeNumber - b.gradeNumber);
+      setAvailableGrades(sorted);
+    } else if (downloaded.length > 0) {
+      const dlGrades = Array.from(new Set(downloaded.map((d) => d.gradeId))).sort((a, b) => a - b);
+      setAvailableGrades(
+        dlGrades.map((n) => ({ id: n, gradeNumber: n, label: `${n}`, isActive: true } as any)),
       );
-    } catch {
-      setDownloadProgress(null);
+    }
+    if (cachedSubjects && cachedSubjects.length > 0) setSubjects(cachedSubjects);
+    setGradeAccess(access);
+    setDownloadedTick((t) => t + 1);
+
+    const coverMap: Record<string, string> = {};
+    for (const dl of downloaded) {
+      const uri = await DownloadsManager.resolveOfflineAssetUri(dl.bookId, dl.coverImageUrl);
+      if (uri) coverMap[dl.bookId] = uri;
+    }
+    setOfflineCovers(coverMap);
+  }, [selectedGrade]);
+
+  const loadCatalogData = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        await DownloadsManager.init();
+        const online = await mobileApi.checkConnectivity();
+        if (!online) {
+          setIsOfflineMode(true);
+          await hydrateOfflineCatalog();
+          notify.info(strings.common.offlineMode, strings.drawer.offlineNotice);
+          return;
+        }
+
+        setIsOfflineMode(false);
+        await SubscriptionManager.syncFromBackend().catch(() => {});
+        const [gradesData, subjs, books, access] = await Promise.all([
+          mobileApi.getGrades(),
+          mobileApi.getSubjects(),
+          mobileApi.getAllBooks(),
+          SubscriptionManager.getGradeAccess(selectedGrade),
+        ]);
+        if (Array.isArray(gradesData)) {
+          const sortedGrades = [...gradesData].sort((a, b) => a.gradeNumber - b.gradeNumber);
+          setAvailableGrades(sortedGrades);
+          offlineCatalogCache.saveGrades(sortedGrades);
+          if (sortedGrades.length > 0 && !sortedGrades.some((g) => g.gradeNumber === selectedGrade)) {
+            setSelectedGrade(sortedGrades[0].gradeNumber);
+          }
+        }
+        if (Array.isArray(subjs)) {
+          setSubjects(subjs);
+          offlineCatalogCache.saveSubjects(subjs);
+        }
+        if (Array.isArray(books)) {
+          setLiveBooks(books);
+          offlineCatalogCache.saveBooks(books);
+        }
+        setGradeAccess(access);
+        setDownloadedTick((t) => t + 1);
+      } catch (err: any) {
+        setIsOfflineMode(true);
+        await hydrateOfflineCatalog();
+        notify.warning(strings.common.warning, err?.message || strings.drawer.offlineNotice);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [
+      selectedGrade,
+      hydrateOfflineCatalog,
+      strings.common.offlineMode,
+      strings.drawer.offlineNotice,
+      strings.common.warning,
+    ],
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadCatalogData(true);
+    mobileApi
+      .getPricingPlans(selectedGrade, pricingSubjectId)
+      .then((plans) => {
+        if (Array.isArray(plans) && plans.length > 0) setPricingPlans(plans);
+      })
+      .catch(() => {});
+    setRefreshing(false);
+  }, [loadCatalogData, selectedGrade, pricingSubjectId]);
+
+  useEffect(() => {
+    if (initialGrade) {
+      setSelectedGrade(initialGrade);
+    }
+  }, [initialGrade]);
+
+  useEffect(() => {
+    loadCatalogData();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') {
+        loadCatalogData();
+      }
+    });
+    return () => sub.remove();
+  }, [loadCatalogData]);
+
+  useEffect(() => {
+    mobileApi
+      .getPricingPlans(selectedGrade, pricingSubjectId)
+      .then((plans) => {
+        if (Array.isArray(plans) && plans.length > 0) setPricingPlans(plans);
+      })
+      .catch(() => {});
+  }, [selectedGrade, pricingSubjectId]);
+
+  const currentSubjectObj =
+    subjects.find((s) => s.code === selectedSubject || s.id === selectedSubject) || subjects[0];
+
+  const resolveSubjectName = useCallback(
+    (subjectId?: string | null) => {
+      if (!subjectId) return formatSubject(undefined, 'sub_eng');
+      const found = subjects.find(
+        (s) =>
+          s.id === subjectId ||
+          s.code.toLowerCase() === subjectId.toLowerCase() ||
+          subjectId.toLowerCase().includes(s.code.toLowerCase()),
+      );
+      return formatSubject(found?.name, found?.id || subjectId);
+    },
+    [subjects, formatSubject],
+  );
+
+  const filteredBooks = liveBooks.filter((b) => {
+    if (Number(b.gradeId) !== selectedGrade) return false;
+    if (selectedSubject !== 'ALL') {
+      const sObj = subjects.find((s) => s.code === selectedSubject || s.id === selectedSubject);
+      const bSubj = (b.subjectId || '').toLowerCase();
+      const sCode = (sObj?.code || selectedSubject).toLowerCase();
+      const sId = (sObj?.id || '').toLowerCase();
+      const sName = (sObj?.name || '').toLowerCase();
+      const match =
+        (sId && bSubj === sId) ||
+        bSubj.includes(sCode) ||
+        (sName && bSubj.includes(sName.slice(0, 4)));
+      if (!match) return false;
+    }
+    if (searchQuery.trim()) {
+      return matchesBookSearch(b, searchQuery, subjects);
+    }
+    return true;
+  });
+
+  const isGradeActive = SubscriptionManager.isAccessValid(gradeAccess);
+
+  const handleDownloadBook = async (book: Book) => {
+    if (downloadingBookId) {
+      notify.info(strings.common.info, strings.grades.downloadStarted);
+      return;
+    }
+    setDownloadingBookId(book.id);
+    setDownloadPercent(4);
+    notify.info(strings.common.info, strings.grades.downloadStarted);
+    try {
+      const item = await DownloadsManager.downloadBundle(
+        selectedGrade,
+        selectedSubject === 'ALL' ? book.subjectId || 'ENG' : selectedSubject,
+        (pct) => setDownloadPercent(pct),
+        book.id,
+        book.title,
+      );
+      setDownloadingBookId(null);
+      setDownloadedTick((t) => t + 1);
+      const localCover = await DownloadsManager.resolveOfflineAssetUri(book.id, book.coverImageUrl);
+      if (localCover) {
+        setOfflineCovers((prev) => ({ ...prev, [book.id]: localCover }));
+      }
+      const mbText = `${Math.max(0.1, Number((item.sizeBytes / (1024 * 1024)).toFixed(1)))} MB`;
+      notify.success(
+        strings.grades.downloadedBadge,
+        `${t('grades.downloadDone', { title: book.title })} (${mbText})`,
+      );
+    } catch (err: any) {
+      setDownloadingBookId(null);
+      notify.error(
+        strings.common.error,
+        t('grades.downloadError', { msg: err?.message || strings.common.unknownError }),
+      );
     }
   };
 
-  const handleBookTap = (bookType: string) => {
-    if (SubscriptionManager.isAccessValid(gradeAccess)) {
-      onOpenReader(grade, selectedSubject, bookType);
+  const handleBookOpenPress = async (book: Book) => {
+    const isDl = DownloadsManager.isBundleDownloaded(
+      book.gradeId || selectedGrade,
+      book.subjectId,
+      book.id,
+    );
+    const { allowed, access } = await SubscriptionManager.checkBookAccess({
+      bookId: book.id,
+      gradeId: book.gradeId || selectedGrade,
+      subjectId: book.subjectId,
+    });
+    setGradeAccess(access);
+    if (allowed || (isOfflineMode && isDl && access.status !== 'EXPIRED')) {
+      onOpenReader({
+        id: book.id,
+        title: book.title,
+        gradeId: book.gradeId,
+        subjectId: book.subjectId,
+        totalPages: book.totalPages || 6,
+        contentStartPdfPage: (book as any).contentStartPdfPage,
+        type: book.type,
+      });
     } else {
+      notify.warning(
+        access.status === 'EXPIRED' ? strings.modals.expiredTitle : strings.grades.lockedBadge,
+        strings.modals.expiredDesc,
+      );
       setExpiredModalVisible(true);
     }
   };
 
+  const formatSizeMb = (bytes?: number) => {
+    if (!bytes) return '— MB';
+    return `${Math.max(1, (bytes / (1024 * 1024)).toFixed(1) as any)} MB`;
+  };
+
+  const getPlanLabel = (plan: any) => {
+    if (plan.id === 'MONTHLY') return t('common.months', { n: 1 });
+    if (plan.id === 'THREE_MONTHS') return t('common.months', { n: 3 });
+    if (plan.id === 'YEARLY') return t('common.months', { n: 12 });
+    return plan.name || plan.id;
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top Header */}
-      <View style={styles.topHeader}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
-          <Text style={styles.backArrow}>←</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* TOP BAR */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          style={[
+            styles.backPillBtn,
+            { backgroundColor: colors.primarySoft, borderColor: colors.primary + '44' },
+          ]}
+          onPress={viewMode === 'PLANS' ? () => setViewMode('CATALOG') : onBack}
+          activeOpacity={0.75}
+          accessibilityLabel={strings.common.back}
+        >
+          <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M15 18l-6-6 6-6"
+              stroke={colors.primaryText}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text style={[styles.backPillText, { color: colors.primaryText }]}>{strings.common.back}</Text>
         </TouchableOpacity>
-        <Text style={styles.screenTitle}>{grade}-sinf Darsliklari</Text>
-        <TouchableOpacity style={styles.moreButton} activeOpacity={0.7}>
-          <Text style={styles.moreIcon}>•••</Text>
-        </TouchableOpacity>
+        <Text style={[styles.screenTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+          {viewMode === 'CATALOG'
+            ? strings.grades.headerTitle
+            : `${formatGrade(selectedGrade)} • ${strings.nav.requests}`}
+        </Text>
+        <View style={styles.topRightActions}>
+          {viewMode === 'CATALOG' ? (
+            <TouchableOpacity
+              style={[
+                styles.searchToggleBtn,
+                {
+                  backgroundColor: searchOpen ? colors.primarySoft : colors.surface,
+                  borderColor: searchOpen ? colors.primary + '55' : colors.border,
+                },
+              ]}
+              onPress={() =>
+                setSearchOpen((prev) => {
+                  if (prev) setSearchQuery('');
+                  return !prev;
+                })
+              }
+              activeOpacity={0.7}
+            >
+              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                <Circle
+                  cx={11}
+                  cy={11}
+                  r={7}
+                  stroke={searchOpen ? colors.primaryText : colors.textPrimary}
+                  strokeWidth={2}
+                />
+                <Path
+                  d="M20 20l-3.5-3.5"
+                  stroke={searchOpen ? colors.primaryText : colors.textPrimary}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 38 }} />
+          )}
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Pink Hero Card (Exact Card from Screen 3) */}
-        <View style={styles.heroPinkCard}>
-          <View style={styles.timeBadgeRow}>
-            <View style={styles.timeBadge}>
-              <Text style={styles.checkIcon}>✓</Text>
-              <Text style={styles.timeBadgeText}>
-                {gradeAccess.status === 'ACTIVE'
-                  ? `Faol Obuna • ${gradeAccess.daysRemaining} kun qoldi`
-                  : 'Obuna talab qilinadi'}
-              </Text>
-            </View>
-          </View>
+      {searchOpen && viewMode === 'CATALOG' && (
+        <View
+          style={[
+            styles.searchBarWrap,
+            { backgroundColor: colors.inputBg, borderColor: colors.primary + '55' },
+          ]}
+        >
+          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
+            <Circle cx={11} cy={11} r={7} stroke={colors.placeholder} strokeWidth={2} />
+            <Path d="M20 20l-3.5-3.5" stroke={colors.placeholder} strokeWidth={2} strokeLinecap="round" />
+          </Svg>
+          <TextInput
+            style={[styles.searchInput, { color: colors.textPrimary }]}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={strings.home.searchPlaceholder}
+            placeholderTextColor={colors.placeholder}
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
+            onSubmitEditing={() => Keyboard.dismiss()}
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={strings.home.clearSearch}
+            >
+              <Text style={[styles.clearBtn, { color: colors.textMuted }]}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
-          <Text style={styles.heroLessonTitle}>{currentSubject.name} {grade}</Text>
-
-          {/* Meta Tags Row */}
-          <View style={styles.metaTagsRow}>
-            <View style={styles.metaTag}>
-              <Text style={styles.metaIcon}>📅</Text>
-              <Text style={styles.metaText}>2025/2026 O‘quv yili</Text>
-            </View>
-            <View style={styles.metaTag}>
-              <Text style={styles.metaIcon}>📋</Text>
-              <Text style={styles.metaText}>Davlat standarti</Text>
-            </View>
-          </View>
-
-          {/* Teacher Profile / Status */}
-          <View style={styles.teacherRow}>
-            <UserAvatar name={userName} size={42} />
-            <View style={styles.teacherDetails}>
-              <Text style={styles.teacherName}>{userName}</Text>
-              <Text style={styles.teacherRole}>Oliy toifali o‘qituvchi</Text>
-            </View>
-          </View>
-
-          {/* Download Bundle Action Button */}
-          <View style={styles.downloadSection}>
-            {downloadProgress !== null ? (
-              <View style={styles.downloadProgressWrap}>
-                <View style={styles.downloadProgressHeader}>
-                  <Text style={styles.downloadProgressTitle}>Yuklanmoqda (AES-256 shifrlash)...</Text>
-                  <Text style={styles.downloadProgressPercent}>{downloadProgress}%</Text>
-                </View>
-                <View style={styles.downloadProgressBar}>
-                  <View style={[styles.downloadProgressFill, { width: `${downloadProgress}%` }]} />
-                </View>
-              </View>
-            ) : (
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* GRADE PILL STRIP */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.gradeStrip}
+        >
+          {(availableGrades.length > 0
+            ? availableGrades.map((g) => g.gradeNumber)
+            : loading
+            ? [selectedGrade]
+            : []
+          ).map((g) => {
+            const active = g === selectedGrade;
+            return (
               <TouchableOpacity
-                style={[styles.downloadButton, isDownloaded && styles.downloadButtonDone]}
-                activeOpacity={0.8}
-                onPress={handleDownloadAll}
+                key={g}
+                style={[
+                  styles.gradeNumPill,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  active && { backgroundColor: colors.primary, borderColor: colors.primary },
+                ]}
+                onPress={() => setSelectedGrade(g)}
+                activeOpacity={0.75}
               >
-                <Text style={styles.downloadButtonIcon}>{isDownloaded ? '✓' : '📥'}</Text>
-                <Text style={styles.downloadButtonText}>
-                  {isDownloaded ? 'Oflayn Saqlangan (138 MB)' : 'Barcha Darsliklarni Oflayn Yuklash (138 MB)'}
+                <Text
+                  style={[
+                    styles.gradeNumText,
+                    { color: active ? colors.onPrimary : colors.textSecondary },
+                  ]}
+                >
+                  {g}
                 </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* SUBJECT CHIPS */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.subjectStrip}
+        >
+          <TouchableOpacity
+            style={[
+              styles.subjectChip,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              selectedSubject === 'ALL' && {
+                backgroundColor: colors.primary,
+                borderColor: colors.primary,
+              },
+            ]}
+            onPress={() => setSelectedSubject('ALL')}
+          >
+            <Text
+              style={[
+                styles.subjectChipText,
+                { color: selectedSubject === 'ALL' ? colors.onPrimary : colors.textSecondary },
+              ]}
+            >
+              {strings.common.all}
+            </Text>
+          </TouchableOpacity>
+
+          {subjects.map((sub) => {
+            const active = selectedSubject === sub.code || selectedSubject === sub.id;
+            return (
+              <TouchableOpacity
+                key={sub.id || sub.code}
+                style={[
+                  styles.subjectChip,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  active && { backgroundColor: colors.primary, borderColor: colors.primary },
+                ]}
+                onPress={() => setSelectedSubject(sub.code)}
+                activeOpacity={0.75}
+              >
+                <Text style={{ fontSize: 13, marginRight: 5 }}>{sub.icon || '📚'}</Text>
+                <Text
+                  style={[
+                    styles.subjectChipText,
+                    { color: active ? colors.onPrimary : colors.textSecondary },
+                  ]}
+                >
+                  {formatSubject(sub.name, sub.id)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {viewMode === 'CATALOG' ? (
+          <View style={styles.booksListWrap}>
+            {loading && liveBooks.length === 0 ? (
+              <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
+            ) : filteredBooks.length === 0 ? (
+              searchQuery.trim().length > 0 ? (
+                <View
+                  style={[
+                    styles.emptyCatalogCard,
+                    { backgroundColor: colors.cardBg, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={styles.emptyEmoji}>🔎</Text>
+                  <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                    {strings.home.searchEmptyTitle}
+                  </Text>
+                  <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                    {t('home.searchEmptyDesc', { query: searchQuery.trim() })}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.subscribePromptBtn, { backgroundColor: colors.primarySoft }]}
+                    onPress={() => setSearchQuery('')}
+                  >
+                    <Text style={[styles.subscribePromptText, { color: colors.primary }]}>
+                      {strings.common.clear}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View
+                  style={[
+                    styles.emptyCatalogCard,
+                    { backgroundColor: colors.cardBg, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={styles.emptyEmoji}>📘</Text>
+                  <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                    {strings.grades.emptyGradeTitle}
+                  </Text>
+                  <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                    {strings.grades.emptyGradeDesc}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.subscribePromptBtn, { backgroundColor: colors.primarySoft }]}
+                    onPress={() => setViewMode('PLANS')}
+                  >
+                    <Text style={[styles.subscribePromptText, { color: colors.primary }]}>
+                      {strings.home.upgradeBannerBtn}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )
+            ) : (
+              filteredBooks.map((book) => {
+                const isDl =
+                  DownloadsManager.isBundleDownloaded(selectedGrade, selectedSubject, book.id) ||
+                  downloadedTick < 0;
+                const isDownloadingThis = downloadingBookId === book.id;
+                const contentTotal = getBookContentTotalPages(
+                  book.totalPages || 96,
+                  (book as any).contentStartPdfPage,
+                );
+                const canOpenBook = isGradeActive || (isDl && gradeAccess.status !== 'EXPIRED');
+
+                return (
+                  <View
+                    key={book.id}
+                    style={[
+                      styles.catalogBookCard,
+                      {
+                        backgroundColor: colors.cardBg,
+                        borderColor: colors.border,
+                        shadowColor: colors.shadowColor,
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={styles.catalogCardMain}
+                      activeOpacity={0.8}
+                      onPress={() => handleBookOpenPress(book)}
+                    >
+                      {offlineCovers[book.id] || book.coverImageUrl ? (
+                        <Image
+                          source={{ uri: (offlineCovers[book.id] || book.coverImageUrl) ?? undefined }}
+                          style={[styles.bookThumbImg, { backgroundColor: colors.primarySoft }]}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.bookThumbPlaceholder,
+                            { backgroundColor: colors.primarySoft },
+                          ]}
+                        >
+                          <Text style={styles.bookThumbEmoji}>
+                            {book.type === 'TEACHER_BOOK'
+                              ? '💡'
+                              : book.type === 'WORKBOOK'
+                              ? '✏️'
+                              : '📘'}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={styles.bookCardMeta}>
+                        <Text
+                          style={[styles.bookCardTitle, { color: colors.textPrimary }]}
+                          numberOfLines={1}
+                        >
+                          {book.title || formatBookType(book.type)}
+                        </Text>
+                        <Text style={[styles.bookCardSub, { color: colors.textSecondary }]}>
+                          {formatGrade(book.gradeId)} • {resolveSubjectName(book.subjectId)}
+                        </Text>
+                        <Text style={[styles.bookCardStats, { color: colors.textMuted }]}>
+                          {contentTotal} {strings.common.pages} • {formatSizeMb(book.totalSizeBytes)}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <View style={styles.catalogRightCol}>
+                      <TouchableOpacity
+                        style={[
+                          styles.openBookBtn,
+                          {
+                            backgroundColor: canOpenBook ? colors.primarySoft : colors.surfaceAlt,
+                          },
+                        ]}
+                        onPress={() => handleBookOpenPress(book)}
+                      >
+                        <Text
+                          style={[
+                            styles.openBookBtnText,
+                            { color: canOpenBook ? colors.primaryText : colors.textSecondary },
+                          ]}
+                        >
+                          {canOpenBook
+                            ? isOfflineMode && isDl
+                              ? strings.grades.openOffline
+                              : strings.grades.openReader
+                            : strings.grades.unlockAction}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.dlMiniBtn}
+                        onPress={() => handleDownloadBook(book)}
+                        disabled={isDownloadingThis}
+                      >
+                        <Text
+                          style={[
+                            styles.dlMiniText,
+                            { color: isDl ? colors.accent : colors.primaryText },
+                          ]}
+                        >
+                          {isDownloadingThis
+                            ? t('grades.downloadingPct', { pct: downloadPercent })
+                            : isDl
+                            ? `${strings.grades.downloadedBadge} ✓`
+                            : strings.grades.downloadOffline}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+
+            {!isGradeActive && (
+              <TouchableOpacity
+                style={[
+                  styles.bannerUnlock,
+                  {
+                    backgroundColor: isDark ? '#17224B' : DS.colors.navyDeep,
+                    borderWidth: isDark ? 1 : 0,
+                    borderColor: colors.borderStrong,
+                  },
+                ]}
+                activeOpacity={0.88}
+                onPress={() => setViewMode('PLANS')}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bannerTitle}>
+                    {formatGrade(selectedGrade)} • {strings.nav.requests}
+                  </Text>
+                  <Text style={styles.bannerSub}>{strings.requests.headerSubtitle}</Text>
+                </View>
+                <View style={[styles.bannerArrow, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.bannerArrowText}>→</Text>
+                </View>
               </TouchableOpacity>
             )}
           </View>
-        </View>
+        ) : (
+          <View>
+            <View
+              style={[
+                styles.gradeHeroCard,
+                { backgroundColor: colors.primary, shadowColor: colors.primary },
+              ]}
+            >
+              <View style={styles.gradeHeroRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.gradeHeroTitle}>
+                    {formatGrade(selectedGrade)}
+                    {'\n'}
+                    {formatSubject(currentSubjectObj?.name, currentSubjectObj?.id)}
+                  </Text>
+                  <View
+                    style={[
+                      styles.heroStatusPill,
+                      isGradeActive
+                        ? { backgroundColor: colors.accent }
+                        : styles.heroStatusLocked,
+                    ]}
+                  >
+                    <Text style={styles.heroStatusText}>
+                      {isGradeActive
+                        ? `✓ ${strings.home.activePlanBadge} (${gradeAccess.daysRemaining})`
+                        : `🔒 ${strings.grades.lockedBadge}`}
+                    </Text>
+                  </View>
+                </View>
 
-        {/* Subjects Switcher */}
-        <View style={styles.subjectsSection}>
-          <Text style={styles.sectionTitle}>Fan Tanlang</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {subjects.map((s) => {
-              const isSelected = s.code === selectedSubject;
-              return (
+                <View style={styles.heroEmblemBox}>
+                  <Text style={{ fontSize: 42 }}>{currentSubjectObj?.icon || '🎓'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Book Type Tabs */}
+            <View
+              style={[
+                styles.bookTypeTabs,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              {(['STUDENT_BOOK', 'TEACHER_BOOK', 'WORKBOOK'] as const).map((tabId) => {
+                const active = selectedBookTypeTab === tabId;
+                return (
+                  <TouchableOpacity
+                    key={tabId}
+                    style={[
+                      styles.typeTabBtn,
+                      active && { backgroundColor: colors.primarySoft },
+                    ]}
+                    onPress={() => setSelectedBookTypeTab(tabId)}
+                  >
+                    <Text
+                      style={[
+                        styles.typeTabText,
+                        { color: active ? colors.primary : colors.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formatBookType(tabId)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {filteredBooks
+              .filter((b) => b.type === selectedBookTypeTab)
+              .slice(0, 1)
+              .map((b) => (
                 <TouchableOpacity
-                  key={s.code}
-                  style={[styles.subjectChip, isSelected && styles.subjectChipActive]}
-                  onPress={() => setSelectedSubject(s.code)}
+                  key={b.id}
+                  style={[
+                    styles.quickTypeCard,
+                    { backgroundColor: colors.surface, borderColor: colors.primary + '55' },
+                  ]}
+                  onPress={() => handleBookOpenPress(b)}
                 >
-                  <Text style={{ fontSize: 16, marginRight: 6 }}>{s.icon}</Text>
-                  <Text style={[styles.subjectChipText, isSelected && styles.subjectChipTextActive]}>
-                    {s.name}
+                  <Text style={[styles.quickTypeTitle, { color: colors.textPrimary }]}>
+                    {b.title}
+                  </Text>
+                  <Text style={[styles.quickTypeAction, { color: colors.primary }]}>
+                    {isGradeActive ? `${strings.grades.openReader} →` : `🔒 ${strings.grades.lockedBadge}`}
                   </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+              ))}
 
-        {/* Subscription Plans Selection Card */}
-        <View style={styles.plansSection}>
-          <Text style={styles.sectionTitle}>Obuna Rejalari (Plans)</Text>
-          <View style={styles.plansRow}>
-            {pricingPlans.map((plan) => {
-              const planKey = (plan.id || 'MONTHLY') as 'MONTHLY' | 'THREE_MONTHS' | 'YEARLY';
-              const isSelected = selectedPlan === planKey;
-              return (
-                <TouchableOpacity
-                  key={plan.id}
-                  style={[styles.planCard, isSelected && styles.planCardActive]}
-                  onPress={() => setSelectedPlan(planKey)}
-                  activeOpacity={0.8}
-                >
-                  {plan.badge ? (
-                    <View style={styles.badgePopular}>
-                      <Text style={styles.badgePopularText}>{plan.badge}</Text>
-                    </View>
-                  ) : null}
-                  <Text style={styles.planDuration}>{plan.name || (planKey === 'MONTHLY' ? '1 Oylik' : planKey === 'THREE_MONTHS' ? '3 Oylik' : '1 Yillik')}</Text>
-                  <Text style={styles.planDays}>{plan.durationDays || (planKey === 'MONTHLY' ? 30 : planKey === 'THREE_MONTHS' ? 90 : 365)} kun</Text>
-                  <Text style={styles.planPrice}>{(plan.priceUzs || 0).toLocaleString('uz-UZ')} UZS</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <TouchableOpacity
-            style={styles.requestCtaButton}
-            onPress={() => onRequestAccess(grade, selectedSubject, selectedPlan)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.requestCtaText}>
-              📞 Ushbu Tarifga Ruxsat So‘rash
+            {/* Tariffs Section */}
+            <Text style={[styles.tariffsHeading, { color: colors.textPrimary }]}>
+              {strings.nav.requests} • {formatGrade(selectedGrade)} (
+              {formatSubject(currentSubjectObj?.name, currentSubjectObj?.id)})
             </Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.tariffsList}>
+              {pricingPlans.map((plan) => {
+                const planKey = (plan.id || 'MONTHLY') as 'MONTHLY' | 'THREE_MONTHS' | 'YEARLY';
+                const selected = selectedPlan === planKey;
+                return (
+                  <TouchableOpacity
+                    key={plan.id}
+                    style={[
+                      styles.tariffRowCard,
+                      {
+                        backgroundColor: selected ? colors.primarySoft : colors.cardBg,
+                        borderColor: selected ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedPlan(planKey)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.tariffLeft}>
+                      <View style={styles.tariffNameRow}>
+                        <Text style={[styles.tariffName, { color: colors.textPrimary }]}>
+                          {getPlanLabel(plan)}
+                        </Text>
+                      </View>
+                      <Text style={[styles.tariffSub, { color: colors.textSecondary }]}>
+                        {(plan.priceUzs || 0).toLocaleString()} {strings.common.currencySom}
+                      </Text>
+                    </View>
 
-        {/* Books & Materials List (Screen 3 Bottom: Last Lessons) */}
-        <View style={styles.booksSection}>
-          <Text style={styles.sectionTitle}>Darsliklar & Materiallar</Text>
+                    <View
+                      style={[
+                        styles.radioOuter,
+                        { borderColor: selected ? colors.primary : colors.textMuted },
+                      ]}
+                    >
+                      {selected && (
+                        <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-          <View style={{ gap: 12 }}>
-            {books.map((book) => (
-              <TouchableOpacity
-                key={book.id}
-                style={styles.bookCard}
-                activeOpacity={0.75}
-                onPress={() => handleBookTap(book.type)}
-              >
-                {book.coverImageUrl ? (
-                  <Image
-                    source={{ uri: book.coverImageUrl }}
-                    style={styles.bookCoverThumb}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={[styles.bookIconCircle, { backgroundColor: book.iconBg }]}>
-                    <Text style={styles.bookEmoji}>{book.icon}</Text>
-                  </View>
-                )}
-
-                <View style={styles.bookDetails}>
-                  <Text style={styles.bookTitle}>{book.title}</Text>
-                  <Text style={styles.bookSubtitle}>{book.subtitle}</Text>
-                </View>
-
-                <View style={styles.bookStatusPill}>
-                  <Text style={styles.bookStatusText}>{book.status}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+            <TouchableOpacity
+              style={[
+                styles.requestCtaBtn,
+                { backgroundColor: colors.primary, shadowColor: colors.primary },
+              ]}
+              onPress={() =>
+                onRequestAccess(
+                  selectedGrade,
+                  selectedSubject === 'ALL' ? currentSubjectObj?.code || 'ENG' : selectedSubject,
+                  selectedPlan,
+                )
+              }
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.requestCtaText, { color: colors.onPrimary }]}>
+                {strings.requests.submitBtn}
+              </Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        )}
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Expired / Locked Access Modal */}
       <ExpiredAccessModal
         visible={expiredModalVisible}
-        gradeNumber={grade}
-        subjectName={currentSubject.name}
+        gradeNumber={selectedGrade}
+        subjectId={pricingSubjectId}
+        subjectName={resolveSubjectName(selectedSubject === 'ALL' ? '' : selectedSubject)}
         isExpired={gradeAccess.status === 'EXPIRED'}
         onClose={() => setExpiredModalVisible(false)}
-        onRequestAccess={() => {
-          onRequestAccess(grade, selectedSubject, selectedPlan);
-        }}
+        onRequestAccess={() =>
+          onRequestAccess(
+            selectedGrade,
+            selectedSubject === 'ALL' ? currentSubjectObj?.code || 'ENG' : selectedSubject,
+            selectedPlan,
+          )
+        }
       />
     </SafeAreaView>
   );
@@ -411,355 +946,386 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
-  topHeader: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 10,
+    gap: 8,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+  backPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 36,
+    paddingLeft: 8,
+    paddingRight: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+  },
+  backPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  searchToggleBtn: {
+    width: 38,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backArrow: {
-    fontSize: 20,
-    color: '#0F172A',
-    fontWeight: '800',
   },
   screenTitle: {
-    fontSize: 16,
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 16.5,
     fontWeight: '800',
-    color: '#0F172A',
   },
-  moreButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
+  topRightActions: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  moreIcon: {
-    fontSize: 18,
-    color: '#94A3B8',
-    fontWeight: '900',
+  searchBarWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 18,
+    marginBottom: 10,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 0,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    paddingVertical: 0,
+    fontSize: 13.5,
+    fontWeight: '500',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  clearBtn: {
+    fontSize: 14,
+    paddingLeft: 8,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 110,
+    paddingHorizontal: 18,
+    paddingTop: 6,
   },
-  heroPinkCard: {
-    backgroundColor: '#0F2942',
-    borderRadius: 28,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    marginBottom: 20,
-    shadowColor: '#0F2942',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  timeBadgeRow: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  timeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-  },
-  checkIcon: {
-    fontSize: 12,
-    color: '#34D399',
-    fontWeight: '900',
-    marginRight: 6,
-  },
-  timeBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#34D399',
-  },
-  heroLessonTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    marginBottom: 10,
-  },
-  metaTagsRow: {
-    flexDirection: 'row',
+  gradeStrip: {
     gap: 8,
-    marginBottom: 16,
+    paddingVertical: 6,
+    marginBottom: 8,
   },
-  metaTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  metaIcon: {
-    fontSize: 11,
-    marginRight: 4,
-  },
-  metaText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#CBD5E1',
-  },
-  teacherRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  teacherAvatarCircle: {
+  gradeNumPill: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 11,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
-  teacherAvatarEmoji: {
-    fontSize: 18,
-  },
-  teacherDetails: {
-    flex: 1,
-  },
-  teacherName: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  teacherRole: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  downloadSection: {
-    marginTop: 4,
-  },
-  downloadButton: {
-    backgroundColor: '#0F172A',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-  },
-  downloadButtonDone: {
-    backgroundColor: '#059669',
-  },
-  downloadButtonIcon: {
+  gradeNumText: {
     fontSize: 14,
-    color: '#FFFFFF',
-    marginRight: 6,
-  },
-  downloadButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 12,
-  },
-  downloadProgressWrap: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 12,
-  },
-  downloadProgressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  downloadProgressTitle: {
-    fontSize: 11,
     fontWeight: '700',
-    color: '#0F172A',
   },
-  downloadProgressPercent: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#2563EB',
-  },
-  downloadProgressBar: {
-    height: 6,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  downloadProgressFill: {
-    height: '100%',
-    backgroundColor: '#2563EB',
-  },
-  subjectsSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 10,
+  subjectStrip: {
+    gap: 8,
+    paddingVertical: 6,
+    marginBottom: 14,
   },
   subjectChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    borderRadius: DS.radius.pill,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  subjectChipActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#2563EB',
   },
   subjectChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
   },
-  subjectChipTextActive: {
-    color: '#2563EB',
+  booksListWrap: {
+    gap: 12,
   },
-  plansSection: {
-    marginBottom: 20,
-  },
-  plansRow: {
+  catalogBookCard: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  planCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    alignItems: 'center',
+    borderRadius: DS.radius.lg,
     padding: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    position: 'relative',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  planCardActive: {
-    borderColor: '#2563EB',
-    backgroundColor: '#F0F7FF',
-  },
-  badgePopular: {
-    position: 'absolute',
-    top: -8,
-    backgroundColor: '#F59E0B',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  badgePopularText: {
-    color: '#FFFFFF',
-    fontSize: 8,
-    fontWeight: '900',
-  },
-  planDuration: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  planDays: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#64748B',
-    marginTop: 2,
-  },
-  planPrice: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#059669',
-    marginTop: 6,
-  },
-  requestCtaButton: {
-    backgroundColor: '#2563EB',
-    borderRadius: 20,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  requestCtaText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  booksSection: {
-    marginBottom: 20,
-  },
-  bookCard: {
+  catalogCardMain: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  bookIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+  bookThumbImg: {
+    width: 54,
+    height: 70,
+    borderRadius: 10,
+  },
+  bookThumbPlaceholder: {
+    width: 54,
+    height: 70,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  bookCoverThumb: {
-    width: 44,
-    height: 58,
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    marginRight: 12,
+  bookThumbEmoji: {
+    fontSize: 24,
   },
-  bookEmoji: {
-    fontSize: 22,
-  },
-  bookDetails: {
+  bookCardMeta: {
     flex: 1,
+    marginHorizontal: 12,
   },
-  bookTitle: {
-    fontSize: 13,
+  bookCardTitle: {
+    fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
   },
-  bookSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
+  bookCardSub: {
+    fontSize: 12,
     marginTop: 2,
   },
-  bookStatusPill: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+  bookCardStats: {
+    fontSize: 11,
+    marginTop: 4,
+    fontWeight: '600',
   },
-  bookStatusText: {
-    fontSize: 10,
+  catalogRightCol: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  openBookBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: DS.radius.pill,
+  },
+  openBookBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  dlMiniBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  dlMiniText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+  },
+  emptyCatalogCard: {
+    borderRadius: DS.radius.xl,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  emptyEmoji: {
+    fontSize: 38,
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  subscribePromptBtn: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: DS.radius.pill,
+  },
+  subscribePromptText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  bannerUnlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: DS.radius.lg,
+    padding: 16,
+    marginTop: 8,
+  },
+  bannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  bannerSub: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  bannerArrow: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  bannerArrowText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  gradeHeroCard: {
+    borderRadius: DS.radius.xl,
+    padding: 20,
+    marginBottom: 16,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  gradeHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gradeHeroTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 28,
+    marginBottom: 12,
+  },
+  heroStatusPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: DS.radius.pill,
+  },
+  heroStatusActive: {
+    backgroundColor: DS.colors.success,
+  },
+  heroStatusLocked: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  heroStatusText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  heroEmblemBox: {
+    width: 78,
+    height: 78,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  bookTypeTabs: {
+    flexDirection: 'row',
+    borderRadius: DS.radius.md,
+    padding: 4,
+    marginBottom: 14,
+    borderWidth: 1,
+  },
+  typeTabBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: DS.radius.sm,
+    alignItems: 'center',
+  },
+  typeTabText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  quickTypeCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: DS.radius.md,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  quickTypeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+  },
+  quickTypeAction: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginLeft: 8,
+  },
+  tariffsHeading: {
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  tariffsList: {
+    gap: 10,
+    marginBottom: 18,
+  },
+  tariffRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: DS.radius.md,
+    padding: 15,
+    borderWidth: 1.5,
+  },
+  tariffLeft: {
+    flex: 1,
+  },
+  tariffNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tariffName: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  tariffSub: {
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioInner: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+  },
+  requestCtaBtn: {
+    borderRadius: DS.radius.md,
+    paddingVertical: 15,
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  requestCtaText: {
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

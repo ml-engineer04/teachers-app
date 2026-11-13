@@ -37,18 +37,20 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   }
 
   const effectiveText = (name || email || 'O').trim();
-  const initial = (effectiveText.charAt(0) || 'O').toUpperCase();
+  const words = effectiveText.split(/\s+/).filter(Boolean);
+  const initial =
+    words.length >= 2
+      ? `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase()
+      : (effectiveText.charAt(0) || 'O').toUpperCase();
 
-  // Distinct energetic palette based on initial
+  // Pick energetic royal-indigo / brand color based on initial
   const colors = [
-    '#2563EB', // Blue
+    '#4F46E5', // Indigo (Design System Primary)
+    '#3730A3', // Deep Indigo
+    '#2563EB', // Royal Blue
     '#7C3AED', // Violet
     '#059669', // Emerald
-    '#EA580C', // Orange
     '#0284C7', // Sky
-    '#D97706', // Amber
-    '#4F46E5', // Indigo
-    '#DB2777', // Pink
   ];
   const charCode = initial.charCodeAt(0) || 0;
   const bgColor = colors[charCode % colors.length];
