@@ -64,7 +64,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: any) => void })
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
             <span className="text-xs font-bold text-green-700 uppercase tracking-wider">
-              SmartTeacherBook Admin Panel (Phase 1)
+              ilmçi Admin Panel (Phase 1)
             </span>
           </div>
           <h2 className="text-2xl font-black text-school-blue-900 mt-1">

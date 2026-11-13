@@ -80,8 +80,8 @@ export const api = {
   },
 
   // Grades & Pricing
-  async getGrades() {
-    return fetchJson<any[]>('/grades');
+  async getGrades(activeOnly = false) {
+    return fetchJson<any[]>(`/grades${activeOnly ? '?activeOnly=true' : ''}`);
   },
 
   async updateGrade(id: number, data: { priceMonthlyUzs?: number; priceQuarterlyUzs?: number; priceYearlyUzs?: number; isActive?: boolean }) {
@@ -108,6 +108,7 @@ export const api = {
     subjectId: string;
     type?: string;
     totalPages?: number;
+    contentStartPdfPage?: number;
     description?: string;
   }) {
     return fetchJson<any>('/content/books', {
@@ -116,13 +117,25 @@ export const api = {
     });
   },
 
-  async uploadBookPdf(file: File, metadata?: { title?: string; gradeId?: number; subjectId?: string; bookType?: string }) {
+  async uploadBookPdf(
+    file: File,
+    metadata?: {
+      title?: string;
+      gradeId?: number;
+      subjectId?: string;
+      bookType?: string;
+      contentStartPdfPage?: number;
+    },
+  ) {
     const formData = new FormData();
     formData.append('file', file);
     if (metadata?.title) formData.append('title', metadata.title);
     if (metadata?.gradeId) formData.append('gradeId', String(metadata.gradeId));
     if (metadata?.subjectId) formData.append('subjectId', metadata.subjectId);
     if (metadata?.bookType) formData.append('bookType', metadata.bookType);
+    if (metadata?.contentStartPdfPage) {
+      formData.append('contentStartPdfPage', String(metadata.contentStartPdfPage));
+    }
 
     const token = typeof window !== 'undefined' ? localStorage.getItem(ADMIN_TOKEN_KEY) : null;
     const res = await fetch(`${API_BASE}/content/books/upload-pdf`, {
@@ -436,9 +449,35 @@ export const api = {
     });
   },
 
+  // Grades Management
+  async createGrade(dto: {
+    gradeNumber: number;
+    title?: string;
+    description?: string;
+    priceMonthlyUzs?: number;
+    priceQuarterlyUzs?: number;
+    priceYearlyUzs?: number;
+    isActive?: boolean;
+  }) {
+    return fetchJson<any>('/grades', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  async deleteGrade(gradeId: number) {
+    return fetchJson<{ success: boolean }>(`/grades/${gradeId}`, {
+      method: 'DELETE',
+    });
+  },
+
   // Pricing & Tariffs Management
-  async getPricingPlans() {
-    return fetchJson<any[]>('/grades/pricing/plans');
+  async getPricingPlans(gradeId?: number, subjectId?: string) {
+    const qs = new URLSearchParams();
+    if (gradeId) qs.set('gradeId', String(gradeId));
+    if (subjectId) qs.set('subjectId', subjectId);
+    const q = qs.toString();
+    return fetchJson<any[]>(`/grades/pricing/plans${q ? `?${q}` : ''}`);
   },
 
   async updatePricingPlans(plans: Array<{ id: string; name?: string; priceUzs: number; badge?: string }>) {
@@ -448,9 +487,65 @@ export const api = {
     });
   },
 
-  async updateGradePricing(gradeId: number, dto: { priceMonthlyUzs?: number; priceQuarterlyUzs?: number; priceYearlyUzs?: number }) {
+  async getPricingMatrix() {
+    return fetchJson<{
+      plans: any[];
+      grades: any[];
+      subjects: any[];
+      matrix: Array<{
+        id: string;
+        gradeId: number;
+        subjectId: string;
+        priceMonthlyUzs: number;
+        priceQuarterlyUzs: number;
+        priceYearlyUzs: number;
+        isActive?: boolean;
+      }>;
+    }>('/grades/pricing/matrix');
+  },
+
+  async upsertPricingMatrix(
+    entries: Array<{
+      gradeId: number;
+      subjectId: string;
+      priceMonthlyUzs: number;
+      priceQuarterlyUzs: number;
+      priceYearlyUzs: number;
+      isActive?: boolean;
+    }>,
+  ) {
+    return fetchJson<any>('/grades/pricing/matrix', {
+      method: 'PUT',
+      body: JSON.stringify({ entries }),
+    });
+  },
+
+  async updateGradePricing(
+    gradeId: number,
+    dto: {
+      title?: string;
+      description?: string;
+      isActive?: boolean;
+      priceMonthlyUzs?: number;
+      priceQuarterlyUzs?: number;
+      priceYearlyUzs?: number;
+    },
+  ) {
     return fetchJson<any>(`/grades/${gradeId}`, {
       method: 'PUT',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  async grantManualSubscription(dto: {
+    teacherNameOrEmail: string;
+    phoneNumber?: string;
+    gradeId: number;
+    subjectId?: string;
+    durationDays: number;
+  }) {
+    return fetchJson<any>('/admin/subscriptions/manual', {
+      method: 'POST',
       body: JSON.stringify(dto),
     });
   },

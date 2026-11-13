@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { BrandLogo } from './BrandLogo';
 import {
   LayoutDashboard,
   BookOpen,
@@ -50,6 +51,9 @@ import {
   SmartphoneNfc,
   Camera,
   Image as ImageIcon,
+  GraduationCap,
+  Tag,
+  CreditCard,
 } from 'lucide-react';
 import { VisualPdfEditor } from './VisualPdfEditor';
 import { api } from '../services/apiClient';
@@ -60,6 +64,7 @@ export type AdminPortalNav =
   | 'my_books'
   | 'audio_video'
   | 'manage_content'
+  | 'grades'
   | 'subjects'
   | 'page_editor'
   | 'users'
@@ -76,6 +81,20 @@ interface ModernAdminPortalProps {
 }
 
 export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
+  const [adminSession] = useState<{ email: string; name: string }>(() => {
+    try {
+      const saved = localStorage.getItem('stb_admin_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          email: parsed.email || 'mlrahmonjon@gmail.com',
+          name: parsed.name || 'Super Admin',
+        };
+      }
+    } catch {}
+    return { email: 'mlrahmonjon@gmail.com', name: 'Super Admin' };
+  });
+
   const [activeNav, setActiveNav] = useState<AdminPortalNav>('dashboard');
   const [contentManagerOpen, setContentManagerOpen] = useState(true);
   const [globalSearch, setGlobalSearch] = useState('');
@@ -97,6 +116,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [newBookTitle, setNewBookTitle] = useState('');
   const [newBookDesc, setNewBookDesc] = useState('');
   const [newBookPages, setNewBookPages] = useState('120');
+  const [newBookStartPdfPage, setNewBookStartPdfPage] = useState('1');
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [attachedAudioFile, setAttachedAudioFile] = useState<File | null>(null);
   const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
@@ -154,6 +174,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // STATE: Real Requests, Users & Subscriptions
   // ==========================================
   const [requestsList, setRequestsList] = useState<any[]>([]);
+  const [reqStatusFilter, setReqStatusFilter] = useState<'ALL' | 'PENDING' | 'PAID_APPROVED' | 'REJECTED'>('ALL');
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isManualSubscriptionModalOpen, setIsManualSubscriptionModalOpen] = useState(false);
   const [manualTeacherName, setManualTeacherName] = useState('');
@@ -161,6 +182,19 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [manualGrade, setManualGrade] = useState<number>(7);
   const [manualSubject, setManualSubject] = useState('Ingliz tili');
   const [manualDurationDays, setManualDurationDays] = useState(30);
+
+  // ==========================================
+  // STATE: Dynamic Grades Management (Sinflar)
+  // ==========================================
+  const [gradesList, setGradesList] = useState<any[]>([]);
+  const [isAddGradeModalOpen, setIsAddGradeModalOpen] = useState(false);
+  const [newGradeNumber, setNewGradeNumber] = useState<string>('1');
+  const [newGradeTitle, setNewGradeTitle] = useState<string>('');
+  const [newGradeDesc, setNewGradeDesc] = useState<string>('');
+  const [newGradeMonthly, setNewGradeMonthly] = useState<number>(99000);
+  const [newGradeQuarterly, setNewGradeQuarterly] = useState<number>(249000);
+  const [newGradeYearly, setNewGradeYearly] = useState<number>(790000);
+  const [isSavingGrade, setIsSavingGrade] = useState(false);
 
   // ==========================================
   // STATE: Dynamic Subjects Management
@@ -187,6 +221,22 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     { id: 'THREE_MONTHS', name: '3 Oylik Obuna', durationDays: 90, priceUzs: 299000, badge: 'TEJAMKOR' },
     { id: 'YEARLY', name: '1 Yillik Obuna', durationDays: 365, priceUzs: 890000, badge: 'ENG FOYDALI' },
   ]);
+  const [pricingMatrixMap, setPricingMatrixMap] = useState<
+    Record<
+      string,
+      {
+        gradeId: number;
+        subjectId: string;
+        priceMonthlyUzs: number;
+        priceQuarterlyUzs: number;
+        priceYearlyUzs: number;
+        isActive?: boolean;
+      }
+    >
+  >({});
+  const [pricingViewMode, setPricingViewMode] = useState<'BY_SUBJECT' | 'BY_GRADE'>('BY_SUBJECT');
+  const [pricingSelectedSubjectId, setPricingSelectedSubjectId] = useState<string>('sub_eng');
+  const [pricingSelectedGradeId, setPricingSelectedGradeId] = useState<number>(1);
   const [isSavingPricing, setIsSavingPricing] = useState(false);
 
   // ==========================================
@@ -223,34 +273,61 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // ==========================================
   // DATA LOADERS
   // ==========================================
-  const loadCatalogBooks = async () => {
+  const loadCatalogBooks = async (loadedSubjects?: any[]) => {
     setIsLoadingBooks(true);
     try {
-      const data = await api.getAllBooks();
+      const [data, subs] = await Promise.all([
+        api.getAllBooks(),
+        loadedSubjects ? Promise.resolve(loadedSubjects) : api.getSubjects().catch(() => subjectsList),
+      ]);
+      const effectiveSubjects = Array.isArray(subs) && subs.length > 0 ? subs : subjectsList;
       if (Array.isArray(data)) {
-        const mapped = data.map((b: any) => ({
-          id: b.id,
-          title: b.title,
-          grade: b.gradeId || b.grade?.gradeNumber || 7,
-          subject: b.subjectId?.includes('math')
-            ? 'Matematika'
-            : b.subjectId?.includes('phys')
-            ? 'Fizika'
-            : b.subjectId?.includes('chem')
-            ? 'Kimyo'
-            : b.subjectId?.includes('bio')
-            ? 'Biologiya'
-            : 'Ingliz tili',
-          version: `v${b.version || 1}.0`,
-          type: b.type === 'STUDENT_BOOK' ? "Student's Book" : b.type === 'TEACHER_BOOK' ? "Teacher's Book" : 'Workbook',
-          status: b.status === 'PUBLISHED' ? 'Published' : b.status === 'INGESTING' ? 'Processing' : 'Draft',
-          pages: b.totalPages || 0,
-          size: b.totalSizeBytes ? `${(b.totalSizeBytes / (1024 * 1024)).toFixed(1)} MB` : 'PDF',
-          date: new Date(b.createdAt || Date.now()).toLocaleDateString('ru-RU'),
-          coverColor: (b.gradeId || 7) >= 10 ? 'from-indigo-600 to-blue-800' : 'from-blue-600 to-indigo-700',
-          iconEmoji: b.type === 'TEACHER_BOOK' ? '💡' : b.type === 'WORKBOOK' ? '📝' : '📘',
-          coverImageUrl: b.coverImageUrl || null,
-        }));
+        const mapped = data.map((b: any) => {
+          const matchedSub = effectiveSubjects.find(
+            (s: any) =>
+              s.id === b.subjectId ||
+              (b.subjectId && s.code && b.subjectId.toLowerCase().includes(s.code.toLowerCase())),
+          );
+          const resolvedSubjectName =
+            matchedSub?.name ||
+            (b.subjectId?.includes('math')
+              ? 'Matematika'
+              : b.subjectId?.includes('phys')
+              ? 'Fizika'
+              : b.subjectId?.includes('chem')
+              ? 'Kimyo'
+              : b.subjectId?.includes('bio')
+              ? 'Biologiya'
+              : b.subjectId?.includes('uzb')
+              ? 'Ona tili'
+              : 'Ingliz tili');
+          return {
+            id: b.id,
+            title: b.title,
+            grade: b.gradeId || b.grade?.gradeNumber || 7,
+            subject: resolvedSubjectName,
+            version: `v${b.version || 1}.0`,
+            type:
+              b.type === 'STUDENT_BOOK'
+                ? "Student's Book"
+                : b.type === 'TEACHER_BOOK'
+                ? "Teacher's Book"
+                : 'Workbook',
+            status:
+              b.status === 'PUBLISHED'
+                ? 'Published'
+                : b.status === 'INGESTING'
+                ? 'Processing'
+                : 'Draft',
+            pages: b.totalPages || 0,
+            contentStartPdfPage: b.contentStartPdfPage || 1,
+            size: b.totalSizeBytes ? `${(b.totalSizeBytes / (1024 * 1024)).toFixed(1)} MB` : 'PDF',
+            date: new Date(b.createdAt || Date.now()).toLocaleDateString('ru-RU'),
+            coverColor: (b.gradeId || 7) >= 10 ? 'from-indigo-600 to-blue-800' : 'from-blue-600 to-indigo-700',
+            iconEmoji: b.type === 'TEACHER_BOOK' ? '💡' : b.type === 'WORKBOOK' ? '📝' : '📘',
+            coverImageUrl: b.coverImageUrl || null,
+          };
+        });
         setBooks(mapped);
       }
     } catch (err) {
@@ -296,10 +373,39 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     }
   };
 
+  const loadGrades = async () => {
+    try {
+      const data = await api.getGrades(false);
+      if (Array.isArray(data)) {
+        const sorted = [...data].sort((a, b) => a.gradeNumber - b.gradeNumber);
+        setGradesList(sorted);
+        const active = sorted.filter((g) => g.isActive !== false);
+        const firstNum = active[0]?.gradeNumber ?? sorted[0]?.gradeNumber;
+        if (firstNum) {
+          setNewBookGrade((prev) =>
+            active.some((g) => String(g.gradeNumber) === prev) ? prev : String(firstNum),
+          );
+          setAnswerGrade((prev) => (active.some((g) => g.gradeNumber === prev) ? prev : firstNum));
+          setManualGrade((prev) => (active.some((g) => g.gradeNumber === prev) ? prev : firstNum));
+          setPricingSelectedGradeId((prev) =>
+            sorted.some((g) => g.gradeNumber === prev) ? prev : firstNum,
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('Load grades error:', err);
+    }
+  };
+
   const loadSubjects = async () => {
     try {
       const data = await api.getSubjects();
-      if (Array.isArray(data) && data.length > 0) setSubjectsList(data);
+      if (Array.isArray(data) && data.length > 0) {
+        setSubjectsList(data);
+        setPricingSelectedSubjectId((prev) =>
+          data.some((s: any) => s.id === prev) ? prev : data[0].id,
+        );
+      }
     } catch {}
   };
 
@@ -308,6 +414,28 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       const data = await api.getPricingPlans();
       if (Array.isArray(data) && data.length > 0) setPricingPlans(data);
     } catch {}
+  };
+
+  const loadPricingMatrix = async () => {
+    try {
+      const res = await api.getPricingMatrix();
+      if (res && Array.isArray(res.matrix)) {
+        const map: Record<string, any> = {};
+        for (const item of res.matrix) {
+          map[`${item.gradeId}::${item.subjectId}`] = {
+            gradeId: Number(item.gradeId),
+            subjectId: String(item.subjectId),
+            priceMonthlyUzs: Number(item.priceMonthlyUzs || 0),
+            priceQuarterlyUzs: Number(item.priceQuarterlyUzs || 0),
+            priceYearlyUzs: Number(item.priceYearlyUzs || 0),
+            isActive: item.isActive !== false,
+          };
+        }
+        setPricingMatrixMap(map);
+      }
+    } catch (err) {
+      console.warn('Load pricing matrix error:', err);
+    }
   };
 
   const loadAdmins = async () => {
@@ -324,8 +452,10 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       loadAnswerMappings(),
       loadRequests(),
       loadUsers(),
+      loadGrades(),
       loadSubjects(),
       loadPricingPlans(),
+      loadPricingMatrix(),
       loadAdmins(),
     ]);
   };
@@ -380,6 +510,8 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         ? matchingSubject.id
         : `sub_${newBookSubject.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 10)}_${numGrade}`;
 
+      const startPdfPage = Math.max(1, parseInt(newBookStartPdfPage, 10) || 1);
+
       if (selectedPdfFile) {
         const res = await api.uploadBookPdf(selectedPdfFile, {
           title: titleToSave,
@@ -391,6 +523,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               : newBookType === 'Workbook'
               ? 'WORKBOOK'
               : 'STUDENT_BOOK',
+          contentStartPdfPage: startPdfPage,
         });
         createdBookId = res.book?.id;
         showToast(`🎉 Darslik muvaffaqiyatli saqlandi! (${res.book?.totalPages || 'Ko‘p'} ta sahifa)`);
@@ -406,6 +539,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               ? 'WORKBOOK'
               : 'STUDENT_BOOK',
           totalPages: parseInt(newBookPages) || 120,
+          contentStartPdfPage: startPdfPage,
           description: newBookDesc,
         });
         createdBookId = res?.id;
@@ -439,6 +573,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setSelectedCoverFile(null);
       setCoverImagePreview(null);
       setAttachedAudioFile(null);
+      setNewBookStartPdfPage('1');
       setActiveNav('my_books');
     } catch (err: any) {
       alert('Kitobni saqlashda xatolik yuz berdi: ' + err.message);
@@ -568,11 +703,18 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         answerSolutionKey.trim() ||
         (answerScreenshotFile ? 'Ko‘rish uchun skrinshot fotosurati biriktirilgan' : 'Yechim');
 
+      const matchedSub = subjectsList.find(
+        (s: any) =>
+          s.name?.toLowerCase() === answerSubject.toLowerCase() ||
+          s.code?.toLowerCase() === answerSubject.toLowerCase(),
+      );
       await api.uploadAnswerKeyWithImage(answerScreenshotFile || undefined, {
         gradeId: Number(answerGrade),
-        subjectId: answerSubject.toLowerCase().includes('mat')
-          ? `sub_math_${answerGrade}`
-          : `sub_eng_${answerGrade}`,
+        subjectId:
+          matchedSub?.id ||
+          (answerSubject.toLowerCase().includes('mat')
+            ? `sub_math_${answerGrade}`
+            : `sub_eng_${answerGrade}`),
         studentExerciseLabel: answerExercise.trim(),
         studentPageNumber: Number(answerStudentPage) || 1,
         teacherPageNumber: Number(answerTeacherPage) || 1,
@@ -629,9 +771,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // ==========================================
   const handleApproveRequest = async (requestId: string) => {
     try {
-      await api.grantAccess(requestId, 30, "Admin tomonidan to'lov tasdiqlandi");
-      await loadRequests();
-      showToast("✅ To'lov tasdiqlandi va 30 kunlik litsenziya ochildi!");
+      const targetReq = requestsList.find((r: any) => r.id === requestId);
+      const durationDays =
+        targetReq?.plan === 'YEARLY' ? 365 : targetReq?.plan === 'THREE_MONTHS' ? 90 : 30;
+      await api.grantAccess(requestId, durationDays, "Admin tomonidan to'lov tasdiqlandi");
+      setRequestsList((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status: 'PAID_APPROVED' } : r)),
+      );
+      await Promise.all([loadRequests(), loadUsers()]);
+      showToast(`✅ So‘rov qabul qilindi va ${durationDays} kunlik obuna faollashtirildi!`);
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -642,6 +790,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     if (!reason) return;
     try {
       await api.rejectAccess(requestId, reason);
+      setRequestsList((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status: 'REJECTED' } : r)),
+      );
       await loadRequests();
       showToast("So'rov rad etildi.");
     } catch (err: any) {
@@ -651,14 +802,27 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
   const handleCreateManualSubscription = async () => {
     if (!manualTeacherName.trim()) {
-      alert("Iltimos, o'qituvchi ismini kiriting!");
+      alert("Iltimos, o'qituvchi ismi yoki emailini kiriting!");
       return;
     }
     try {
-      // Simulate quick grant
+      const matchedSub = subjectsList.find(
+        (s: any) =>
+          s.name?.toLowerCase() === manualSubject.toLowerCase() ||
+          s.code?.toLowerCase() === manualSubject.toLowerCase(),
+      );
+      await api.grantManualSubscription({
+        teacherNameOrEmail: manualTeacherName.trim(),
+        phoneNumber: manualTeacherPhone.trim() || undefined,
+        gradeId: Number(manualGrade),
+        subjectId: matchedSub?.id || 'sub_eng',
+        durationDays: Number(manualDurationDays),
+      });
+      await Promise.all([loadRequests(), loadUsers()]);
       showToast(`✅ ${manualTeacherName} uchun ${manualDurationDays} kunlik litsenziya faollashtirildi!`);
       setIsManualSubscriptionModalOpen(false);
       setManualTeacherName('');
+      setManualTeacherPhone('+998 ');
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -709,12 +873,126 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     }
   };
 
-  // Handlers: Pricing Management
+  // Handlers: Grades Management (Sinflar)
+  const handleCreateGrade = async () => {
+    const gradeNum = Number(newGradeNumber);
+    if (!Number.isInteger(gradeNum) || gradeNum < 1 || gradeNum > 12) {
+      alert('Iltimos, 1 dan 12 gacha sinf raqamini kiriting!');
+      return;
+    }
+    setIsSavingGrade(true);
+    try {
+      await api.createGrade({
+        gradeNumber: gradeNum,
+        title: newGradeTitle.trim() || `${gradeNum}-sinf`,
+        description: newGradeDesc.trim() || undefined,
+        priceMonthlyUzs: Number(newGradeMonthly) || 99000,
+        priceQuarterlyUzs: Number(newGradeQuarterly) || 249000,
+        priceYearlyUzs: Number(newGradeYearly) || 790000,
+        isActive: true,
+      });
+      await Promise.all([loadGrades(), loadPricingMatrix()]);
+      setIsAddGradeModalOpen(false);
+      setNewGradeTitle('');
+      setNewGradeDesc('');
+      showToast(`✅ ${gradeNum}-sinf muvaffaqiyatli qo‘shildi!`);
+    } catch (err: any) {
+      alert('Sinf qo‘shishda xatolik: ' + err.message);
+    } finally {
+      setIsSavingGrade(false);
+    }
+  };
+
+  const handleToggleGradeActive = async (grade: any) => {
+    try {
+      const nextActive = grade.isActive === false;
+      await api.updateGradePricing(grade.gradeNumber, { isActive: nextActive });
+      await Promise.all([loadGrades(), loadPricingMatrix()]);
+      showToast(`${grade.gradeNumber}-sinf ${nextActive ? 'faollashtirildi' : 'nofaol qilindi'}`);
+    } catch (err: any) {
+      alert('Sinf holatini yangilashda xatolik: ' + err.message);
+    }
+  };
+
+  const handleDeleteGrade = async (gradeNumber: number) => {
+    if (!window.confirm(`${gradeNumber}-sinfni o‘chirmoqchimisiz? Mobil ilovada ushbu sinf ko‘rinmaydi.`)) {
+      return;
+    }
+    try {
+      await api.deleteGrade(gradeNumber);
+      await Promise.all([loadGrades(), loadPricingMatrix()]);
+      showToast(`${gradeNumber}-sinf o‘chirildi!`);
+    } catch (err: any) {
+      alert('Sinfni o‘chirishda xatolik: ' + err.message);
+    }
+  };
+
+  // Handlers: Pricing Management (Global + Grade × Subject Matrix)
+  const getMatrixEntry = (gradeId: number, subjectId: string) => {
+    const key = `${gradeId}::${subjectId}`;
+    if (pricingMatrixMap[key]) return pricingMatrixMap[key];
+    const gradeObj = gradesList.find((g) => g.gradeNumber === gradeId);
+    const pMonthly =
+      gradeObj?.priceMonthlyUzs ||
+      pricingPlans.find((p) => p.id === 'MONTHLY')?.priceUzs ||
+      119000;
+    const pQuarterly =
+      gradeObj?.priceQuarterlyUzs ||
+      pricingPlans.find((p) => p.id === 'THREE_MONTHS')?.priceUzs ||
+      299000;
+    const pYearly =
+      gradeObj?.priceYearlyUzs ||
+      pricingPlans.find((p) => p.id === 'YEARLY')?.priceUzs ||
+      890000;
+    return {
+      gradeId,
+      subjectId,
+      priceMonthlyUzs: Number(pMonthly),
+      priceQuarterlyUzs: Number(pQuarterly),
+      priceYearlyUzs: Number(pYearly),
+      isActive: true,
+    };
+  };
+
+  const updateMatrixEntryField = (
+    gradeId: number,
+    subjectId: string,
+    field: 'priceMonthlyUzs' | 'priceQuarterlyUzs' | 'priceYearlyUzs',
+    val: number,
+  ) => {
+    const key = `${gradeId}::${subjectId}`;
+    setPricingMatrixMap((prev) => {
+      const current = prev[key] || getMatrixEntry(gradeId, subjectId);
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          gradeId,
+          subjectId,
+          [field]: Math.max(0, Number(val) || 0),
+          isActive: true,
+        },
+      };
+    });
+  };
+
   const handleSavePricing = async () => {
     setIsSavingPricing(true);
     try {
-      await api.updatePricingPlans(pricingPlans);
-      showToast('🎉 Yangi tarif narxlari muvaffaqiyatli saqlandi!');
+      const matrixEntries = Object.values(pricingMatrixMap).map((item) => ({
+        gradeId: Number(item.gradeId),
+        subjectId: String(item.subjectId),
+        priceMonthlyUzs: Number(item.priceMonthlyUzs || 0),
+        priceQuarterlyUzs: Number(item.priceQuarterlyUzs || 0),
+        priceYearlyUzs: Number(item.priceYearlyUzs || 0),
+        isActive: item.isActive !== false,
+      }));
+      await Promise.all([
+        api.updatePricingPlans(pricingPlans),
+        matrixEntries.length > 0 ? api.upsertPricingMatrix(matrixEntries) : Promise.resolve(),
+      ]);
+      await Promise.all([loadPricingPlans(), loadPricingMatrix()]);
+      showToast('✅ Global tariflar va barcha sinf×fan narxlari saqlandi!');
     } catch (err: any) {
       alert('Narxlarni saqlashda xatolik: ' + err.message);
     } finally {
@@ -785,7 +1063,14 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // Filtered books
   const filteredBooks = books.filter((b) => {
     if (selectedBookFilter !== 'All' && b.type !== selectedBookFilter) return false;
-    if (globalSearch && !b.title.toLowerCase().includes(globalSearch.toLowerCase())) return false;
+    if (globalSearch.trim()) {
+      const q = globalSearch.trim().toLowerCase();
+      const subj = subjectsList.find(
+        (s: any) => s.id === b.subjectId || s.code?.toLowerCase() === (b.subjectId || '').toLowerCase(),
+      );
+      const haystack = `${b.title || ''} ${b.gradeId || ''} ${b.gradeId}-sinf ${b.subjectId || ''} ${subj?.name || ''} ${b.type || ''}`.toLowerCase();
+      if (!q.split(/\s+/).every((tok) => haystack.includes(tok))) return false;
+    }
     return true;
   });
 
@@ -797,10 +1082,23 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     return true;
   });
 
-  const pendingRequestsCount = requestsList.filter((r) => r.status === 'PENDING').length;
+  const activeGradesList = gradesList.filter((g) => g.isActive !== false);
+  const pendingRequestsCount = requestsList.filter(
+    (r) => r.status === 'PENDING' || r.status === 'AWAITING_PAYMENT',
+  ).length;
+  const filteredRequestsList = requestsList.filter((r) => {
+    if (reqStatusFilter === 'ALL') return true;
+    if (reqStatusFilter === 'PAID_APPROVED') {
+      return r.status === 'PAID_APPROVED' || r.status === 'APPROVED';
+    }
+    if (reqStatusFilter === 'PENDING') {
+      return r.status === 'PENDING' || r.status === 'AWAITING_PAYMENT';
+    }
+    return r.status === reqStatusFilter;
+  });
 
   return (
-    <div className="flex h-screen bg-[#F4F7FC] text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#F5F7FF] text-slate-800 font-sans overflow-hidden">
       {/* Real HTML5 Audio Player */}
       <audio
         ref={audioPlayerRef}
@@ -829,36 +1127,28 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       {/* ========================================================= */}
       {/* 1. LEFT SIDEBAR                                           */}
       {/* ========================================================= */}
-      <aside className="w-64 bg-[#0B1528] text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800/80 shadow-2xl select-none z-30">
+      <aside className="w-64 bg-white text-slate-700 flex flex-col justify-between shrink-0 border-r border-slate-200/80 shadow-[4px_0_24px_-16px_rgba(30,41,59,0.12)] select-none z-30">
         <div className="flex flex-col h-full">
-          {/* Logo Brand Header */}
-          <div className="p-5 pb-6 border-b border-slate-800/60">
-            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveNav('dashboard')}>
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-blue-600 p-0.5 shadow-lg flex items-center justify-center">
-                <div className="w-full h-full bg-[#0B1528] rounded-[14px] flex items-center justify-center">
-                  <span className="text-xl">🔥</span>
-                </div>
-              </div>
-              <div>
-                <h1 className="text-base font-extrabold tracking-tight text-white leading-tight">
-                  SmartTeacherBook
-                </h1>
-                <p className="text-[9px] font-bold tracking-widest text-slate-400 uppercase mt-0.5">
-                  TEACH • INSPIRE • GROW
-                </p>
-              </div>
+          {/* Logo Brand Header — ilmçi Brand */}
+          <div className="p-5 pb-5 border-b border-slate-100">
+            <div className="cursor-pointer" onClick={() => setActiveNav('dashboard')}>
+              <BrandLogo size={32} subtitle="BOSHQARUV PORTALI" darkSurface={false} />
             </div>
           </div>
 
           {/* Navigation Links */}
-          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1 custom-scrollbar">
+            <p className="px-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+              Asosiy
+            </p>
+
             {/* Nav: Dashboard */}
             <button
               onClick={() => setActiveNav('dashboard')}
               className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'dashboard'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <LayoutDashboard className="w-4 h-4 shrink-0" />
@@ -866,7 +1156,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             </button>
 
             {/* Nav: Content Manager (Group Dropdown) */}
-            <div>
+            <div className="pt-1">
               <button
                 onClick={() => setContentManagerOpen(!contentManagerOpen)}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
@@ -874,13 +1164,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   activeNav === 'my_books' ||
                   activeNav === 'audio_video' ||
                   activeNav === 'manage_content' ||
+                  activeNav === 'grades' ||
+                  activeNav === 'subjects' ||
                   activeNav === 'page_editor'
-                    ? 'text-white bg-slate-800/80'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                    ? 'text-indigo-700 bg-indigo-50/80'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <BookOpen className="w-4 h-4 shrink-0 text-blue-400" />
+                  <BookOpen className="w-4 h-4 shrink-0 text-indigo-600" />
                   <span>Darsliklar & Kontent</span>
                 </div>
                 <ChevronDown
@@ -891,102 +1183,141 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               </button>
 
               {contentManagerOpen && (
-                <div className="pl-9 pr-1 pt-1 pb-1 space-y-1">
+                <div className="pl-3 pr-1 pt-1 pb-1 space-y-0.5 ml-3 border-l border-indigo-100">
                   <button
                     onClick={() => setActiveNav('add_book')}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2.5 ${
                       activeNav === 'add_book'
-                        ? 'text-blue-400 bg-blue-950/60 font-bold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                        ? 'text-indigo-700 bg-indigo-50 font-bold'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <span>➕ Kitob Qo‘shish</span>
+                    <PlusCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Kitob Qo‘shish</span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('my_books')}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
                       activeNav === 'my_books'
-                        ? 'text-blue-400 bg-blue-950/60 font-bold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                        ? 'text-indigo-700 bg-indigo-50 font-bold'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <span>📚 Mening Kitoblarim</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-blue-300 font-mono">
+                    <span className="flex items-center space-x-2.5">
+                      <Library className="w-3.5 h-3.5 shrink-0" />
+                      <span>Mening Kitoblarim</span>
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold">
                       {books.length}
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('audio_video')}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
                       activeNav === 'audio_video'
-                        ? 'text-blue-400 bg-blue-950/60 font-bold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                        ? 'text-indigo-700 bg-indigo-50 font-bold'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <span>🎧 Audio & Video</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-emerald-300 font-mono">
+                    <span className="flex items-center space-x-2.5">
+                      <Music className="w-3.5 h-3.5 shrink-0" />
+                      <span>Audio & Video</span>
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">
                       {mediaList.length}
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('manage_content')}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
                       activeNav === 'manage_content'
-                        ? 'text-blue-400 bg-blue-950/60 font-bold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                        ? 'text-indigo-700 bg-indigo-50 font-bold'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <span>💡 Javoblar Kaliti</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-amber-300 font-mono">
+                    <span className="flex items-center space-x-2.5">
+                      <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Javoblar Kaliti</span>
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold">
                       {answerMappings.length}
                     </span>
                   </button>
 
                   <button
-                    onClick={() => setActiveNav('subjects')}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-between ${
-                      activeNav === 'subjects'
-                        ? 'text-blue-400 bg-blue-950/60 font-bold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                    onClick={() => setActiveNav('grades')}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                      activeNav === 'grades'
+                        ? 'text-indigo-700 bg-indigo-50 font-bold'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <span>🏷️ Fanlar Boshqaruvi</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-blue-300 font-mono">
+                    <span className="flex items-center space-x-2.5">
+                      <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                      <span>Sinflar Boshqaruvi</span>
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                      {activeGradesList.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveNav('subjects')}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                      activeNav === 'subjects'
+                        ? 'text-indigo-700 bg-indigo-50 font-bold'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="flex items-center space-x-2.5">
+                      <Tag className="w-3.5 h-3.5 shrink-0" />
+                      <span>Fanlar Boshqaruvi</span>
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-bold">
                       {subjectsList.length}
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('page_editor')}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2.5 ${
                       activeNav === 'page_editor'
-                        ? 'text-blue-400 bg-blue-950/60 font-bold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/30'
+                        ? 'text-indigo-700 bg-indigo-50 font-bold'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <span>📍 Visual Hotspot Editor</span>
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <span>Visual Hotspot Editor</span>
                   </button>
                 </div>
               )}
             </div>
+
+            <p className="px-3 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+              Obuna va Foydalanuvchilar
+            </p>
 
             {/* Nav: Users */}
             <button
               onClick={() => setActiveNav('users')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'users'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center space-x-3">
-                <Users className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span>O‘qituvchilar (Users)</span>
+                <Users className={`w-4 h-4 shrink-0 ${activeNav === 'users' ? 'text-white' : 'text-emerald-600'}`} />
+                <span>O‘qituvchilar</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-emerald-300 font-mono">
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                  activeNav === 'users' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700'
+                }`}
+              >
                 {usersList.length}
               </span>
             </button>
@@ -996,15 +1327,19 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('admins')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'admins'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center space-x-3">
-                <Crown className="w-4 h-4 shrink-0 text-purple-400" />
-                <span>Adminlar Boshqaruvi</span>
+                <ShieldCheck className={`w-4 h-4 shrink-0 ${activeNav === 'admins' ? 'text-white' : 'text-violet-600'}`} />
+                <span>Adminlar</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-purple-300 font-mono">
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                  activeNav === 'admins' ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-700'
+                }`}
+              >
                 {adminsList.length}
               </span>
             </button>
@@ -1014,20 +1349,24 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('subscriptions')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'subscriptions'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center space-x-3">
-                <Crown className="w-4 h-4 shrink-0 text-amber-400" />
+                <Crown className={`w-4 h-4 shrink-0 ${activeNav === 'subscriptions' ? 'text-white' : 'text-amber-500'}`} />
                 <span>Obunalar & To‘lovlar</span>
               </div>
               {pendingRequestsCount > 0 ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black animate-pulse">
-                  {pendingRequestsCount} ta yangi
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse">
+                  {pendingRequestsCount} yangi
                 </span>
               ) : (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                    activeNav === 'subscriptions' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
                   {requestsList.length}
                 </span>
               )}
@@ -1038,24 +1377,28 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('pricing')}
               className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'pricing'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <FileSpreadsheet className="w-4 h-4 shrink-0 text-emerald-400" />
+              <CreditCard className={`w-4 h-4 shrink-0 ${activeNav === 'pricing' ? 'text-white' : 'text-indigo-600'}`} />
               <span>Tariflar & Narxlar</span>
             </button>
+
+            <p className="px-3 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+              Tizim
+            </p>
 
             {/* Nav: Analytics */}
             <button
               onClick={() => setActiveNav('analytics')}
               className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'analytics'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <BarChart2 className="w-4 h-4 shrink-0 text-purple-400" />
+              <BarChart2 className={`w-4 h-4 shrink-0 ${activeNav === 'analytics' ? 'text-white' : 'text-indigo-500'}`} />
               <span>Statistika</span>
             </button>
 
@@ -1064,11 +1407,11 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('system_logs')}
               className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'system_logs'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <FileText className="w-4 h-4 shrink-0 text-cyan-400" />
+              <FileText className={`w-4 h-4 shrink-0 ${activeNav === 'system_logs' ? 'text-white' : 'text-slate-500'}`} />
               <span>Audit Jurnali</span>
             </button>
 
@@ -1077,43 +1420,52 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('settings')}
               className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'settings'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <Settings className="w-4 h-4 shrink-0 text-slate-400" />
+              <Settings className={`w-4 h-4 shrink-0 ${activeNav === 'settings' ? 'text-white' : 'text-slate-500'}`} />
               <span>Sozlamalar</span>
             </button>
 
-            <div className="pt-2 border-t border-slate-800/60 mt-2">
+            <div className="pt-2 border-t border-slate-100 mt-2">
               <button
                 onClick={() => setActiveNav('mobile_sim')}
                 className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                   activeNav === 'mobile_sim'
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                    : 'text-emerald-400 hover:text-white hover:bg-emerald-950/40'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
+                    : 'text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100'
                 }`}
               >
                 <Smartphone className="w-4 h-4 shrink-0" />
-                <span>📱 Mobil Ilova (Live Metro)</span>
+                <span>Mobil Ilova Preview</span>
               </button>
             </div>
           </div>
 
           {/* User Profile Footer Card */}
-          <div className="p-4 border-t border-slate-800/80 bg-slate-900/60">
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-600 p-0.5 flex items-center justify-center">
-                <Crown className="w-5 h-5 text-white" />
+          <div className="p-3.5 border-t border-slate-100 bg-slate-50/70">
+            <div className="flex items-center space-x-3 mb-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 flex items-center justify-center text-white font-black text-xs shadow-sm shrink-0">
+                {(adminSession.name || 'SA')
+                  .split(' ')
+                  .map((w) => w[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-black text-white leading-none truncate">Super Admin Rahmonjon</p>
-                <p className="text-[10px] text-amber-400 font-mono truncate mt-1">mlrahmonjon@gmail.com</p>
+                <p className="text-xs font-extrabold text-slate-900 leading-none truncate">
+                  {adminSession.name}
+                </p>
+                <p className="text-[10px] text-indigo-600 font-medium truncate mt-1">
+                  {adminSession.email}
+                </p>
               </div>
             </div>
             <button
               onClick={onLogout}
-              className="w-full py-1.5 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-300 hover:text-red-400 text-xs font-bold transition-all flex items-center justify-center space-x-2 border border-slate-700/60"
+              className="w-full py-1.5 rounded-xl bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 text-xs font-bold transition-all flex items-center justify-center space-x-2 border border-slate-200 hover:border-rose-200"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Tizimdan chiqish</span>
@@ -1125,9 +1477,10 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       {/* ========================================================= */}
       {/* 2. MAIN CONTENT AREA                                      */}
       {/* ========================================================= */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F4F7FC]">
-        {/* Top Header Bar */}
-        <header className="h-16 bg-white border-b border-slate-200/80 px-8 flex items-center justify-between shrink-0 z-20">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#F5F7FF]">
+        {/* Top Header Bar (Hidden in full-bleed Hotspot Editor to match 1-to-1 workspace) */}
+        {activeNav !== 'page_editor' && (
+        <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-8 flex items-center justify-between shrink-0 z-20">
           {/* Search Box */}
           <div className="relative w-96">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -1136,32 +1489,32 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               placeholder="Darsliklar, media, o'qituvchilarni qidirish..."
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
-              className="w-full pl-10 pr-20 py-2 rounded-xl bg-slate-50 border border-slate-200/90 text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="w-full pl-10 pr-20 py-2 rounded-xl bg-[#F5F7FF] border border-slate-200/90 text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-slate-400 bg-slate-200/70 px-1.5 py-0.5 rounded border border-slate-300/60">
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200">
               Ctrl + K
             </span>
           </div>
 
           {/* Right Header Icons & Actions */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
             {/* Quick Upload Button */}
             <button
               onClick={() => setActiveNav('audio_video')}
-              className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-all flex items-center space-x-1"
+              className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200/80 text-xs font-bold hover:bg-indigo-100 transition-all flex items-center space-x-1.5"
             >
-              <Music className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Audio/Video Qo‘shish</span>
+              <Music className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Audio/Video</span>
             </button>
 
             {/* Master Database Clean Button */}
             <button
               onClick={() => setIsResetConfirmOpen(true)}
               title="Barcha ma'lumotlarni tozalab, 0 dan kiritish"
-              className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition-all flex items-center space-x-1 shadow-sm"
+              className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition-all flex items-center space-x-1.5"
             >
               <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-              <span>Bazani Tozalash (0 dan)</span>
+              <span>Bazani Tozalash</span>
             </button>
 
             {/* Refresh Button */}
@@ -1171,7 +1524,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 showToast('Ma‘lumotlar yangilandi!');
               }}
               title="Barcha ma'lumotlarni yangilash"
-              className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold hover:bg-slate-200 transition-all flex items-center space-x-1"
+              className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold hover:bg-slate-200 transition-all flex items-center space-x-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
               <span>Yangilash</span>
@@ -1191,17 +1544,25 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             </button>
 
             {/* User Profile Pill */}
-            <div className="flex items-center space-x-3 pl-2 border-l border-slate-200">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs ring-2 ring-white shadow-sm">
-                👨‍💼
+            <div className="flex items-center space-x-2.5 pl-3 border-l border-slate-200">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 flex items-center justify-center text-white font-black text-xs ring-2 ring-indigo-50 shadow-sm">
+                {(adminSession.name || 'SA')
+                  .split(' ')
+                  .map((w) => w[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase()}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-slate-800 leading-none">Super Admin</p>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">admin@smartteacherbook.uz</p>
+                <p className="text-xs font-extrabold text-slate-800 leading-none">
+                  {adminSession.name}
+                </p>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">{adminSession.email}</p>
               </div>
             </div>
           </div>
         </header>
+        )}
 
         {/* Scrollable View Container */}
         <main
@@ -1214,28 +1575,33 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           {/* =================================================================== */}
           {activeNav === 'dashboard' && (
             <div className="space-y-6 animate-fadeIn">
-              {/* Header Title */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Mobile-Matched Royal Indigo Hero Banner */}
+              <div className="rounded-3xl bg-gradient-to-r from-[#4F46E5] via-[#3730A3] to-[#1E3A8A] p-7 text-white shadow-xl shadow-indigo-900/15 flex flex-col md:flex-row md:items-center justify-between gap-5">
                 <div>
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Admin Dashboard</h2>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    SmartTeacherBook tizimi umumiy statistikasi va tezkor amallar
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[11px] font-bold tracking-wide text-indigo-100 mb-3">
+                    Boshqaruv Markazi • {activeGradesList.length} ta faol sinf • {subjectsList.length} ta fan
+                  </span>
+                  <h2 className="text-2xl font-black tracking-tight">
+                    Xush kelibsiz, {adminSession.name}
+                  </h2>
+                  <p className="text-xs text-indigo-100/90 font-medium mt-1 max-w-xl">
+                    Darsliklar, sinflar, har bir fan va sinf kesimidagi narxlar hamda o‘qituvchilar obuna so‘rovlarini yagona paneldan boshqaring.
                   </p>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                   <button
                     onClick={() => setActiveNav('add_book')}
-                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 flex items-center space-x-1.5"
+                    className="px-4 py-2.5 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 text-xs font-extrabold shadow-md flex items-center space-x-1.5 transition-all"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Yangi Kitob Qo‘shish</span>
                   </button>
                   <button
-                    onClick={() => setActiveNav('audio_video')}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-1.5"
+                    onClick={() => setActiveNav('pricing')}
+                    className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/25 text-xs font-bold flex items-center space-x-1.5 transition-all"
                   >
-                    <Music className="w-4 h-4" />
-                    <span>Audio/Video Qo‘shish</span>
+                    <CreditCard className="w-4 h-4" />
+                    <span>Tariflar Matritsasi</span>
                   </button>
                 </div>
               </div>
@@ -1244,33 +1610,35 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div
                   onClick={() => setActiveNav('my_books')}
-                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-blue-400 transition-all"
+                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-400 transition-all"
                 >
                   <div>
                     <p className="text-xs font-bold text-slate-500">Mavjud Kitoblar</p>
                     <p className="text-2xl font-black text-slate-900 mt-1">{books.length} ta</p>
-                    <span className="inline-flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md mt-2">
+                    <span className="inline-flex items-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md mt-2">
                       Katalogda faol
                     </span>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-blue-500 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                     <BookOpen className="w-6 h-6" />
                   </div>
                 </div>
 
                 <div
-                  onClick={() => setActiveNav('audio_video')}
-                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-emerald-400 transition-all"
+                  onClick={() => setActiveNav('grades')}
+                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-blue-400 transition-all"
                 >
                   <div>
-                    <p className="text-xs font-bold text-slate-500">Audio & Video Fayllar</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">{mediaList.length} ta</p>
-                    <span className="inline-flex items-center text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md mt-2">
-                      Media kutubxona
+                    <p className="text-xs font-bold text-slate-500">Faol Sinflar & Fanlar</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">
+                      {activeGradesList.length} / {subjectsList.length}
+                    </p>
+                    <span className="inline-flex items-center text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md mt-2">
+                      Mobil ilovada ko‘rinadi
                     </span>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
-                    <Music className="w-6 h-6" />
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <GraduationCap className="w-6 h-6" />
                   </div>
                 </div>
 
@@ -1279,29 +1647,37 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-amber-400 transition-all"
                 >
                   <div>
-                    <p className="text-xs font-bold text-slate-500">Javoblar Kaliti</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">{answerMappings.length} ta</p>
-                    <span className="inline-flex items-center text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md mt-2">
-                      Metodik yechimlar
+                    <p className="text-xs font-bold text-slate-500">Media & Javoblar</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">
+                      {mediaList.length} / {answerMappings.length}
+                    </p>
+                    <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md mt-2">
+                      Audio/Video va kalitlar
                     </span>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20">
-                    <CheckCircle className="w-6 h-6" />
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <Music className="w-6 h-6" />
                   </div>
                 </div>
 
                 <div
                   onClick={() => setActiveNav('subscriptions')}
-                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-purple-400 transition-all"
+                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-rose-400 transition-all"
                 >
                   <div>
-                    <p className="text-xs font-bold text-slate-500">Kutilayotgan So‘rovlar</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">{pendingRequestsCount} ta</p>
-                    <span className="inline-flex items-center text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md mt-2">
-                      {pendingRequestsCount > 0 ? 'Tasdiqlash kerak' : '0 ta so‘rov'}
+                    <p className="text-xs font-bold text-slate-500">Obuna So‘rovlari</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">{requestsList.length} ta</p>
+                    <span
+                      className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md mt-2 ${
+                        pendingRequestsCount > 0
+                          ? 'text-rose-600 bg-rose-50'
+                          : 'text-emerald-600 bg-emerald-50'
+                      }`}
+                    >
+                      {pendingRequestsCount > 0 ? `${pendingRequestsCount} ta kutilmoqda` : 'Barchasi ko‘rilgan'}
                     </span>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-purple-500 text-white flex items-center justify-center shadow-md shadow-purple-500/20">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
                     <Crown className="w-6 h-6" />
                   </div>
                 </div>
@@ -1310,36 +1686,42 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               {/* Quick Jump 3-Box Row */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div
-                  onClick={() => setActiveNav('add_book')}
-                  className="p-5 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-700 text-white cursor-pointer shadow-lg shadow-blue-600/20 hover:scale-[1.01] transition-transform flex items-center justify-between"
+                  onClick={() => setActiveNav('grades')}
+                  className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:border-indigo-300 hover:shadow-md cursor-pointer transition-all flex items-center justify-between"
                 >
                   <div>
-                    <h4 className="font-bold text-sm">Yangi Kitob Qo‘shish</h4>
-                    <p className="text-xs text-blue-100 mt-1">Sinf, fan va PDF darslikni yuklash</p>
+                    <h4 className="font-extrabold text-sm text-slate-900">Sinflar va Fanlar</h4>
+                    <p className="text-xs text-slate-500 mt-1">Qaysi sinflar ilovada chiqishini boshqarish</p>
                   </div>
-                  <PlusCircle className="w-8 h-8 text-blue-200" />
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
                 </div>
 
                 <div
-                  onClick={() => setActiveNav('audio_video')}
-                  className="p-5 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-800 text-white cursor-pointer shadow-lg shadow-emerald-600/20 hover:scale-[1.01] transition-transform flex items-center justify-between"
+                  onClick={() => setActiveNav('pricing')}
+                  className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:border-emerald-300 hover:shadow-md cursor-pointer transition-all flex items-center justify-between"
                 >
                   <div>
-                    <h4 className="font-bold text-sm">Audio & Video Boshqarish</h4>
-                    <p className="text-xs text-emerald-100 mt-1">Haqiqiy MP3 audio va MP4 video fayllar</p>
+                    <h4 className="font-extrabold text-sm text-slate-900">Sinf × Fan Narxlari</h4>
+                    <p className="text-xs text-slate-500 mt-1">Har bir sinf va fan uchun alohida tarif belgilash</p>
                   </div>
-                  <Music className="w-8 h-8 text-emerald-200" />
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <CreditCard className="w-5 h-5" />
+                  </div>
                 </div>
 
                 <div
-                  onClick={() => setActiveNav('manage_content')}
-                  className="p-5 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white cursor-pointer shadow-lg shadow-amber-500/20 hover:scale-[1.01] transition-transform flex items-center justify-between"
+                  onClick={() => setActiveNav('subscriptions')}
+                  className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:border-amber-300 hover:shadow-md cursor-pointer transition-all flex items-center justify-between"
                 >
                   <div>
-                    <h4 className="font-bold text-sm">Javoblar Kaliti (Answer Keys)</h4>
-                    <p className="text-xs text-amber-100 mt-1">O‘qituvchi kitobi yechimlarini sahifalarga bog‘lash</p>
+                    <h4 className="font-extrabold text-sm text-slate-900">To‘lov So‘rovlari</h4>
+                    <p className="text-xs text-slate-500 mt-1">O‘qituvchilar so‘rovini qabul qilish va ruxsat berish</p>
                   </div>
-                  <Crown className="w-8 h-8 text-amber-100" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <CheckCircle className="w-5 h-5" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1369,24 +1751,42 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 <div className="lg:col-span-7 bg-white p-7 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
                   {/* 1. Sinf (Grade) Selection */}
                   <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-2">
-                      1. Sinfni tanlang (Grade) <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-extrabold text-slate-700">
+                        1. Sinfni tanlang (Grade) <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddGradeModalOpen(true)}
+                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center space-x-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>+ Yangi sinf qo‘shish</span>
+                      </button>
+                    </div>
                     <div className="grid grid-cols-6 sm:grid-cols-11 gap-1.5">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((gradeNum) => (
-                        <button
-                          key={gradeNum}
-                          type="button"
-                          onClick={() => setNewBookGrade(gradeNum.toString())}
-                          className={`py-2 text-xs font-bold rounded-xl transition-all ${
-                            newBookGrade === gradeNum.toString()
-                              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-300'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          }`}
-                        >
-                          {gradeNum}
-                        </button>
-                      ))}
+                      {activeGradesList.map((gradeItem) => {
+                        const gradeNum = gradeItem.gradeNumber;
+                        return (
+                          <button
+                            key={gradeNum}
+                            type="button"
+                            onClick={() => setNewBookGrade(gradeNum.toString())}
+                            className={`py-2 text-xs font-bold rounded-xl transition-all ${
+                              newBookGrade === gradeNum.toString()
+                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-300'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {gradeNum}
+                          </button>
+                        );
+                      })}
+                      {activeGradesList.length === 0 && (
+                        <p className="col-span-full text-xs text-slate-400 py-1">
+                          Hozircha faol sinflar yo‘q — avval sinf qo‘shing.
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1459,6 +1859,25 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       placeholder="masalan: Ingliz tili 7-sinf (Student's Book)"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
+                  </div>
+
+                  {/* 4.2 Kitob 1-sahifasi qaysi PDF betidan boshlanadi */}
+                  <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80">
+                    <label className="block text-xs font-extrabold text-slate-800 mb-1">
+                      Kitobning 1-sahifasi qaysi PDF betidan boshlanadi?
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min={1}
+                        value={newBookStartPdfPage}
+                        onChange={(e) => setNewBookStartPdfPage(e.target.value)}
+                        className="w-24 px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs font-extrabold text-slate-900 text-center focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                      />
+                      <p className="text-[11px] text-slate-600 leading-snug">
+                        Agar PDF dagi dastlabki 3–5 bet muqova/mundarija bo‘lsa va kitobning <b>1-beti</b> masalan PDF ning <b>4-betidan</b> boshlansa, bu yerga <b>4</b> kiriting.
+                      </p>
+                    </div>
                   </div>
 
                   {/* 4.5. Kitob Muqovasi Rasmi (Custom Cover Image) */}
@@ -1790,7 +2209,12 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
                         <span className="flex items-center space-x-1.5 font-medium text-slate-500">
                           <BookOpen className="w-3.5 h-3.5" />
-                          <span>{book.pages} bet</span>
+                          <span>
+                            {book.pages} bet
+                            {(book.contentStartPdfPage || 1) > 1
+                              ? ` (1-bet = PDF #${book.contentStartPdfPage})`
+                              : ''}
+                          </span>
                         </span>
 
                         <span className="flex items-center space-x-1.5 font-medium text-slate-500">
@@ -2379,9 +2803,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                             onChange={(e) => setAnswerGrade(Number(e.target.value))}
                             className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
                           >
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((g) => (
-                              <option key={g} value={g}>
-                                {g}-sinf
+                            {activeGradesList.map((g) => (
+                              <option key={g.gradeNumber} value={g.gradeNumber}>
+                                {g.title || `${g.gradeNumber}-sinf`}
                               </option>
                             ))}
                           </select>
@@ -2393,9 +2817,11 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                             onChange={(e) => setAnswerSubject(e.target.value)}
                             className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
                           >
-                            <option value="Ingliz tili">Ingliz tili</option>
-                            <option value="Matematika">Matematika</option>
-                            <option value="Fizika">Fizika</option>
+                            {subjectsList.map((s) => (
+                              <option key={s.id || s.code} value={s.name}>
+                                {s.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
                       </div>
@@ -2610,6 +3036,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             <div className="h-full w-full">
               <VisualPdfEditor
                 initialBookId={selectedBookIdForEditor || books[0]?.id || ''}
+                onSelectBookId={(id) => setSelectedBookIdForEditor(id)}
+                activeGrades={activeGradesList.map((g) => g.gradeNumber)}
+                onBackToBooks={() => setActiveNav('my_books')}
                 onOpenMobilePreview={() => setActiveNav('mobile_sim')}
               />
             </div>
@@ -2640,74 +3069,142 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 </div>
               </div>
 
+              {/* Status Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-2">
+                {(
+                  [
+                    { id: 'ALL', label: `Barchasi (${requestsList.length})` },
+                    { id: 'PENDING', label: `Kutilmoqda (${pendingRequestsCount})` },
+                    {
+                      id: 'PAID_APPROVED',
+                      label: `Qabul qilindi (${
+                        requestsList.filter(
+                          (r) => r.status === 'PAID_APPROVED' || r.status === 'APPROVED',
+                        ).length
+                      })`,
+                    },
+                    {
+                      id: 'REJECTED',
+                      label: `Rad etilgan (${
+                        requestsList.filter((r) => r.status === 'REJECTED').length
+                      })`,
+                    },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setReqStatusFilter(tab.id)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
+                      reqStatusFilter === tab.id
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-600/20'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Requests List */}
               <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
                 <div className="divide-y divide-slate-100">
-                  {requestsList.map((req) => (
-                    <div
-                      key={req.id}
-                      className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/80 transition-colors"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 font-black text-xs flex items-center justify-center shrink-0">
-                          {req.gradeId || 'Sinf'}
+                  {filteredRequestsList.map((req) => {
+                    const isApproved =
+                      req.status === 'PAID_APPROVED' || req.status === 'APPROVED';
+                    const matchedSubj = subjectsList.find(
+                      (s: any) =>
+                        s.id === req.subjectId ||
+                        s.code?.toLowerCase() === String(req.subjectId || '').toLowerCase(),
+                    );
+                    const subjectLabel = req.subjectName || matchedSubj?.name || req.subjectId || 'Darsliklar';
+                    const planDuration =
+                      req.plan === 'YEARLY' ? 365 : req.plan === 'THREE_MONTHS' ? 90 : 30;
+                    const planLabel =
+                      req.plan === 'YEARLY'
+                        ? '1 yillik (365 kun)'
+                        : req.plan === 'THREE_MONTHS'
+                          ? '3 oylik (90 kun)'
+                          : '1 oylik (30 kun)';
+
+                    return (
+                      <div
+                        key={req.id}
+                        className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-indigo-50/30 transition-colors"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 border border-indigo-100 font-black text-xs flex items-center justify-center shrink-0">
+                            {req.gradeId ? `${req.gradeId}-sinf` : 'Sinf'}
+                          </div>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-sm font-extrabold text-slate-900">
+                                {req.fullName || req.teacherName || req.userEmail || 'O‘qituvchi'}
+                              </h4>
+                              <span className="text-xs font-mono text-slate-500">
+                                ({req.phoneNumber || '+998'})
+                              </span>
+                              {req.userEmail && (
+                                <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                                  {req.userEmail}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium mt-1">
+                              {subjectLabel} • Tarif: <strong className="text-slate-700">{planLabel}</strong>
+                              {Number(req.priceUzs) > 0 && (
+                                <span className="ml-2 text-emerald-700 font-extrabold">
+                                  • {Number(req.priceUzs).toLocaleString('uz-UZ')} so‘m
+                                </span>
+                              )}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <h4 className="text-sm font-extrabold text-slate-900">
-                              {req.fullName || req.teacherName || 'O‘qituvchi'}
-                            </h4>
-                            <span className="text-xs font-mono text-slate-400">
-                              ({req.phoneNumber || '+998'})
+
+                        <div className="flex items-center space-x-3 shrink-0">
+                          <span className="text-xs font-mono text-slate-400">
+                            {new Date(req.createdAt || Date.now()).toLocaleDateString('uz-UZ')}
+                          </span>
+
+                          {isApproved ? (
+                            <span className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-extrabold flex items-center space-x-1.5">
+                              <CheckCircle className="w-4 h-4 text-emerald-600" />
+                              <span>Qabul qilindi</span>
                             </span>
-                          </div>
-                          <p className="text-xs text-slate-500 font-medium mt-0.5">
-                            {req.subjectId || 'Fan'} • Plan: {req.plan || '30 kunlik'}
-                          </p>
+                          ) : req.status === 'REJECTED' ? (
+                            <span className="px-3.5 py-1.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold">
+                              Rad etildi
+                            </span>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleApproveRequest(req.id)}
+                                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center space-x-1.5"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Qabul qilish ({planDuration} kun)</span>
+                              </button>
+                              <button
+                                onClick={() => handleRejectRequest(req.id)}
+                                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 text-xs font-bold transition-all"
+                              >
+                                Rad etish
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
+                    );
+                  })}
 
-                      <div className="flex items-center space-x-3">
-                        <span className="text-xs font-mono text-slate-400">
-                          {new Date(req.createdAt || Date.now()).toLocaleDateString('ru-RU')}
-                        </span>
-
-                        {req.status === 'APPROVED' ? (
-                          <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center space-x-1">
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            <span>Ruxsat Berilgan</span>
-                          </span>
-                        ) : req.status === 'REJECTED' ? (
-                          <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-500 text-xs font-bold">
-                            Bekor qilingan
-                          </span>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => handleApproveRequest(req.id)}
-                              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center space-x-1"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Ruxsat Berish (30 kun)</span>
-                            </button>
-                            <button
-                              onClick={() => handleRejectRequest(req.id)}
-                              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 text-xs font-bold transition-all"
-                            >
-                              Rad etish
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                  {requestsList.length === 0 && (
+                  {filteredRequestsList.length === 0 && (
                     <div className="p-12 text-center text-slate-400 space-y-2">
                       <Crown className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
-                      <p className="text-sm font-bold text-slate-600">Hozircha obuna so‘rovlari mavjud emas</p>
+                      <p className="text-sm font-bold text-slate-600">
+                        Ushbu bo‘limda obuna so‘rovlari topilmadi
+                      </p>
                       <p className="text-xs text-slate-400">
-                        O‘qituvchilar mobil ilovada obuna bo‘lishganda bu yerda paydo bo‘ladi
+                        O‘qituvchilar mobil ilovada ruxsat so‘rashganda bu yerda paydo bo‘ladi
                       </p>
                     </div>
                   )}
@@ -2730,14 +3227,29 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">O‘qituvchi Ismi</label>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">O‘qituvchi Ismi yoki Email</label>
                         <input
                           type="text"
                           value={manualTeacherName}
                           onChange={(e) => setManualTeacherName(e.target.value)}
-                          placeholder="masalan: Nodira Karimova"
+                          placeholder="masalan: rahmonjon@gmail.com yoki Nodira Karimova"
                           className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Fan</label>
+                        <select
+                          value={manualSubject}
+                          onChange={(e) => setManualSubject(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
+                        >
+                          {subjectsList.map((s: any) => (
+                            <option key={s.id} value={s.name}>
+                              {s.icon || '📚'} {s.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <div>
@@ -2759,9 +3271,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                             onChange={(e) => setManualGrade(Number(e.target.value))}
                             className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
                           >
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((g) => (
-                              <option key={g} value={g}>
-                                {g}-sinf
+                            {activeGradesList.map((g) => (
+                              <option key={g.gradeNumber} value={g.gradeNumber}>
+                                {g.title || `${g.gradeNumber}-sinf`}
                               </option>
                             ))}
                           </select>
@@ -2897,6 +3409,137 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           )}
 
           {/* =================================================================== */}
+          {/* VIEW: SINFLAR BOSHQARUVI (Dynamic Grades Management)                */}
+          {/* =================================================================== */}
+          {activeNav === 'grades' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                    Sinflar Boshqaruvi
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Mobil ilovada va kitob yuklashda faqat shu yerdagi faol sinflar ko‘rinadi
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddGradeModalOpen(true)}
+                  className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 flex items-center space-x-2 transition-all shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Yangi Sinf Qo‘shish</span>
+                </button>
+              </div>
+
+              {/* Grid of grades */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {gradesList.map((gradeItem) => {
+                  const isActive = gradeItem.isActive !== false;
+                  const booksInGrade = books.filter(
+                    (b) => Number(b.grade) === Number(gradeItem.gradeNumber),
+                  ).length;
+                  return (
+                    <div
+                      key={gradeItem.id || gradeItem.gradeNumber}
+                      className={`bg-white p-5 rounded-3xl border shadow-sm transition-all space-y-4 ${
+                        isActive ? 'border-slate-200/80 hover:border-indigo-300' : 'border-slate-200/60 opacity-70'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3.5">
+                          <div
+                            className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${
+                              isActive
+                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                                : 'bg-slate-200 text-slate-500'
+                            }`}
+                          >
+                            {gradeItem.gradeNumber}
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-black text-slate-900">
+                              {gradeItem.title || `${gradeItem.gradeNumber}-sinf`}
+                            </h3>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              {booksInGrade} ta darslik biriktirilgan
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleGradeActive(gradeItem)}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold transition-all ${
+                              isActive
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-slate-100 text-slate-500 border border-slate-200'
+                            }`}
+                          >
+                            {isActive ? 'Faol' : 'Nofaol'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteGrade(gradeItem.gradeNumber)}
+                            title="Sinfni o‘chirish"
+                            className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-center">
+                        <div className="bg-[#F5F7FF] rounded-xl p-2">
+                          <p className="text-[10px] font-bold text-slate-400">1 oylik</p>
+                          <p className="text-xs font-black text-slate-800 mt-0.5">
+                            {Number(gradeItem.priceMonthlyUzs || 0).toLocaleString('uz-UZ')}
+                          </p>
+                        </div>
+                        <div className="bg-[#F5F7FF] rounded-xl p-2">
+                          <p className="text-[10px] font-bold text-slate-400">3 oylik</p>
+                          <p className="text-xs font-black text-slate-800 mt-0.5">
+                            {Number(gradeItem.priceQuarterlyUzs || 0).toLocaleString('uz-UZ')}
+                          </p>
+                        </div>
+                        <div className="bg-[#F5F7FF] rounded-xl p-2">
+                          <p className="text-[10px] font-bold text-slate-400">1 yillik</p>
+                          <p className="text-xs font-black text-slate-800 mt-0.5">
+                            {Number(gradeItem.priceYearlyUzs || 0).toLocaleString('uz-UZ')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPricingSelectedGradeId(gradeItem.gradeNumber);
+                          setPricingViewMode('BY_GRADE');
+                          setActiveNav('pricing');
+                        }}
+                        className="w-full py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all"
+                      >
+                        Fanlar bo‘yicha narxini sozlash →
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {gradesList.length === 0 && (
+                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 space-y-2">
+                  <GraduationCap className="w-12 h-12 mx-auto text-indigo-300" />
+                  <p className="text-sm font-bold text-slate-700">Hozircha sinflar kiritilmagan</p>
+                  <p className="text-xs text-slate-400">
+                    Yuqoridagi tugma orqali kerakli sinflarni qo‘shing
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* =================================================================== */}
           {/* VIEW: FANLAR BOSHQARUVI (Dynamic Subjects Management)               */}
           {/* =================================================================== */}
           {activeNav === 'subjects' && (
@@ -2904,16 +3547,16 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                    🏷️ Fanlar Boshqaruvi
+                    Fanlar Boshqaruvi
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Ona tili, Matematika, Ingliz tili, Tarix va boshqa barcha fanlarni erkin qo‘shish va boshqarish
+                    Ona tili, Matematika, Ingliz tili, Kimyo va boshqa barcha fanlarni erkin qo‘shish va boshqarish
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsAddSubjectModalOpen(true)}
-                  className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center space-x-2 transition-all shrink-0"
+                  className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 flex items-center space-x-2 transition-all shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                   <span>+ Yangi Fan Qo‘shish</span>
@@ -2925,12 +3568,12 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 {subjectsList.map((subj) => (
                   <div
                     key={subj.id || subj.code}
-                    className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex items-center justify-between group"
+                    className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all flex items-center justify-between group"
                   >
                     <div className="flex items-center space-x-3.5">
                       <div
                         className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner"
-                        style={{ backgroundColor: `${subj.color || '#2563EB'}15` }}
+                        style={{ backgroundColor: `${subj.color || '#4F46E5'}15` }}
                       >
                         {subj.icon || '📚'}
                       </div>
@@ -2942,7 +3585,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                           </span>
                           <span
                             className="w-2.5 h-2.5 rounded-full inline-block"
-                            style={{ backgroundColor: subj.color || '#2563EB' }}
+                            style={{ backgroundColor: subj.color || '#4F46E5' }}
                           />
                         </div>
                       </div>
@@ -2952,7 +3595,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       type="button"
                       onClick={() => handleDeleteSubject(subj.id)}
                       title="Fanni o‘chirish"
-                      className="w-9 h-9 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                      className="w-9 h-9 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -2961,114 +3604,261 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               </div>
 
               {/* Quick helper notice */}
-              <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 text-xs text-blue-800 flex items-center space-x-3">
-                <span className="text-base">💡</span>
+              <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-800 flex items-center space-x-3">
+                <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
                 <p>
-                  Bu yerda qo‘shilgan har bir fan avtomatik tarzda <strong>«Kitob Qo‘shish»</strong> bo‘limida va <strong>mobil ilovada</strong> o‘qituvchilar uchun aks etadi.
+                  Bu yerda qo‘shilgan har bir fan avtomatik tarzda <strong>«Kitob Qo‘shish»</strong>, <strong>«Tariflar Matritsasi»</strong> va <strong>mobil ilovada</strong> aks etadi.
                 </p>
               </div>
             </div>
           )}
 
           {/* =================================================================== */}
-          {/* VIEW: TARIFLAR VA NARXLAR (Pricing Management)                     */}
+          {/* VIEW: TARIFLAR VA NARXLAR (Global + Grade × Subject Matrix)         */}
           {/* =================================================================== */}
           {activeNav === 'pricing' && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                    💳 Tariflar & Obuna Narxlari Boshqaruvi
+                    Tariflar & Sinf × Fan Narxlari
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Mobil ilovadagi obuna narxlarini to‘g‘ridan-to‘g‘ri o‘zgartiring va saqlang
+                    Har bir sinf va har bir fan uchun alohida obuna narxlarini (masalan, 1-sinf Matematika vs 11-sinf Kimyo) belgilang
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleSavePricing}
                   disabled={isSavingPricing}
-                  className="px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 flex items-center space-x-2 transition-all shrink-0"
+                  className="px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 flex items-center space-x-2 transition-all shrink-0"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{isSavingPricing ? 'Saqlanmoqda...' : '💾 Barcha Narxlarni Saqlash'}</span>
+                  <span>{isSavingPricing ? 'Saqlanmoqda...' : 'Barcha Narxlarni Saqlash'}</span>
                 </button>
               </div>
 
-              {/* Pricing Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Global Default Plans */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {pricingPlans.map((plan, idx) => (
                   <div
                     key={plan.id || idx}
-                    className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4 hover:shadow-md transition-all relative overflow-hidden"
+                    className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-indigo-300 transition-all relative overflow-hidden"
                   >
                     {plan.badge && (
-                      <div className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase tracking-wider">
-                        ⭐ {plan.badge}
+                      <div className="absolute top-4 right-4 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-extrabold uppercase">
+                        {plan.badge}
                       </div>
                     )}
 
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold">
-                      {plan.id === 'MONTHLY' ? '📅' : plan.id === 'THREE_MONTHS' ? '🎯' : '👑'}
-                    </div>
-
                     <div>
-                      <h3 className="text-base font-black text-slate-900">{plan.name}</h3>
-                      <p className="text-xs text-slate-400 font-medium mt-0.5">
-                        Davomiyligi: {plan.durationDays} kun litsenziya
-                      </p>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                        Bazaviy tarif • {plan.durationDays} kun
+                      </span>
+                      <h3 className="text-sm font-black text-slate-900 mt-0.5">{plan.name}</h3>
                     </div>
 
-                    <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                      <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
-                        Obuna Narxi (so‘mda)
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={plan.priceUzs}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setPricingPlans((prev) =>
-                              prev.map((p, i) => (i === idx ? { ...p, priceUzs: val } : p))
-                            );
-                          }}
-                          className="w-full pl-3 pr-14 py-2.5 rounded-xl border border-slate-200 text-slate-900 font-black text-base focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                        />
-                        <span className="absolute right-3.5 top-3 text-xs font-bold text-slate-400">
-                          UZS
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-emerald-600 font-bold">
-                        {(plan.priceUzs || 0).toLocaleString('uz-UZ')} so‘m
-                      </p>
-                    </div>
-
-                    <div className="space-y-1 pt-2">
-                      <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
-                        Tarif Nomi (Mobil ekranda)
-                      </label>
+                    <div className="relative">
                       <input
-                        type="text"
-                        value={plan.name}
+                        type="number"
+                        value={plan.priceUzs}
                         onChange={(e) => {
-                          const val = e.target.value;
+                          const val = parseInt(e.target.value, 10) || 0;
                           setPricingPlans((prev) =>
-                            prev.map((p, i) => (i === idx ? { ...p, name: val } : p))
+                            prev.map((p, i) => (i === idx ? { ...p, priceUzs: val } : p)),
                           );
                         }}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        className="w-full pl-3.5 pr-14 py-2 rounded-xl border border-slate-200 text-slate-900 font-black text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-[#F5F7FF]/60"
                       />
+                      <span className="absolute right-3.5 top-2.5 text-[11px] font-bold text-slate-400">
+                        UZS
+                      </span>
                     </div>
+
+                    <input
+                      type="text"
+                      value={plan.name}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPricingPlans((prev) =>
+                          prev.map((p, i) => (i === idx ? { ...p, name: val } : p)),
+                        );
+                      }}
+                      placeholder="Tarif nomi"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
                   </div>
                 ))}
               </div>
 
+              {/* Per-(Grade × Subject) Individual Pricing Matrix */}
+              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">
+                      Sinf va Fan Kesimida Narxlar Matritsasi
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Istalgan fan yoki sinfni tanlab 1 oylik, 3 oylik va 1 yillik narxlarni alohida kiriting
+                    </p>
+                  </div>
+
+                  {/* Mode Switcher: Fan bo'yicha vs Sinf bo'yicha */}
+                  <div className="inline-flex p-1 rounded-xl bg-[#F5F7FF] border border-slate-200/80 self-start">
+                    <button
+                      type="button"
+                      onClick={() => setPricingViewMode('BY_SUBJECT')}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        pricingViewMode === 'BY_SUBJECT'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Fan bo‘yicha ko‘rish
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPricingViewMode('BY_GRADE')}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        pricingViewMode === 'BY_GRADE'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Sinf bo‘yicha ko‘rish
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter Pills Bar */}
+                <div className="px-6 py-3.5 bg-[#F5F7FF]/70 border-b border-slate-100 flex flex-wrap items-center gap-2">
+                  {pricingViewMode === 'BY_SUBJECT'
+                    ? subjectsList.map((subj) => {
+                        const active = pricingSelectedSubjectId === subj.id;
+                        return (
+                          <button
+                            key={subj.id}
+                            type="button"
+                            onClick={() => setPricingSelectedSubjectId(subj.id)}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all border ${
+                              active
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+                            }`}
+                          >
+                            <span>{subj.icon || '📚'}</span>
+                            <span>{subj.name}</span>
+                          </button>
+                        );
+                      })
+                    : activeGradesList.map((gradeItem) => {
+                        const active = pricingSelectedGradeId === gradeItem.gradeNumber;
+                        return (
+                          <button
+                            key={gradeItem.gradeNumber}
+                            type="button"
+                            onClick={() => setPricingSelectedGradeId(gradeItem.gradeNumber)}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                              active
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+                            }`}
+                          >
+                            {gradeItem.title || `${gradeItem.gradeNumber}-sinf`}
+                          </button>
+                        );
+                      })}
+                </div>
+
+                {/* Matrix Rows */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3.5 px-6">
+                          {pricingViewMode === 'BY_SUBJECT' ? 'Sinf' : 'Fan'}
+                        </th>
+                        <th className="py-3.5 px-4">1 Oylik (UZS)</th>
+                        <th className="py-3.5 px-4">3 Oylik (UZS)</th>
+                        <th className="py-3.5 px-4">1 Yillik (UZS)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(pricingViewMode === 'BY_SUBJECT'
+                        ? activeGradesList.map((g) => ({
+                            key: `${g.gradeNumber}::${pricingSelectedSubjectId}`,
+                            gradeId: g.gradeNumber,
+                            subjectId: pricingSelectedSubjectId,
+                            label: g.title || `${g.gradeNumber}-sinf`,
+                            subLabel:
+                              subjectsList.find((s) => s.id === pricingSelectedSubjectId)?.name || '',
+                          }))
+                        : subjectsList.map((s) => ({
+                            key: `${pricingSelectedGradeId}::${s.id}`,
+                            gradeId: pricingSelectedGradeId,
+                            subjectId: s.id,
+                            label: `${s.icon || '📚'} ${s.name}`,
+                            subLabel: `${pricingSelectedGradeId}-sinf • ${s.code}`,
+                          }))
+                      ).map((row) => {
+                        const entry = getMatrixEntry(row.gradeId, row.subjectId);
+                        const hasOverride = Boolean(pricingMatrixMap[row.key]);
+                        return (
+                          <tr key={row.key} className="hover:bg-indigo-50/20 transition-colors">
+                            <td className="py-3.5 px-6">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs font-extrabold text-slate-900">
+                                  {row.label}
+                                </span>
+                                {hasOverride && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    Moslashtirilgan
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-400 mt-0.5">{row.subLabel}</p>
+                            </td>
+                            {(
+                              [
+                                'priceMonthlyUzs',
+                                'priceQuarterlyUzs',
+                                'priceYearlyUzs',
+                              ] as const
+                            ).map((field) => (
+                              <td key={field} className="py-3 px-4">
+                                <div className="relative max-w-[170px]">
+                                  <input
+                                    type="number"
+                                    value={entry[field]}
+                                    onChange={(e) =>
+                                      updateMatrixEntryField(
+                                        row.gradeId,
+                                        row.subjectId,
+                                        field,
+                                        parseInt(e.target.value, 10) || 0,
+                                      )
+                                    }
+                                    className="w-full pl-3 pr-11 py-2 rounded-xl border border-slate-200 text-xs font-black text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none bg-white"
+                                  />
+                                  <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">
+                                    so‘m
+                                  </span>
+                                </div>
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               {/* Notice */}
-              <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-xs text-emerald-800 flex items-center space-x-3">
-                <span className="text-base">✅</span>
+              <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-xs text-emerald-800 flex items-center space-x-3">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                 <p>
-                  Bu yerda kiritilgan har qanday narx o‘zgarishi «Saqlash» tugmasi bosilishi bilan mobil ilovaning barcha sinflari va so‘rovlar ekranida darhol aks etadi.
+                  Kiritilgan har bir (Sinf × Fan) narxi «Barcha Narxlarni Saqlash» tugmasi bosilishi bilan mobil ilovaning tariflar va so‘rov yuborish ekranida darhol aks etadi.
                 </p>
               </div>
             </div>
@@ -3281,6 +4071,117 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   </div>
 
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/40 rounded-full pointer-events-none" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Grade Modal */}
+          {isAddGradeModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-base font-black text-slate-900 flex items-center space-x-2">
+                    <GraduationCap className="w-5 h-5 text-indigo-600" />
+                    <span>Yangi Sinf Qo‘shish</span>
+                  </h3>
+                  <button
+                    onClick={() => setIsAddGradeModalOpen(false)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Sinf Raqami (1–12) *
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={newGradeNumber}
+                        onChange={(e) => {
+                          setNewGradeNumber(e.target.value);
+                          if (!newGradeTitle || newGradeTitle.endsWith('-sinf')) {
+                            setNewGradeTitle(`${e.target.value}-sinf`);
+                          }
+                        }}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Sinf Nomi</label>
+                      <input
+                        type="text"
+                        value={newGradeTitle}
+                        onChange={(e) => setNewGradeTitle(e.target.value)}
+                        placeholder={`${newGradeNumber}-sinf`}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Standart Oylik / 3 Oylik / Yillik (UZS)
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        type="number"
+                        value={newGradeMonthly}
+                        onChange={(e) => setNewGradeMonthly(Number(e.target.value) || 0)}
+                        placeholder="1 oylik"
+                        className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold"
+                      />
+                      <input
+                        type="number"
+                        value={newGradeQuarterly}
+                        onChange={(e) => setNewGradeQuarterly(Number(e.target.value) || 0)}
+                        placeholder="3 oylik"
+                        className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold"
+                      />
+                      <input
+                        type="number"
+                        value={newGradeYearly}
+                        onChange={(e) => setNewGradeYearly(Number(e.target.value) || 0)}
+                        placeholder="1 yillik"
+                        className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Izoh (ixtiyoriy)</label>
+                    <input
+                      type="text"
+                      value={newGradeDesc}
+                      onChange={(e) => setNewGradeDesc(e.target.value)}
+                      placeholder="Boshlang‘ich yoki yuqori sinf darsliklari"
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddGradeModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingGrade}
+                    onClick={handleCreateGrade}
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md"
+                  >
+                    {isSavingGrade ? 'Saqlanmoqda...' : 'Saqlash'}
+                  </button>
                 </div>
               </div>
             </div>

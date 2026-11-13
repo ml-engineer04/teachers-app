@@ -1,132 +1,157 @@
 import React, { useState } from 'react';
-import { BookOpen, Lock, Mail, ArrowRight, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  ShieldCheck,
+} from 'lucide-react';
 import { api } from '../services/apiClient';
+import { BrandLogo } from './BrandLogo';
 
 interface AdminLoginScreenProps {
-  onLoginSuccess: (adminData: { email: string; name: string; role?: string }) => void;
+  onLoginSuccess: (user: { email: string; name: string }) => void;
 }
 
-export function AdminLoginScreen({ onLoginSuccess }: AdminLoginScreenProps) {
+export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setIsLoading(true);
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setErrorMsg('Email va parolni kiriting');
+      return;
+    }
 
+    setErrorMsg(null);
+    setLoading(true);
     try {
-      const res = await api.login(email.trim(), password);
-      setIsLoading(false);
+      const res = await api.login(trimmedEmail, password);
       onLoginSuccess({
-        email: res.admin.email,
-        name: res.admin.email === 'mlrahmonjon@gmail.com' ? 'Super Admin Rahmonjon' : 'Administrator',
-        role: res.admin.role,
+        email: res.admin?.email || trimmedEmail,
+        name: res.admin?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin',
       });
     } catch (err: any) {
-      setIsLoading(false);
-      setError(err.message || 'Login yoki parol noto‘g‘ri! Iltimos, qayta urinib ko‘ring.');
+      const raw = String(err?.message || '');
+      if (raw.includes('401') || raw.toLowerCase().includes('invalid')) {
+        setErrorMsg("Email yoki parol noto'g'ri");
+      } else {
+        setErrorMsg("Server bilan bog'lanishda xatolik yuz berdi");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleFillSuperAdmin = () => {
-    setEmail('mlrahmonjon@gmail.com');
-    setPassword('Qriadmin7$');
-    setError(null);
-  };
-
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden font-sans">
-      {/* Background Pastel Blurs */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#F5F7FF] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+      {/* Subtle decorative ambient blobs matching Mobile & Admin Portal */}
+      <div className="pointer-events-none absolute -top-28 -left-24 w-96 h-96 rounded-full bg-indigo-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 -right-24 w-96 h-96 rounded-full bg-blue-200/40 blur-3xl" />
 
-      <div className="w-full max-w-md bg-slate-800/90 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-8 shadow-2xl relative z-10 animate-fadeIn">
-        {/* Logo & Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20 border border-blue-400/30">
-            <BookOpen className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">SmartTeacherBook</h1>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-1">
-            Boshqaruv Paneli (Admin Portal)
-          </p>
+      <div className="w-full max-w-[430px] relative z-10">
+        {/* Brand Header */}
+        <div className="flex flex-col items-center text-center mb-6">
+          <BrandLogo size={46} darkSurface={false} subtitle="BOSHQARUV PORTALI" />
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold animate-shake">
-            {error}
-          </div>
-        )}
-
-        {/* Login Form */}
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-              Admin Elektron Pochta
-            </label>
-            <div className="relative">
-              <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="mlrahmonjon@gmail.com"
-                required
-                className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-2xl text-white text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-500"
-              />
+        {/* Auth Card */}
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xl shadow-indigo-950/[0.05] p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900">Tizimga kirish</h2>
+              <p className="text-xs font-medium text-slate-500 mt-0.5">
+                Davom etish uchun admin hisobingizni kiriting
+              </p>
             </div>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-bold border border-indigo-100">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Himoyalangan
+            </span>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-              Maxfiy Parol
-            </label>
-            <div className="relative">
-              <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Qriadmin7$"
-                required
-                className="w-full pl-11 pr-4 py-3 bg-slate-900/80 border border-slate-700 rounded-2xl text-white text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-500"
-              />
+          {errorMsg && (
+            <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 px-3.5 py-2.5 flex items-center gap-2 text-xs font-semibold text-red-700">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+              <span>{errorMsg}</span>
             </div>
-          </div>
+          )}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm rounded-2xl shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center space-x-2"
-          >
-            <span>{isLoading ? 'Kirilmoqda...' : 'Tizimga Kirish'}</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </form>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label
+                htmlFor="admin-email"
+                className="block text-xs font-bold text-slate-700 mb-1.5"
+              >
+                Admin Email
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  id="admin-email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@domain.uz"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm font-semibold text-slate-900 transition"
+                  required
+                />
+              </div>
+            </div>
 
-        {/* Quick Super Admin Credentials Helper */}
-        <div className="mt-6 pt-6 border-t border-slate-700/60">
-          <button
-            type="button"
-            onClick={handleFillSuperAdmin}
-            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-blue-500/20 hover:from-amber-500/30 hover:to-blue-500/30 border border-amber-500/30 text-white text-xs font-bold transition-all flex items-center justify-center space-x-2"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>👑 Super Admin Bilan Kirish (1-bosishda)</span>
-          </button>
-          <div className="mt-3 text-center space-y-0.5">
-            <p className="text-[11px] text-slate-400 font-mono">
-              Super Admin: <span className="text-amber-400 font-bold">mlrahmonjon@gmail.com</span>
-            </p>
-            <p className="text-[11px] text-slate-400 font-mono">
-              Parol: <span className="text-emerald-400 font-bold">Qriadmin7$</span>
-            </p>
-          </div>
+            <div>
+              <label
+                htmlFor="admin-password"
+                className="block text-xs font-bold text-slate-700 mb-1.5"
+              >
+                Parol
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  id="admin-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-sm font-semibold text-slate-900 transition"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? 'Parolni yashirish' : "Parolni ko'rsatish"}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#4338CA] hover:from-[#4338CA] hover:to-[#3730A3] text-white font-bold text-sm shadow-md shadow-indigo-500/25 flex items-center justify-center gap-2 transition disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+            >
+              <span>{loading ? 'Tekshirilmoqda...' : 'Admin panelga kirish'}</span>
+              {!loading && <ArrowRight className="w-4 h-4" />}
+            </button>
+          </form>
         </div>
+
+        <p className="text-center text-[11px] font-medium text-slate-400 mt-5">
+          ilmçi • Raqamli Darsliklar Boshqaruvi
+        </p>
       </div>
     </div>
   );
-}
+};

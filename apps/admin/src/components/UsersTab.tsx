@@ -109,8 +109,22 @@ export function UsersTab() {
                   className="w-12 h-12 rounded-2xl object-cover border border-white shadow-sm"
                 />
                 <div>
-                  <h3 className="text-sm font-extrabold text-school-blue-900 flex items-center space-x-2">
+                  <h3 className="text-sm font-extrabold text-school-blue-900 flex flex-wrap items-center gap-2">
                     <span>{user.fullName || user.email}</span>
+                    {user.authProvider && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {user.authProvider}
+                      </span>
+                    )}
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        user.emailVerified
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-amber-50 text-amber-700'
+                      }`}
+                    >
+                      {user.emailVerified ? 'Tasdiqlangan' : 'Tasdiqlanmagan'}
+                    </span>
                     {user.isBlocked && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
                         Bloklangan

@@ -281,7 +281,7 @@ export function SimpleAdminStudio() {
             </span>
           </div>
           <h2 className="text-xl font-black text-slate-800 mt-1">
-            SmartTeacherBook Darslik & To‘lov Boshqaruvi
+            ilmçi Darslik & To‘lov Boshqaruvi
           </h2>
           <p className="text-xs text-slate-500 font-medium">
             O‘qituvchilar to‘lovlarini qabul qiling, sinflar qo‘shing va darslikning aynan xohlagan sahifasiga audio, video yoki javoblarni biriktiring.
