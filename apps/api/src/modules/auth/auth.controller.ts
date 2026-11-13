@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   Get,
   Delete,
@@ -17,54 +18,135 @@ import {
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { GoogleAuthDto } from './dto/google-auth.dto';
+import {
+  EmailLoginDto,
+  EmailRegisterDto,
+  ForgotPasswordDto,
+  LinkGoogleAccountDto,
+  ResendVerificationDto,
+  ResetPasswordDto,
+  SendGoogleLinkCodeDto,
+  SendOtpDto,
+  VerifyEmailDto,
+  VerifyOtpDto,
+} from './dto/email-auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { DisconnectDeviceDto } from './dto/disconnect-device.dto';
 import { EvictDeviceDto } from './dto/evict-device.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AuthRateLimit, AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
-@ApiTags('Mobile Authentication (Google OAuth 2.0 & Session Security)')
+@ApiTags('Authentication (Email/Password, Google OIDC & 2-Device Security)')
+@UseGuards(AuthRateLimitGuard)
 @Controller('api/v1/auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  // ---------------------------------------------------------------------------
+  // Email + Password Authentication Flows
+  // ---------------------------------------------------------------------------
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @AuthRateLimit({ limit: 5, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Register a new teacher account with email and password' })
+  @ApiResponse({ status: 201, description: 'Account created; 6-digit verification code sent.' })
+  @ApiResponse({ status: 409, description: 'EMAIL_ALREADY_EXISTS' })
+  async register(@Body() dto: EmailRegisterDto) {
+    return this.authService.registerWithEmail(dto);
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 10, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Verify registered email address and issue session tokens' })
+  @ApiResponse({ status: 200, description: 'Email verified and JWT session tokens returned.' })
+  @ApiResponse({ status: 401, description: 'VERIFICATION_CODE_INVALID or VERIFICATION_CODE_EXPIRED' })
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 5, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Resend 6-digit email verification code' })
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendEmailVerification(dto.email);
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 10, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Sign in with email and password (2-device limit enforced)' })
+  @ApiResponse({ status: 200, description: 'JWT access and rotated refresh tokens returned.' })
+  @ApiResponse({ status: 401, description: 'INVALID_CREDENTIALS' })
+  @ApiResponse({ status: 403, description: 'EMAIL_NOT_VERIFIED or DEVICE_LIMIT_EXCEEDED' })
+  async login(@Body() dto: EmailLoginDto) {
+    return this.authService.loginWithEmail(dto);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 5, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Request 6-digit password reset code via email' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 5, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Verify reset code and set a new password (revokes active refresh tokens)' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Google Sign-In & Safe Verified Account Linking
+  // ---------------------------------------------------------------------------
   @Post('google')
   @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 15, windowSeconds: 60 })
   @ApiOperation({
-    summary: 'Google Sign-In with official ID Token verification and 2-device check',
+    summary: 'Google Sign-In with official ID Token or OAuth code verification and 2-device check',
     description:
-      'Receives Google ID Token, validates signature & audience on Google Cloud, enforces max 2 active devices, and returns application JWT tokens.',
+      'Verifies Google OIDC token signature, iss, aud, exp, nonce, and email_verified. Requires explicit verification before linking an existing email/password account.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Authentication successful. Application access and refresh tokens returned.',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'GOOGLE_TOKEN_INVALID: Invalid Google ID token or unverified email.',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'DEVICE_LIMIT_EXCEEDED: Account is already active on 2 devices.',
-  })
+  @ApiResponse({ status: 200, description: 'Authentication successful.' })
+  @ApiResponse({ status: 401, description: 'GOOGLE_TOKEN_INVALID or GOOGLE_EMAIL_NOT_VERIFIED' })
+  @ApiResponse({ status: 409, description: 'ACCOUNT_LINKING_REQUIRED: Existing account must verify ownership.' })
+  @ApiResponse({ status: 403, description: 'DEVICE_LIMIT_EXCEEDED: Account is already active on 2 devices.' })
   async googleSignIn(@Body() dto: GoogleAuthDto) {
     return this.authService.authenticateGoogle(dto);
   }
 
+  @Post('google/link/send-code')
+  @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 5, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Send 6-digit confirmation code to link Google onto an existing account' })
+  async sendGoogleLinkCode(@Body() dto: SendGoogleLinkCodeDto) {
+    return this.authService.sendGoogleLinkCode(dto);
+  }
+
+  @Post('google/link')
+  @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 10, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Verify account ownership via password or email code and link Google account' })
+  @ApiResponse({ status: 200, description: 'Google account verified and linked; JWT tokens returned.' })
+  @ApiResponse({ status: 401, description: 'INVALID_CREDENTIALS, LINK_TOKEN_INVALID, or VERIFICATION_CODE_INVALID' })
+  async linkGoogleAccount(@Body() dto: LinkGoogleAccountDto) {
+    return this.authService.linkGoogleAccount(dto);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Session Refresh & Logout
+  // ---------------------------------------------------------------------------
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 30, windowSeconds: 60 })
   @ApiOperation({
     summary: 'Rotate Refresh Token',
-    description:
-      'Exchanges a valid long-lived refresh token for a new access token and rotated refresh token with reuse detection.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Tokens successfully refreshed and rotated.',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid refresh token, expired, or token reuse attempt detected.',
+    description: 'Exchanges a valid refresh token for a rotated access/refresh token pair with reuse detection.',
   })
   async refreshToken(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshSession(dto);
@@ -75,10 +157,7 @@ export class AuthController {
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout and revoke current device refresh token' })
-  async logout(
-    @CurrentUser() user: any,
-    @Body() body: { deviceId?: string },
-  ) {
+  async logout(@CurrentUser() user: any, @Body() body: { deviceId?: string }) {
     const targetDeviceId = body.deviceId || user.deviceId;
     return this.authService.logout(user.userId, targetDeviceId);
   }
@@ -92,12 +171,26 @@ export class AuthController {
     return this.authService.logoutAll(user.userId);
   }
 
+  // ---------------------------------------------------------------------------
+  // User Profile & Device Management
+  // ---------------------------------------------------------------------------
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get current user profile, subscriptions, and active device count' })
   async getProfile(@CurrentUser() user: any) {
     return this.authService.getUserProfile(user.userId, user.deviceId);
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update current user profile name' })
+  async updateProfile(
+    @CurrentUser() user: any,
+    @Body() body: { fullName?: string; firstName?: string; lastName?: string },
+  ) {
+    return this.authService.updateUserProfile(user.userId, body);
   }
 
   @Get('devices')
@@ -112,23 +205,18 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Disconnect an active device to allow another login (Authenticated)' })
-  async disconnectMyDevice(
-    @CurrentUser() user: any,
-    @Param('deviceId') deviceId: string,
-  ) {
+  async disconnectMyDevice(@CurrentUser() user: any, @Param('deviceId') deviceId: string) {
     return this.authService.disconnectDevice(user.userId, deviceId);
   }
 
   @Post('devices/evict')
   @HttpCode(HttpStatus.OK)
+  @AuthRateLimit({ limit: 10, windowSeconds: 60 })
   @ApiOperation({ summary: 'Evict device using Google ID token verification (Pre-login)' })
   async evictWithGoogleToken(@Body() dto: EvictDeviceDto) {
     return this.authService.evictDeviceWithGoogleToken(dto.idToken, dto.deviceIdToRemove);
   }
 
-  // ---------------------------------------------------------------------------
-  // Pre-login device limit resolution endpoints (for mobile DeviceLimitModal)
-  // ---------------------------------------------------------------------------
   @Get('devices/:userId')
   @ApiOperation({ summary: 'List active devices by User ID for device limit resolution' })
   async getDevicesByUserId(@Param('userId') userId: string) {
@@ -144,20 +232,14 @@ export class AuthController {
   @Delete('devices/user/:userId/:deviceId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Disconnect device by User ID and Device ID (Pre-login)' })
-  async disconnectUserDevice(
-    @Param('userId') userId: string,
-    @Param('deviceId') deviceId: string,
-  ) {
+  async disconnectUserDevice(@Param('userId') userId: string, @Param('deviceId') deviceId: string) {
     return this.authService.disconnectDevice(userId, deviceId);
   }
 
   @Post('devices/:userId/disconnect')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Disconnect device by User ID for pre-login slot release' })
-  async disconnectDeviceByUserId(
-    @Param('userId') userId: string,
-    @Body() dto: DisconnectDeviceDto,
-  ) {
+  async disconnectDeviceByUserId(@Param('userId') userId: string, @Body() dto: DisconnectDeviceDto) {
     const deviceId = dto.deviceIdToRemove;
     if (!deviceId) {
       return { success: false, message: 'deviceIdToRemove is required' };
@@ -166,32 +248,21 @@ export class AuthController {
   }
 
   // ---------------------------------------------------------------------------
-  // Email OTP Fallback Endpoints
+  // Passwordless Email OTP Flow
   // ---------------------------------------------------------------------------
   @Post('send-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Send 6-digit verification code to Gmail (Fallback)' })
-  async sendOtp(@Body() body: { email: string }) {
-    return this.authService.sendOtp(body.email);
+  @AuthRateLimit({ limit: 5, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Send 6-digit verification code to email (Passwordless OTP)' })
+  async sendOtp(@Body() dto: SendOtpDto) {
+    return this.authService.sendOtp(dto.email);
   }
 
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify 6-digit code and authenticate user (Fallback)' })
-  async verifyOtp(
-    @Body()
-    body: {
-      email: string;
-      code: string;
-      deviceId?: string;
-      deviceModel?: string;
-    },
-  ) {
-    return this.authService.verifyOtp(
-      body.email,
-      body.code,
-      body.deviceId,
-      body.deviceModel,
-    );
+  @AuthRateLimit({ limit: 10, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Verify 6-digit code and authenticate user (Passwordless OTP)' })
+  async verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyOtp(dto.email, dto.code, dto.deviceId, dto.deviceModel, dto.platform);
   }
 }

@@ -7,8 +7,12 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Security Headers via Helmet
-  app.use(helmet());
+  // Security Headers via Helmet (allow cross-origin media/cover/pdf streaming for mobile & admin web)
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
   // CORS Configuration (Strict origin policy with mobile & admin portal support)
   app.enableCors({
@@ -17,9 +21,11 @@ async function bootstrap() {
       if (!origin) return callback(null, true);
 
       const allowedOrigins = [
+        'http://localhost:3000',
         'http://localhost:5173',
         'http://localhost:4000',
         'http://localhost:8081',
+        'http://127.0.0.1:3000',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:4000',
         'http://127.0.0.1:8081',

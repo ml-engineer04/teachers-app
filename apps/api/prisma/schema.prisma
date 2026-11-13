@@ -75,11 +75,14 @@ enum PaymentProvider {
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
+  passwordHash  String?
   googleId      String?   @unique
+  firstName     String?
+  lastName      String?
   fullName      String?
   avatarUrl     String?
-  emailVerified Boolean   @default(true)
-  authProvider  String    @default("GOOGLE")
+  emailVerified Boolean   @default(false)
+  authProvider  String    @default("EMAIL")
   role          UserRole  @default(TEACHER)
   isActive      Boolean   @default(true)
   isBlocked     Boolean   @default(false)
@@ -89,6 +92,7 @@ model User {
 
   devices          Device[]
   externalAccounts ExternalAccount[]
+  challenges       AuthChallenge[]
   accessRequests   AccessRequest[]
   subscriptions    Subscription[]
   licenses         LicenseToken[]
@@ -98,6 +102,25 @@ model User {
   readingProgress  UserReadingProgress[]
 
   @@map("users")
+}
+
+model AuthChallenge {
+  id          String    @id @default(uuid())
+  email       String
+  userId      String?
+  purpose     String    // "EMAIL_VERIFY" | "PASSWORD_RESET" | "GOOGLE_LINK"
+  codeHash    String
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, purpose])
+  @@index([userId, purpose])
+  @@map("auth_challenges")
 }
 
 model ExternalAccount {

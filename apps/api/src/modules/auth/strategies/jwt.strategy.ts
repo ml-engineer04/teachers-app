@@ -15,12 +15,18 @@ export interface JwtPayload {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(private configService: ConfigService) {
+    const isProduction = configService.get<string>('NODE_ENV') === 'production';
+    const secretOrKey =
+      configService.get<string>('JWT_SECRET') ||
+      configService.get<string>('JWT_ACCESS_SECRET') ||
+      (isProduction ? '' : 'stb_jwt_super_access_secret_key_change_in_production_min32chars');
+    if (!secretOrKey) {
+      throw new Error('JWT_SECRET (or JWT_ACCESS_SECRET) must be configured in production');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        configService.get<string>('JWT_ACCESS_SECRET') ||
-        'stb_jwt_super_access_secret_key_change_in_production_min32chars',
+      secretOrKey,
     });
   }
 

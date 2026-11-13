@@ -2,16 +2,44 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class GoogleAuthDto {
-  @ApiProperty({
-    description: 'Google OAuth 2.0 ID Token (JWT) issued by Google',
+  @ApiPropertyOptional({
+    description: 'Google OAuth 2.0 / OIDC ID Token (JWT) issued by Google Identity Services or Native SDK',
     example: 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...',
   })
   @IsString()
-  @IsNotEmpty({ message: 'Google ID Token is required' })
-  idToken: string;
+  @IsOptional()
+  idToken?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional OAuth 2.0 Authorization Code (exchanged server-side using GOOGLE_CLIENT_SECRET)',
+  })
+  @IsString()
+  @IsOptional()
+  authorizationCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Redirect URI used during OAuth 2.0 authorization code flow',
+  })
+  @IsString()
+  @IsOptional()
+  redirectUri?: string;
+
+  @ApiPropertyOptional({
+    description: 'PKCE code verifier matching code_challenge in authorization code flow',
+  })
+  @IsString()
+  @IsOptional()
+  codeVerifier?: string;
+
+  @ApiPropertyOptional({
+    description: 'Cryptographic OIDC nonce used to bind the ID token to this authentication attempt',
+  })
+  @IsString()
+  @IsOptional()
+  nonce?: string;
 
   @ApiProperty({
-    description: 'Unique hardware or installation UUID of the mobile device',
+    description: 'Unique hardware or installation UUID of the client device',
     example: 'd9b7a634-927b-4d43-a621-392c694a5e12',
   })
   @IsString()
