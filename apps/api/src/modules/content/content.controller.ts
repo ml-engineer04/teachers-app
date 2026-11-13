@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Param,
@@ -13,12 +14,17 @@ import {
   BadRequestException,
   NotFoundException,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiConsumes } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger';
 import { ContentService, HotspotItem, MediaItem, AnswerKeyItem } from './content.service';
 import { Response } from 'express';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { BookType } from '@smartteacherbook/shared';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Content & Ingestion Pipeline')
 @Controller('api/v1/content')
@@ -68,6 +74,33 @@ export class ContentController {
   @ApiOperation({ summary: 'Get book pages with dimensions & hotspot counters for Visual PDF Editor' })
   async getBookPages(@Param('bookId') bookId: string) {
     return this.contentService.getBookPages(bookId);
+  }
+
+  @Post('books/:bookId/pages')
+  @ApiOperation({ summary: 'Append a new page to a book (Visual Hotspot Editor)' })
+  async addBookPage(
+    @Param('bookId') bookId: string,
+    @Body() body?: { titleSnippet?: string },
+  ) {
+    return this.contentService.addBookPage(bookId, body?.titleSnippet);
+  }
+
+  @Get('books/:bookId/pages/:pageNumber/image')
+  @ApiOperation({ summary: 'Render and stream PDF page as crisp PNG image for native mobile readers' })
+  async getRenderedPageImage(
+    @Param('bookId') bookId: string,
+    @Param('pageNumber') pageNumber: string,
+    @Res() res: Response,
+  ) {
+    const pageNum = parseInt(pageNumber, 10);
+    const pngBuffer = await this.contentService.getRenderedPdfPageImage(bookId, pageNum);
+    if (!pngBuffer) {
+      throw new NotFoundException(`Page ${pageNumber} image for book ${bookId} not found`);
+    }
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', pngBuffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.end(pngBuffer);
   }
 
   @Get('books/:bookId/pdf')
@@ -126,6 +159,7 @@ export class ContentController {
       gradeId?: string;
       subjectId?: string;
       bookType?: BookType;
+      contentStartPdfPage?: string;
     },
   ) {
     if (!file || !file.buffer) {
@@ -134,9 +168,10 @@ export class ContentController {
 
     return this.contentService.uploadAndProcessPdf(file.buffer, file.originalname, {
       title: body.title,
-      gradeId: body.gradeId ? parseInt(body.gradeId) : 7,
+      gradeId: body.gradeId ? parseInt(body.gradeId, 10) : 7,
       subjectId: body.subjectId,
       bookType: body.bookType,
+      contentStartPdfPage: body.contentStartPdfPage ? parseInt(body.contentStartPdfPage, 10) : 1,
     });
   }
 
@@ -432,5 +467,193 @@ export class ContentController {
       throw new NotFoundException(`Answer key ${id} not found`);
     }
     return { success: true };
+  }
+
+  // ==========================================
+  // READER SYNC, PROGRESS & PDF VIEWER ASSETS
+  // ==========================================
+  @Get('books/:bookId/has-pdf')
+  @ApiOperation({ summary: 'Check whether a book has an uploaded PDF binary stream' })
+  async hasPdf(@Param('bookId') bookId: string) {
+    const buf = this.contentService.getPdfBuffer(bookId);
+    const book = await this.contentService.findById(bookId);
+    return {
+      hasPdf: Boolean(buf && buf.length > 0),
+      totalPages: book?.totalPages || 6,
+      contentStartPdfPage: book?.contentStartPdfPage || 1,
+    };
+  }
+
+  @Get('vendor/pdfjs/:filename')
+  @ApiOperation({ summary: 'Serve PDF.js runtime scripts for mobile web reader' })
+  async servePdfJsAsset(@Param('filename') filename: string, @Res() res: Response) {
+    if (filename !== 'pdf.min.js' && filename !== 'pdf.worker.min.js') {
+      throw new NotFoundException('File not allowed');
+    }
+    const candidates = [
+      path.resolve(process.cwd(), '../admin/public/vendor/pdfjs', filename),
+      path.resolve(process.cwd(), 'apps/admin/public/vendor/pdfjs', filename),
+    ];
+    const filePath = candidates.find((p) => fs.existsSync(p));
+    if (!filePath) {
+      throw new NotFoundException(`PDF.js asset ${filename} not found`);
+    }
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(filePath);
+  }
+
+  @Get('books/:bookId/toc')
+  @ApiOperation({ summary: 'Get table of contents (units) for a textbook' })
+  async getToc(@Param('bookId') bookId: string) {
+    return this.contentService.getBookToc(bookId);
+  }
+
+  @Post('books/:bookId/toc')
+  @ApiOperation({ summary: 'Save custom table of contents (Admin)' })
+  async saveToc(
+    @Param('bookId') bookId: string,
+    @Body()
+    body: {
+      items: Array<{
+        id?: string;
+        unit?: string;
+        title: string;
+        pageNumber: number;
+        endPageNumber?: number;
+      }>;
+    },
+  ) {
+    return this.contentService.saveBookToc(bookId, body?.items || []);
+  }
+
+  @Put('books/:bookId/toc')
+  @ApiOperation({ summary: 'Replace custom table of contents (Admin)' })
+  async replaceToc(
+    @Param('bookId') bookId: string,
+    @Body()
+    body: {
+      items: Array<{
+        id?: string;
+        unit?: string;
+        title: string;
+        pageNumber: number;
+        endPageNumber?: number;
+      }>;
+    },
+  ) {
+    return this.contentService.saveBookToc(bookId, body?.items || []);
+  }
+
+  @Get('books/:bookId/bookmarks')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get user bookmarks for a textbook' })
+  async getBookmarks(@Param('bookId') bookId: string, @CurrentUser() user: any) {
+    return this.contentService.getUserBookmarks(user.userId, bookId);
+  }
+
+  @Post('books/:bookId/bookmarks')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Add bookmark for current page' })
+  async addBookmark(
+    @Param('bookId') bookId: string,
+    @Body() body: { pageNumber: number; title?: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.contentService.addUserBookmark(user.userId, bookId, body.pageNumber, body.title);
+  }
+
+  @Delete('books/:bookId/bookmarks/:pageNumber')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Remove bookmark for page' })
+  async deleteBookmark(
+    @Param('bookId') bookId: string,
+    @Param('pageNumber', ParseIntPipe) pageNumber: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.contentService.deleteUserBookmark(user.userId, bookId, pageNumber);
+  }
+
+  @Get('books/:bookId/notes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get user notes for a textbook' })
+  async getNotes(@Param('bookId') bookId: string, @CurrentUser() user: any) {
+    return this.contentService.getUserNotes(user.userId, bookId);
+  }
+
+  @Post('books/:bookId/notes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Create user note on a page' })
+  async addNote(
+    @Param('bookId') bookId: string,
+    @Body() body: { pageNumber: number; text: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.contentService.addUserNote(user.userId, bookId, body.pageNumber, body.text);
+  }
+
+  @Delete('books/:bookId/notes/:noteId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Delete user note' })
+  async deleteNote(
+    @Param('bookId') bookId: string,
+    @Param('noteId') noteId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.contentService.deleteUserNote(user.userId, bookId, noteId);
+  }
+
+  @Get('books/:bookId/drawings')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get user highlighter/pen drawings for a book' })
+  async getDrawings(
+    @Param('bookId') bookId: string,
+    @Query('pageNumber') pageNumber: string | undefined,
+    @CurrentUser() user: any,
+  ) {
+    return this.contentService.getUserDrawings(
+      user.userId,
+      bookId,
+      pageNumber ? parseInt(pageNumber, 10) : undefined,
+    );
+  }
+
+  @Put('books/:bookId/drawings/:pageNumber')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Save user highlighter/pen drawings for a page' })
+  async saveDrawings(
+    @Param('bookId') bookId: string,
+    @Param('pageNumber', ParseIntPipe) pageNumber: number,
+    @Body() body: { strokes: any[] },
+    @CurrentUser() user: any,
+  ) {
+    return this.contentService.saveUserDrawings(user.userId, bookId, pageNumber, body?.strokes || []);
+  }
+
+  @Get('progress')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get recent reading progress list for Continue Reading' })
+  async getProgress(@CurrentUser() user: any) {
+    return this.contentService.getUserReadingProgress(user.userId);
+  }
+
+  @Post('progress')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Save last opened page number for a textbook' })
+  async saveProgress(
+    @Body() body: { bookId: string; lastPageNumber: number },
+    @CurrentUser() user: any,
+  ) {
+    return this.contentService.saveUserReadingProgress(user.userId, body.bookId, body.lastPageNumber);
   }
 }

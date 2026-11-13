@@ -1,17 +1,76 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LicenseSignerService } from './license-signer.service';
-import { Subscription, SubscriptionPlan, SignedLicense } from '@smartteacherbook/shared';
+import { AccessRequestStatus, Subscription, SubscriptionPlan, SignedLicense } from '@smartteacherbook/shared';
+import {
+  isApiTestEnvironment,
+  readJsonDiskSync,
+  writeJsonDiskSync,
+} from '../../common/persistence/local-disk.store';
 
 @Injectable()
-export class SubscriptionsService {
+export class SubscriptionsService implements OnModuleInit {
   private readonly logger = new Logger(SubscriptionsService.name);
+  private diskEnabled = false;
 
   // Clean in-memory subscriptions store (starts empty)
   private subscriptionsStore: Subscription[] = [];
 
+  onModuleInit() {
+    this.diskEnabled = !isApiTestEnvironment();
+    if (!this.diskEnabled) return;
+    const saved = readJsonDiskSync<Subscription[]>('subscriptions-state.json');
+    if (Array.isArray(saved)) {
+      this.subscriptionsStore = saved;
+      return;
+    }
+
+    const snap = readJsonDiskSync<{ requests?: any[] }>('live-snapshot.json');
+    if (Array.isArray(snap?.requests)) {
+      const seenKeys = new Set<string>();
+      const reconstructed: Subscription[] = [];
+      for (const req of snap.requests) {
+        if (req?.status !== AccessRequestStatus.PAID_APPROVED) continue;
+        const key = `${(req.userEmail || req.userId || '').toLowerCase()}:${req.gradeId}:${req.subjectId || 'ALL'}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+
+        const startsAt = new Date(req.resolvedAt || req.createdAt || Date.now());
+        const days =
+          req.plan === SubscriptionPlan.YEARLY
+            ? 365
+            : req.plan === SubscriptionPlan.THREE_MONTHS
+            ? 90
+            : 30;
+        const expiresAt = new Date(startsAt.getTime() + days * 86400 * 1000);
+        reconstructed.push({
+          id: `sub_restored_${req.id}`,
+          userId: req.userId,
+          gradeId: Number(req.gradeId),
+          subjectId: req.subjectId || null,
+          plan: req.plan || SubscriptionPlan.MONTHLY,
+          startsAt: startsAt.toISOString(),
+          expiresAt: expiresAt.toISOString(),
+          grantedById: req.adminId || 'admin_super_mlrahmonjon',
+          isActive: expiresAt.getTime() > Date.now(),
+          createdAt: startsAt.toISOString(),
+        });
+      }
+      if (reconstructed.length > 0) {
+        this.subscriptionsStore = reconstructed;
+        this.persistDisk();
+      }
+    }
+  }
+
+  private persistDisk() {
+    if (!this.diskEnabled) return;
+    writeJsonDiskSync('subscriptions-state.json', this.subscriptionsStore);
+  }
+
   clearAll() {
     this.subscriptionsStore = [];
+    this.persistDisk();
     this.logger.log('🧹 Subscriptions store cleared completely.');
   }
 
@@ -66,6 +125,7 @@ export class SubscriptionsService {
     }
 
     this.subscriptionsStore.push(subscription);
+    this.persistDisk();
     this.logger.log(`Subscription granted to user ${data.userId} for Grade ${data.gradeId} until ${expiresAt.toISOString()}`);
     return subscription;
   }

@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Patch, Body, Param, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { RequestsService } from './requests.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { AccessRequestStatus, SubscriptionPlan, CreateAccessRequestDto } from '@smartteacherbook/shared';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AccessRequestStatus, CreateAccessRequestDto, SubscriptionPlan } from '@smartteacherbook/shared';
 
 @ApiTags('Access Requests (Sales Desk)')
 @Controller('api/v1')
@@ -11,20 +12,24 @@ export class RequestsController {
 
   // Mobile App Endpoints
   @Post('access-requests')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Submit telephone access request from mobile app' })
   async createRequest(
     @Body() dto: CreateAccessRequestDto,
-    @CurrentUser() user?: { id: string; email: string },
+    @CurrentUser() user?: { userId?: string; id?: string; email?: string },
   ) {
-    const userId = user?.id || 'user_1';
+    const userId = user?.userId || user?.id || 'user_1';
     const userEmail = user?.email || 'oqtuvchi@maktab.uz';
     return this.requestsService.create(userId, userEmail, dto);
   }
 
   @Get('access-requests/my')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get current user submitted access requests' })
-  async getMyRequests(@CurrentUser() user?: { id: string }) {
-    const userId = user?.id || 'user_1';
+  async getMyRequests(@CurrentUser() user?: { userId?: string; id?: string }) {
+    const userId = user?.userId || user?.id || 'user_1';
     return this.requestsService.getMyRequests(userId);
   }
 
@@ -74,9 +79,30 @@ export class RequestsController {
   async rejectAccess(
     @Param('id') id: string,
     @Body() body: { reason: string },
-    @CurrentUser() admin?: { id: string },
+    @CurrentUser() admin?: { userId?: string; id?: string },
   ) {
-    const adminId = admin?.id || 'admin_1';
+    const adminId = admin?.userId || admin?.id || 'admin_1';
     return this.requestsService.rejectAccess(id, adminId, body?.reason || 'Sabab ko‘rsatilmadi');
+  }
+
+  @Post('admin/subscriptions/manual')
+  @ApiOperation({ summary: 'Manually create approved request and grant subscription (Admin)' })
+  async grantManual(
+    @Body()
+    body: {
+      teacherNameOrEmail: string;
+      phoneNumber?: string;
+      gradeId: number;
+      subjectId?: string;
+      durationDays?: number;
+      plan?: SubscriptionPlan;
+    },
+    @CurrentUser() admin?: { userId?: string; id?: string },
+  ) {
+    const adminId = admin?.userId || admin?.id || 'admin_1';
+    return this.requestsService.grantManualSubscription({
+      ...body,
+      adminId,
+    });
   }
 }
