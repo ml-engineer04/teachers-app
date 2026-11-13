@@ -7,6 +7,7 @@ const REFRESH_TOKEN_KEY = 'STB_SECURE_REFRESH_TOKEN';
 const DEVICE_ID_KEY = 'STB_SECURE_DEVICE_ID';
 const USER_PROFILE_KEY = 'STB_USER_PROFILE_DATA';
 const PIN_HASH_KEY = 'STB_SECURE_PIN_HASH';
+const LAST_ACTIVITY_KEY = 'STB_LAST_ACTIVITY_AT';
 
 // Fallback in-memory/localStorage store for Web development preview
 const webStorage = {
@@ -132,6 +133,7 @@ export const secureStorage = {
       webStorage.delete(REFRESH_TOKEN_KEY);
       webStorage.delete(USER_PROFILE_KEY);
       webStorage.delete(PIN_HASH_KEY);
+      webStorage.delete(LAST_ACTIVITY_KEY);
       return;
     }
 
@@ -140,6 +142,7 @@ export const secureStorage = {
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
       await SecureStore.deleteItemAsync(USER_PROFILE_KEY);
       await SecureStore.deleteItemAsync(PIN_HASH_KEY);
+      await SecureStore.deleteItemAsync(LAST_ACTIVITY_KEY);
     } catch {}
   },
 
@@ -190,5 +193,29 @@ export const secureStorage = {
     try {
       await SecureStore.deleteItemAsync(PIN_HASH_KEY);
     } catch {}
+  },
+
+  async saveLastActivityAt(timestampMs: number): Promise<void> {
+    const raw = String(timestampMs);
+    if (Platform.OS === 'web') {
+      webStorage.set(LAST_ACTIVITY_KEY, raw);
+      return;
+    }
+    try {
+      await SecureStore.setItemAsync(LAST_ACTIVITY_KEY, raw);
+    } catch {}
+  },
+
+  async getLastActivityAt(): Promise<number | null> {
+    let raw: string | null = null;
+    if (Platform.OS === 'web') {
+      raw = webStorage.get(LAST_ACTIVITY_KEY);
+    } else {
+      try {
+        raw = await SecureStore.getItemAsync(LAST_ACTIVITY_KEY);
+      } catch {}
+    }
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   },
 };

@@ -1,230 +1,240 @@
 import { Platform } from 'react-native';
-import { mobileApi, ApiError } from '../api/mobileApi';
+import { GoogleAuthDto } from '@smartteacherbook/shared';
+import { mobileApi } from '../api/mobileApi';
 import { secureStorage } from '../storage/secureStorage';
-import { AuthTokensResponse } from '@smartteacherbook/shared';
+import { generateOidcNonce, getWebGoogleClientId } from './googleWebGis';
 
-const WEB_CLIENT_ID =
-  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
-  '541312544893-favcmb2v7c257r2n7mlslu0e37dilrm1.apps.googleusercontent.com';
+let GoogleSigninModule: any = null;
+let statusCodes: any = {};
 
-export interface GoogleAuthResult {
+if (Platform.OS !== 'web') {
+  try {
+    const pkg = require('@react-native-google-signin/google-signin');
+    GoogleSigninModule = pkg.GoogleSignin;
+    statusCodes = pkg.statusCodes || {};
+  } catch {
+    console.warn('GoogleSignin native module unavailable; Web GIS handles browser auth.');
+  }
+}
+
+export interface GoogleAuthOutcome {
   success: boolean;
-  tokens?: AuthTokensResponse;
+  cancelled?: boolean;
+  user?: any;
+  subscription?: any;
   deviceLimitExceeded?: boolean;
-  activeDevices?: Array<{
-    id: string;
-    deviceId: string;
-    deviceModel: string;
-    osVersion: string;
-    lastActiveAt: string;
-    isCurrent: boolean;
-  }>;
+  conflictingDevices?: any[];
   userId?: string;
+  lastIdToken?: string;
+  requiresAccountLinking?: boolean;
+  linkToken?: string;
+  linkingEmail?: string;
+  linkingHasPassword?: boolean;
   errorMessage?: string;
 }
 
 class GoogleAuthService {
-  private isConfigured = false;
+  private configured = false;
 
-  constructor() {
-    this.configureGoogleSignIn();
+  isGoogleClientConfigured(): boolean {
+    if (Platform.OS === 'web') {
+      return Boolean(getWebGoogleClientId());
+    }
+    return Boolean(getWebGoogleClientId() || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID);
   }
 
-  private configureGoogleSignIn() {
-    if (Platform.OS === 'web') return;
-
-    try {
-      const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-      GoogleSignin.configure({
-        webClientId: WEB_CLIENT_ID,
+  configure() {
+    if (this.configured) return;
+    if (Platform.OS !== 'web' && GoogleSigninModule) {
+      const webClientId = getWebGoogleClientId();
+      if (!webClientId) {
+        console.warn('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is not configured.');
+        return;
+      }
+      GoogleSigninModule.configure({
+        webClientId,
+        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
         offlineAccess: true,
-        scopes: ['profile', 'email'],
+        scopes: ['openid', 'profile', 'email'],
       });
-      this.isConfigured = true;
-    } catch (err: any) {
-      console.warn('Google Sign-In native module configuration notice:', err.message);
+      this.configured = true;
     }
   }
 
-  /**
-   * Section 9: Triggers native Google Sign-In prompt and exchanges official ID token with NestJS backend.
-   */
-  async signIn(testAccountEmail?: string, testAccountName?: string): Promise<GoogleAuthResult> {
+  async signInWithCredential(params: {
+    idToken?: string;
+    authorizationCode?: string;
+    redirectUri?: string;
+    codeVerifier?: string;
+    nonce?: string;
+  }): Promise<GoogleAuthOutcome> {
     try {
-      let idToken: string = '';
+      const meta = await mobileApi.getDeviceMeta();
+      const dto: GoogleAuthDto = {
+        idToken: params.idToken,
+        authorizationCode: params.authorizationCode,
+        redirectUri: params.redirectUri,
+        codeVerifier: params.codeVerifier,
+        nonce: params.nonce,
+        deviceId: meta.deviceId,
+        deviceModel: meta.deviceModel,
+        osVersion: meta.osVersion,
+        appVersion: meta.appVersion,
+        platform: meta.platform as any,
+      };
 
-      // 1. Native Google Sign-In on Android & iOS
-      if (Platform.OS !== 'web' && this.isConfigured) {
-        try {
-          const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-
-          await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-
-          const response = await GoogleSignin.signIn();
-
-          // Handle v17 response structure
-          if (response && response.type === 'cancelled') {
-            return {
-              success: false,
-              errorMessage: 'Tizimga kirish bekor qilindi.',
-            };
-          }
-
-          if (response && response.type === 'success' && response.data) {
-            idToken = response.data.idToken || '';
-          } else if (response && response.idToken) {
-            idToken = response.idToken;
-          }
-        } catch (nativeErr: any) {
-          console.warn('Native Google Sign-In encountered an error:', nativeErr);
-
-          if (nativeErr.code === 'SIGN_IN_CANCELLED' || nativeErr.message?.includes('SIGN_IN_CANCELLED')) {
-            return {
-              success: false,
-              errorMessage: 'Tizimga kirish bekor qilindi.',
-            };
-          }
-
-          if (nativeErr.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
-            return {
-              success: false,
-              errorMessage: 'Qurilmangizda Google Play xizmatlari yangilanishi lozim.',
-            };
-          }
-
-          return {
-            success: false,
-            errorMessage: nativeErr.message || 'Google orqali kirishda xatolik yuz berdi.',
-          };
-        }
-      }
-
-      // Web development fallback
-      if (!idToken && Platform.OS === 'web' && testAccountEmail) {
-        idToken = this.createDevWebToken(testAccountEmail, testAccountName);
-      }
-
-      if (!idToken) {
-        return {
-          success: false,
-          errorMessage: 'Google ID Token olinmadi. Qaytadan urinib ko‘ring.',
-        };
-      }
-
-      // 2. Hardware / Installation Identification
-      const deviceId = await secureStorage.getOrCreateDeviceId();
-      const deviceModel =
-        Platform.OS === 'android'
-          ? 'Android Device'
-          : Platform.OS === 'ios'
-          ? 'Apple iPad'
-          : 'Web Browser';
-
-      const osVersion = Platform.OS === 'android' ? `Android ${Platform.Version || '14'}` : Platform.OS;
-
-      // 3. Send verified Google ID token to SmartTeacherBook backend
-      const authResponse = await mobileApi.googleSignInWithDto({
-        idToken,
-        deviceId,
-        deviceModel,
-        osVersion,
-        appVersion: '1.0.0',
-        platform: Platform.OS.toUpperCase(),
-      });
-
-      // 4. Securely store application tokens
-      await secureStorage.saveTokens(authResponse.accessToken, authResponse.refreshToken);
-      await secureStorage.saveUserProfile(authResponse.user);
+      const res = await mobileApi.googleSignInWithDto(dto);
+      await this.persistSessionResponse(res);
 
       return {
         success: true,
-        tokens: authResponse,
+        user: res.user,
+        subscription: res.subscription,
       };
     } catch (err: any) {
-      console.error('Google Sign-In backend verification failed:', err);
+      if (err?.isNetworkError) {
+        return {
+          success: false,
+          errorMessage: 'Internet aloqasi mavjud emas. Tarmoqni tekshirib qayta urinib ko‘ring.',
+        };
+      }
 
-      const apiErr = err as ApiError;
-      if (
-        apiErr.status === 403 &&
-        (apiErr.data?.code === 'DEVICE_LIMIT_EXCEEDED' || apiErr.data?.devices)
-      ) {
+      if (err?.status === 403 && err?.data?.code === 'DEVICE_LIMIT_EXCEEDED') {
         return {
           success: false,
           deviceLimitExceeded: true,
-          activeDevices: apiErr.data.devices || [],
-          userId: apiErr.data.userId,
-          errorMessage: apiErr.data.message || 'Hisob allaqachon 2 ta qurilmada faol.',
+          conflictingDevices: err.data.devices || [],
+          userId: err.data.userId,
+          lastIdToken: params.idToken,
+          errorMessage: err.message,
+        };
+      }
+
+      if (err?.status === 409 && err?.data?.code === 'ACCOUNT_LINKING_REQUIRED') {
+        return {
+          success: false,
+          requiresAccountLinking: true,
+          linkToken: err.data.linkToken,
+          linkingEmail: err.data.email,
+          linkingHasPassword: Boolean(err.data.hasPassword),
+          errorMessage:
+            err.data.message ||
+            'Ushbu email bilan avval hisob yaratilgan. Google bilan bog‘lash uchun hisob egasi ekanligingizni tasdiqlang.',
         };
       }
 
       return {
         success: false,
-        errorMessage: err.message || 'Google orqali kirishda xatolik yuz berdi.',
+        errorMessage: err?.message || 'Google orqali autentifikatsiyadan o‘tib bo‘lmadi.',
       };
     }
   }
 
-  /**
-   * Section 18: Sign out and revoke session on backend.
-   */
-  async signOut(deviceId?: string): Promise<void> {
-    const currentDeviceId = deviceId || (await secureStorage.getOrCreateDeviceId());
-    try {
-      await mobileApi.logout(currentDeviceId);
-    } catch {}
-
-    if (Platform.OS !== 'web' && this.isConfigured) {
-      try {
-        const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-        await GoogleSignin.signOut();
-      } catch {}
+  async signInWithGoogle(): Promise<GoogleAuthOutcome> {
+    if (Platform.OS === 'web') {
+      return {
+        success: false,
+        errorMessage: this.isGoogleClientConfigured()
+          ? 'Google bilan kirish uchun rasmiy Google tugmasini bosing.'
+          : 'Google Sign-In hali sozlanmagan (EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID kiritilmagan). Email va parol orqali kirishingiz mumkin.',
+      };
     }
 
-    await secureStorage.clearAuthTokens();
+    if (!GoogleSigninModule) {
+      return {
+        success: false,
+        errorMessage: 'Ushbu qurilmada Google Sign-In moduli mavjud emas. Email va parol orqali kiring.',
+      };
+    }
+
+    this.configure();
+    if (!this.configured) {
+      return {
+        success: false,
+        errorMessage: 'Google Client ID sozlanmagan. Iltimos, sozlamalarni tekshiring.',
+      };
+    }
+
+    try {
+      await GoogleSigninModule.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const nonce = generateOidcNonce();
+      const userInfo = await GoogleSigninModule.signIn();
+
+      if (userInfo?.type === 'cancelled') {
+        return {
+          success: false,
+          cancelled: true,
+          errorMessage: 'Google orqali kirish bekor qilindi.',
+        };
+      }
+
+      const idToken = userInfo?.data?.idToken || userInfo?.idToken;
+      if (!idToken) {
+        return {
+          success: false,
+          errorMessage: 'Google autentifikatsiya tokeni olinmadi. Qaytadan urinib ko‘ring.',
+        };
+      }
+
+      // Only pass nonce if native SDK bound it; native SDK does not always expose nonce param before v13
+      return await this.signInWithCredential({
+        idToken,
+        authorizationCode: userInfo?.data?.serverAuthCode || undefined,
+        nonce: undefined,
+      });
+    } catch (error: any) {
+      if (error?.code === statusCodes.SIGN_IN_CANCELLED || error?.code === '12501') {
+        return {
+          success: false,
+          cancelled: true,
+          errorMessage: 'Google orqali kirish bekor qilindi.',
+        };
+      }
+      if (error?.code === statusCodes.IN_PROGRESS) {
+        return {
+          success: false,
+          errorMessage: 'Google autentifikatsiyasi allaqachon bajarilmoqda.',
+        };
+      }
+      if (error?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        return {
+          success: false,
+          errorMessage: 'Google Play xizmatlari mavjud emas yoki yangilashni talab qiladi.',
+        };
+      }
+      return {
+        success: false,
+        errorMessage: error?.message || 'Google orqali kirishda xatolik yuz berdi.',
+      };
+    }
   }
 
-  private createDevWebToken(email: string, name?: string): string {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanName =
-      name?.trim() ||
-      cleanEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  async persistSessionResponse(res: {
+    accessToken: string;
+    refreshToken: string;
+    user: any;
+  }) {
+    await secureStorage.saveTokens(res.accessToken, res.refreshToken);
+    await secureStorage.saveUserProfile(res.user);
+  }
 
-    const toBase64Url = (str: string) => {
-      let b64 = '';
-      if (typeof btoa !== 'undefined') {
-        b64 = btoa(unescape(encodeURIComponent(str)));
-      } else {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-        let i = 0;
-        while (i < str.length) {
-          const c1 = str.charCodeAt(i++);
-          const c2 = str.charCodeAt(i++);
-          const c3 = str.charCodeAt(i++);
-          b64 += chars.charAt(c1 >> 2);
-          b64 += chars.charAt(((c1 & 3) << 4) | (c2 >> 4));
-          b64 += isNaN(c2) ? '=' : chars.charAt(((c2 & 15) << 2) | (c3 >> 6));
-          b64 += isNaN(c3) ? '=' : chars.charAt(c3 & 63);
-        }
-      }
-      return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    };
+  async signOut() {
+    try {
+      const deviceId = await secureStorage.getOrCreateDeviceId();
+      await mobileApi.logout(deviceId);
+    } catch {
+      await secureStorage.clearAuthTokens();
+    }
 
-    const header = toBase64Url(JSON.stringify({ alg: 'RS256', kid: 'google-key-01' }));
-    const payload = toBase64Url(
-      JSON.stringify({
-        iss: 'accounts.google.com',
-        sub: `google_sub_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        email: cleanEmail,
-        email_verified: true,
-        name: cleanName,
-        picture: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150',
-        aud: WEB_CLIENT_ID,
-        exp: Math.floor(Date.now() / 1000) + 3600,
-        iat: Math.floor(Date.now() / 1000),
-      }),
-    );
-    const sig = toBase64Url('dev_mock_sig');
-    return `${header}.${payload}.${sig}`;
+    if (Platform.OS !== 'web' && GoogleSigninModule) {
+      try {
+        await GoogleSigninModule.signOut();
+      } catch {}
+    } else if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        window.google?.accounts?.id?.disableAutoSelect();
+      } catch {}
+    }
   }
 }
 
