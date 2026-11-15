@@ -257,7 +257,7 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
                   className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
-                  <span>{t('grades.openBookBtn')}</span>
+                  <span>{t('grades.openBookBtn') || 'Kitobni ochish'}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
