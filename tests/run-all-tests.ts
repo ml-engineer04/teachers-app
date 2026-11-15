@@ -12,6 +12,7 @@ import { runReadingProgressTests } from './reading-progress.test';
 import { runAnnotationsAndSubscriptionLockTests } from './annotations-and-expiry.test';
 import { runPageGeometryTests } from './page-geometry.test';
 import { runPageOffsetAndI18nTests } from './page-offset-and-i18n.test';
+import { runReaderHotspotAlignmentTests } from './reader-hotspot-alignment.test';
 
 async function main() {
   console.log('\n=============================================================');
@@ -34,6 +35,7 @@ async function main() {
     { title: '11. Device-Local Annotations & Monthly Subscription Auto-Lock', fn: runAnnotationsAndSubscriptionLockTests },
     { title: '12. PDF Stage Geometry & Centered Compact Hotspot Alignment', fn: runPageGeometryTests },
     { title: '13. Textbook Page Offset Mapping & Trilingual Dictionary Parity', fn: runPageOffsetAndI18nTests },
+    { title: '14. Reader Dynamic Navigation & Precision Audio Hotspot Alignment', fn: runReaderHotspotAlignmentTests },
   ];
 
   let totalTests = 0;
