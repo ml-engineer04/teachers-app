@@ -73,7 +73,16 @@ export const TeacherDashboard: React.FC = () => {
   const latestProgress = readingProgress.length > 0 ? readingProgress[0] : null;
 
   const handleOpenReader = (book: Book, initialPage?: number) => {
-    setActiveReadingBook({ book, initialPage });
+    let targetPage = initialPage;
+    if (!targetPage) {
+      const prog = readingProgress.find((p) => p.bookId === book.id);
+      if (prog && prog.lastPageNumber > 0) {
+        targetPage = prog.lastPageNumber;
+      } else if (book.contentStartPdfPage && book.contentStartPdfPage > 1) {
+        targetPage = book.contentStartPdfPage;
+      }
+    }
+    setActiveReadingBook({ book, initialPage: targetPage });
   };
 
   const handleRequestSubscription = (gradeId: number, subjectId?: string) => {
