@@ -523,6 +523,55 @@ export class ContentService implements OnModuleInit {
         description: 'Animated grammar video explaining Conditionals Type 3.',
       },
     ]);
+
+    // Seed English 5 (Guess What Student's Book) precision hotspots matching physical CD badges
+    this.hotspotsStore.set('book_custom_1794481791782', [
+      {
+        id: 'hs_1794488764525_t5ie',
+        bookId: 'book_custom_1794481791782',
+        pageNumber: 9,
+        type: 'AUDIO',
+        rect: { x: 0.108, y: 0.055, w: 0.05, h: 0.04 },
+        label: 'Audio (1)',
+        tooltipText: '1. Listen and look',
+        positionMode: 'MANUAL',
+        appearanceStyle: 'SOLID',
+        size: 'MD',
+        targetMediaId: 'media_1794488811983',
+        targetFile: 'GW_BE_L5_CD1_Track 2.mp3',
+        targetUrl: 'http://localhost:4000/api/v1/content/media/media_1794488811983/file',
+      },
+      {
+        id: 'hs_1794488784108_nbe2',
+        bookId: 'book_custom_1794481791782',
+        pageNumber: 9,
+        type: 'AUDIO',
+        rect: { x: 0.108, y: 0.097, w: 0.05, h: 0.04 },
+        label: 'Audio (2)',
+        tooltipText: '2. Listen and repeat',
+        positionMode: 'MANUAL',
+        appearanceStyle: 'SOLID',
+        size: 'MD',
+        targetMediaId: 'media_1794488824375',
+        targetFile: 'GW_BE_L5_CD1_Track 3.mp3',
+        targetUrl: 'http://localhost:4000/api/v1/content/media/media_1794488824375/file',
+      },
+      {
+        id: 'hs_1794488841762_gcqa',
+        bookId: 'book_custom_1794481791782',
+        pageNumber: 9,
+        type: 'AUDIO',
+        rect: { x: 0.108, y: 0.815, w: 0.05, h: 0.04 },
+        label: 'Audio (3)',
+        tooltipText: '3. Listen and answer',
+        positionMode: 'MANUAL',
+        appearanceStyle: 'SOLID',
+        size: 'MD',
+        targetMediaId: 'media_1794488884816',
+        targetFile: 'GW_BE_L5_CD1_Track 4.mp3',
+        targetUrl: 'http://localhost:4000/api/v1/content/media/media_1794488884816/file',
+      },
+    ]);
   }
 
   private seedDemoAnswers() {
