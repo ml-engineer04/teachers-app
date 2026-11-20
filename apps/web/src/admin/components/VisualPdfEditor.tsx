@@ -51,7 +51,47 @@ const API_BASE =
 
 const cleanLocalhostUrl = (url?: string | null): string => {
   if (!url) return '';
-  return url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):4000/i, '');
+  return url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):(4000|4100|3000|5173)/i, '');
+};
+
+const uploadWithProgress = (
+  url: string,
+  formData: FormData,
+  onProgress: (pct: number) => void,
+): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    const token =
+      typeof window !== 'undefined' ? localStorage.getItem('stb_admin_token') : null;
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
+    xhr.upload.onprogress = (evt) => {
+      if (evt.lengthComputable) {
+        const percent = Math.min(99, Math.round((evt.loaded / evt.total) * 100));
+        onProgress(percent);
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          resolve(xhr.responseText);
+        }
+      } else {
+        try {
+          const err = JSON.parse(xhr.responseText);
+          reject(new Error(err.message || `Yuklashda xatolik (HTTP ${xhr.status})`));
+        } catch {
+          reject(new Error(`Yuklashda xatolik (HTTP ${xhr.status})`));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error('Tarmoq xatoligi (Network Error)'));
+    xhr.send(formData);
+  });
 };
 
 async function adminFetchJson<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -153,7 +193,8 @@ const PdfPageThumbnail: React.FC<{
   pdfDoc: any;
   pageNumber: number;
   isSelected: boolean;
-}> = ({ pdfDoc, pageNumber, isSelected }) => {
+  bookId?: string;
+}> = ({ pdfDoc, pageNumber, isSelected, bookId }) => {
   const thumbRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -181,6 +222,30 @@ const PdfPageThumbnail: React.FC<{
   }, [pdfDoc, pageNumber, isSelected]);
 
   if (!pdfDoc) {
+    if (bookId) {
+      return (
+        <div className="w-full h-28 bg-white rounded-lg border border-slate-200/70 p-1 flex items-center justify-center overflow-hidden relative">
+          <img
+            src={`${API_BASE}/content/books/${bookId}/pages/${pageNumber}/image`}
+            loading="lazy"
+            alt=""
+            className="w-full h-full object-contain pointer-events-none"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const fallback = e.currentTarget.parentElement?.querySelector('.thumb-card-fallback');
+              if (fallback) (fallback as HTMLElement).style.display = 'flex';
+            }}
+          />
+          <div className="thumb-card-fallback absolute inset-0 hidden flex-col justify-between p-2 bg-gradient-to-br from-sky-50 via-white to-indigo-50">
+            <div className="space-y-1">
+              <div className="h-2 w-3/4 bg-indigo-200/70 rounded" />
+              <div className="h-1.5 w-1/2 bg-sky-200/70 rounded" />
+            </div>
+            <div className="text-[10px] font-bold text-slate-500 text-center">{pageNumber}-bet</div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="w-full h-28 bg-gradient-to-br from-sky-50 via-white to-indigo-50 rounded-lg border border-slate-200/70 p-2 flex flex-col justify-between overflow-hidden">
         <div className="space-y-1">
@@ -248,6 +313,7 @@ export function VisualPdfEditor({
   const [isLoadingPdf, setIsLoadingPdf] = useState<boolean>(false);
   const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
   const [isUploadingPdf, setIsUploadingPdf] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isAddingPage, setIsAddingPage] = useState<boolean>(false);
   const pageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayLayerRef = useRef<HTMLDivElement | null>(null);
@@ -602,7 +668,10 @@ export function VisualPdfEditor({
     }
 
     const activePageObj = pages.find((p) => p.pageNumber === currentPage);
-    const rawPageImg = activePageObj?.imageHighUrl || activePageObj?.imageNormalUrl;
+    const rawPageImg =
+      activePageObj?.imageHighUrl ||
+      activePageObj?.imageNormalUrl ||
+      (selectedBookId ? `${API_BASE}/content/books/${selectedBookId}/pages/${currentPage}/image` : '');
     const resolvedPageImg = rawPageImg ? cleanLocalhostUrl(rawPageImg) : '';
 
     if (resolvedPageImg) {
@@ -927,6 +996,7 @@ export function VisualPdfEditor({
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploadingPdf(true);
+    setUploadProgress(0);
     try {
       const form = new FormData();
       form.append('file', file);
@@ -936,10 +1006,12 @@ export function VisualPdfEditor({
       form.append('subjectId', currentBook?.subjectId || booksList[0]?.subjectId || 'sub_eng');
       form.append('bookType', currentBook?.type || BookType.STUDENT_BOOK);
 
-      const res = await adminFetchJson<{ book: Book; pages: VisualPage[] }>(
-        '/content/books/upload-pdf',
-        { method: 'POST', body: form },
+      const res = await uploadWithProgress(
+        `${API_BASE}/content/books/upload-pdf`,
+        form,
+        (pct) => setUploadProgress(pct),
       );
+      setUploadProgress(100);
       setBooksList((prev) => [res.book, ...prev]);
       setSelectedBookId(res.book.id);
       setCurrentBook(res.book);
@@ -950,6 +1022,7 @@ export function VisualPdfEditor({
       showToast(`PDF yuklashda xatolik: ${err.message}`, 'error');
     } finally {
       setIsUploadingPdf(false);
+      setUploadProgress(0);
       e.target.value = '';
     }
   };
@@ -1514,6 +1587,7 @@ export function VisualPdfEditor({
                       pdfDoc={pdfDoc}
                       pageNumber={pg.pageNumber}
                       isSelected={active}
+                      bookId={selectedBookId}
                     />
                     <div className="flex items-center justify-between px-1 pt-1.5">
                       <span
@@ -1672,7 +1746,8 @@ export function VisualPdfEditor({
                   pages.find((p) => p.pageNumber === currentPage)?.imageHighUrl ||
                   pages.find((p) => p.pageNumber === currentPage)?.imageNormalUrl
                 ) &&
-                selectedBookId && (
+                selectedBookId &&
+                (pages.length === 0 || pdfLoadError === 'NO_PDF') && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl">
                     <button
                       type="button"
@@ -2939,6 +3014,32 @@ export function VisualPdfEditor({
                   {isSavingUnits ? 'Saqlanmoqda...' : 'Saqlash'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isUploadingPdf && (
+        <div className="fixed inset-0 z-[200] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4 animate-pulse">
+              <UploadCloud className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-extrabold text-slate-900 mb-1">
+              Kitob PDF fayli yuklanmoqda
+            </h3>
+            <p className="text-xs text-slate-500 mb-5">
+              Katta PDF fayllar tezkor ochilishi uchun sahifalarga bo'linadi va optimallashtiriladi...
+            </p>
+            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200 mb-2">
+              <div
+                className="bg-indigo-600 h-full rounded-full transition-all duration-200"
+                style={{ width: `${Math.max(5, uploadProgress)}%` }}
+              />
+            </div>
+            <div className="w-full flex justify-between items-center text-xs font-bold text-slate-600 px-1">
+              <span>{uploadProgress < 100 ? 'Fayl uzatilmoqda...' : 'Serverda qayta ishlanmoqda...'}</span>
+              <span className="text-indigo-600 font-extrabold">{uploadProgress}%</span>
             </div>
           </div>
         </div>

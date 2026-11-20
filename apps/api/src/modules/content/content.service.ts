@@ -22,6 +22,7 @@ import {
   isApiTestEnvironment,
   readBinaryDiskSync,
   readJsonDiskSync,
+  resolveApiDataDir,
   writeBinaryDiskSync,
   writeJsonDiskSync,
 } from '../../common/persistence/local-disk.store';
@@ -38,6 +39,8 @@ export interface VisualEditorPageInfo {
   answerHotspotsCount: number;
   hasHotspots: boolean;
   thumbnailUrl?: string;
+  imageHighUrl?: string;
+  imageNormalUrl?: string;
   titleSnippet?: string;
 }
 
@@ -1018,6 +1021,8 @@ export class ContentService implements OnModuleInit {
         answerHotspotsCount: pageHs.filter((h) => h.type === 'ANSWER_LINK').length,
         hasHotspots: pageHs.length > 0,
         titleSnippet: `Page ${pageNum}`,
+        imageHighUrl: `/api/content/books/${book.id}/pages/${pageNum}/image`,
+        imageNormalUrl: `/api/content/books/${book.id}/pages/${pageNum}/image`,
       };
     });
 
@@ -1040,6 +1045,8 @@ export class ContentService implements OnModuleInit {
       answerHotspotsCount: 0,
       hasHotspots: false,
       titleSnippet: titleSnippet?.trim() || `Page ${nextPageNumber}`,
+      imageHighUrl: `/api/content/books/${bookId}/pages/${nextPageNumber}/image`,
+      imageNormalUrl: `/api/content/books/${bookId}/pages/${nextPageNumber}/image`,
     };
     pages.push(newPage);
     this.pagesStore.set(bookId, pages);
@@ -1103,6 +1110,8 @@ export class ContentService implements OnModuleInit {
         answerHotspotsCount: 0,
         hasHotspots: false,
         titleSnippet: `Page ${idx + 1}`,
+        imageHighUrl: `/api/content/books/${bookId}/pages/${idx + 1}/image`,
+        imageNormalUrl: `/api/content/books/${bookId}/pages/${idx + 1}/image`,
       };
     });
 
@@ -1151,11 +1160,32 @@ export class ContentService implements OnModuleInit {
     }
 
     this.logger.log(`✅ Book [${title}] created with ${totalPages} pages.`);
+    this.triggerBackgroundPdfPreRender(bookId, totalPages);
     return { book: newBook, pages: pagesInfo };
   }
 
   private renderedPageLock = new Map<string, Promise<Buffer | null>>();
   private cachedPdfDocs = new Map<string, Promise<PDFDocument>>();
+
+  // Concurrency limiter for pdftoppm / sips (max 2 concurrent processes)
+  private renderQueueActive = 0;
+  private renderQueueWaiters: Array<() => void> = [];
+
+  private async acquireRenderSlot(): Promise<() => void> {
+    if (this.renderQueueActive < 2) {
+      this.renderQueueActive++;
+      return () => this.releaseRenderSlot();
+    }
+    await new Promise<void>((resolve) => this.renderQueueWaiters.push(resolve));
+    this.renderQueueActive++;
+    return () => this.releaseRenderSlot();
+  }
+
+  private releaseRenderSlot(): void {
+    this.renderQueueActive = Math.max(0, this.renderQueueActive - 1);
+    const next = this.renderQueueWaiters.shift();
+    if (next) next();
+  }
 
   getPdfBuffer(bookId: string): Buffer | null {
     const cached = this.pdfBuffersStore.get(bookId);
@@ -1182,17 +1212,21 @@ export class ContentService implements OnModuleInit {
   }
 
   /**
-   * Extracts a single PDF page via pdf-lib and renders it to PNG using macOS sips,
-   * caching rendered pages on disk under .data/rendered-pages/ so Android/iOS Expo Go
-   * renders full textbook PDFs cleanly as native images.
+   * High-performance single page rendering for textbooks.
+   * Checks .jpg cache first, then legacy .png.
+   * If not cached, renders crisp JPEG via pdftoppm (Linux) or sips (macOS) directly
+   * from disk PDF without redundant /tmp writes, with max 2 concurrent renders.
    */
   async getRenderedPdfPageImage(bookId: string, pageNumber: number): Promise<Buffer | null> {
     if (!Number.isFinite(pageNumber) || pageNumber < 1) return null;
     const safePage = Math.floor(pageNumber);
-    const cacheFilename = `${bookId}_p${safePage}.png`;
+    const cacheFilenameJpg = `${bookId}_p${safePage}.jpg`;
+    const cacheFilenamePng = `${bookId}_p${safePage}.png`;
 
     if (this.diskEnabled) {
-      const diskPng = readBinaryDiskSync('rendered-pages', cacheFilename);
+      const diskJpg = readBinaryDiskSync('rendered-pages', cacheFilenameJpg);
+      if (diskJpg && diskJpg.length > 0) return diskJpg;
+      const diskPng = readBinaryDiskSync('rendered-pages', cacheFilenamePng);
       if (diskPng && diskPng.length > 0) return diskPng;
     }
 
@@ -1201,38 +1235,49 @@ export class ContentService implements OnModuleInit {
     if (inflight) return inflight;
 
     const job = (async (): Promise<Buffer | null> => {
-      const pdfBuf = this.getPdfBuffer(bookId);
-      if (!pdfBuf) return null;
+      const releaseSlot = await this.acquireRenderSlot();
 
-      const tmpId = `${bookId}_${safePage}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      const tmpPdfPath = path.join(os.tmpdir(), `stb_${tmpId}.pdf`);
-      const tmpPngPath = path.join(os.tmpdir(), `stb_${tmpId}.png`);
-      const tmpPngPrefix = path.join(os.tmpdir(), `stb_${tmpId}`);
+      const diskPdfPath = path.join(resolveApiDataDir(), 'pdfs', `${bookId}.pdf`);
+      let pdfPathToUse = diskPdfPath;
+      let cleanupTempPdf = false;
+
+      const renderedDir = path.join(resolveApiDataDir(), 'rendered-pages');
+      try {
+        fs.mkdirSync(renderedDir, { recursive: true });
+      } catch {}
+      const outPrefix = path.join(renderedDir, `${bookId}_p${safePage}`);
+      const targetJpgPath = `${outPrefix}.jpg`;
+      const targetPngPath = `${outPrefix}.png`;
 
       try {
-        const srcDoc = await this.getParsedPdfDoc(bookId, pdfBuf);
-        const total = srcDoc.getPageCount();
-        if (safePage > total) return null;
-
-        fs.writeFileSync(tmpPdfPath, pdfBuf);
+        if (!fs.existsSync(diskPdfPath)) {
+          const pdfBuf = this.getPdfBuffer(bookId);
+          if (!pdfBuf) return null;
+          const tmpId = `${bookId}_${safePage}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+          pdfPathToUse = path.join(os.tmpdir(), `stb_${tmpId}.pdf`);
+          fs.writeFileSync(pdfPathToUse, pdfBuf);
+          cleanupTempPdf = true;
+        }
 
         let rendered = false;
 
-        // Method 1: pdftoppm (poppler-utils) - standard on Linux VPS, renders crisp single page
+        // Method 1: pdftoppm (poppler-utils) - standard on Linux VPS, renders crisp JPEG (85 quality, 120 DPI)
         try {
           await execFileAsync('pdftoppm', [
-            '-png',
+            '-jpeg',
             '-r',
-            '150',
+            '120',
+            '-jpegopt',
+            'quality=85',
             '-f',
             String(safePage),
             '-l',
             String(safePage),
             '-singlefile',
-            tmpPdfPath,
-            tmpPngPrefix,
+            pdfPathToUse,
+            outPrefix,
           ]);
-          if (fs.existsSync(tmpPngPath)) {
+          if (fs.existsSync(targetJpgPath)) {
             rendered = true;
           }
         } catch {
@@ -1242,35 +1287,65 @@ export class ContentService implements OnModuleInit {
         // Method 2: macOS sips fallback if pdftoppm was unavailable
         if (!rendered && process.platform === 'darwin' && fs.existsSync('/usr/bin/sips')) {
           try {
-            const singleDoc = await PDFDocument.create();
-            const [copied] = await singleDoc.copyPages(srcDoc, [safePage - 1]);
-            singleDoc.addPage(copied);
-            const singleBytes = await singleDoc.save();
-            fs.writeFileSync(tmpPdfPath, singleBytes);
-            await execFileAsync('/usr/bin/sips', ['-s', 'format', 'png', '-Z', '1400', tmpPdfPath, '--out', tmpPngPath]);
-            if (fs.existsSync(tmpPngPath)) {
-              rendered = true;
+            const pdfBuf = this.getPdfBuffer(bookId);
+            if (pdfBuf) {
+              const srcDoc = await this.getParsedPdfDoc(bookId, pdfBuf);
+              const total = srcDoc.getPageCount();
+              if (safePage <= total) {
+                const singleDoc = await PDFDocument.create();
+                const [copied] = await singleDoc.copyPages(srcDoc, [safePage - 1]);
+                singleDoc.addPage(copied);
+                const singleBytes = await singleDoc.save();
+                const tmpSinglePdf = path.join(
+                  os.tmpdir(),
+                  `single_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.pdf`,
+                );
+                fs.writeFileSync(tmpSinglePdf, singleBytes);
+                try {
+                  await execFileAsync('/usr/bin/sips', [
+                    '-s',
+                    'format',
+                    'jpeg',
+                    '-s',
+                    'formatOptions',
+                    '85',
+                    '-Z',
+                    '1400',
+                    tmpSinglePdf,
+                    '--out',
+                    targetJpgPath,
+                  ]);
+                  if (fs.existsSync(targetJpgPath)) {
+                    rendered = true;
+                  }
+                } finally {
+                  try {
+                    if (fs.existsSync(tmpSinglePdf)) fs.unlinkSync(tmpSinglePdf);
+                  } catch {}
+                }
+              }
             }
           } catch (sipsErr: any) {
             this.logger.warn(`sips render fallback error: ${sipsErr?.message || sipsErr}`);
           }
         }
 
-        if (!rendered || !fs.existsSync(tmpPngPath)) return null;
-        const pngBuf = fs.readFileSync(tmpPngPath);
-        if (this.diskEnabled && pngBuf.length > 0) {
-          writeBinaryDiskSync('rendered-pages', cacheFilename, pngBuf);
+        if (fs.existsSync(targetJpgPath)) {
+          return fs.readFileSync(targetJpgPath);
         }
-        return pngBuf;
+        if (fs.existsSync(targetPngPath)) {
+          return fs.readFileSync(targetPngPath);
+        }
+        return null;
       } catch (err: any) {
-        this.logger.warn(`Failed rendering PDF page ${bookId}#${safePage} to PNG: ${err?.message || err}`);
+        this.logger.warn(`Failed rendering PDF page ${bookId}#${safePage}: ${err?.message || err}`);
         return null;
       } finally {
+        releaseSlot();
         try {
-          if (fs.existsSync(tmpPdfPath)) fs.unlinkSync(tmpPdfPath);
-        } catch {}
-        try {
-          if (fs.existsSync(tmpPngPath)) fs.unlinkSync(tmpPngPath);
+          if (cleanupTempPdf && fs.existsSync(pdfPathToUse)) {
+            fs.unlinkSync(pdfPathToUse);
+          }
         } catch {}
       }
     })();
@@ -1281,6 +1356,33 @@ export class ContentService implements OnModuleInit {
     } finally {
       this.renderedPageLock.delete(lockKey);
     }
+  }
+
+  /**
+   * Pre-renders all pages of an uploaded PDF in background to make sure
+   * opening the textbook is instantaneous for all users.
+   */
+  triggerBackgroundPdfPreRender(bookId: string, totalPages: number): void {
+    setImmediate(async () => {
+      this.logger.log(`🚀 Starting background pre-rendering for book ${bookId} (${totalPages} pages)`);
+      for (let p = 1; p <= totalPages; p++) {
+        const cacheJpg = `${bookId}_p${p}.jpg`;
+        const cachePng = `${bookId}_p${p}.png`;
+        const exists =
+          (this.diskEnabled && !!readBinaryDiskSync('rendered-pages', cacheJpg)) ||
+          (this.diskEnabled && !!readBinaryDiskSync('rendered-pages', cachePng));
+        if (exists) continue;
+
+        try {
+          await this.getRenderedPdfPageImage(bookId, p);
+        } catch (err: any) {
+          this.logger.warn(`Background pre-render error for page ${p}: ${err?.message}`);
+        }
+        // Yield to event loop to keep API fully responsive
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+      this.logger.log(`✅ Completed background pre-rendering for book ${bookId}`);
+    });
   }
 
   async triggerIngestion(

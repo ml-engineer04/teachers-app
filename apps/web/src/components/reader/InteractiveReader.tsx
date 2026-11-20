@@ -116,6 +116,41 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
   const [pageAspectMap, setPageAspectMap] = useState<Record<number, number>>({});
   const [bookAspectRatio, setBookAspectRatio] = useState<number>(1.2593);
 
+  // Virtualized page image loading (avoids firing 400+ simultaneous image requests)
+  const [loadedPages, setLoadedPages] = useState<Set<number>>(() => {
+    const initial = new Set<number>();
+    for (let p = Math.max(1, initialPage - 2); p <= initialPage + 2; p++) {
+      initial.add(p);
+    }
+    return initial;
+  });
+
+  const [loadedThumbs, setLoadedThumbs] = useState<Set<number>>(() => {
+    const initial = new Set<number>();
+    for (let p = Math.max(1, initialPage - 6); p <= initialPage + 6; p++) {
+      initial.add(p);
+    }
+    return initial;
+  });
+
+  useEffect(() => {
+    setLoadedPages((prev) => {
+      const next = new Set(prev);
+      for (let p = Math.max(1, currentPage - 2); p <= Math.min(totalPages, currentPage + 2); p++) {
+        next.add(p);
+      }
+      return next.size === prev.size ? prev : next;
+    });
+
+    setLoadedThumbs((prev) => {
+      const next = new Set(prev);
+      for (let p = Math.max(1, currentPage - 6); p <= Math.min(totalPages, currentPage + 6); p++) {
+        next.add(p);
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [currentPage, totalPages]);
+
   // Jump page input
   const [jumpInput, setJumpInput] = useState<string>('');
 
@@ -864,6 +899,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             const pageNumberLabel = pageDisplay.isFrontMatter
               ? pageDisplay.frontMatterIndex
               : pageDisplay.bookPage;
+            const shouldRenderThumb = loadedThumbs.has(pageNum) || Math.abs(pageNum - currentPage) <= 6;
 
             return (
               <div
@@ -884,20 +920,26 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                       : 'border border-slate-700/60 opacity-60 group-hover:opacity-100 group-hover:border-slate-500'
                   }`}
                 >
-                  <img
-                    src={pageImageUrl}
-                    alt=""
-                    loading="lazy"
-                    className="w-full h-full object-fill block pointer-events-none"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.style.display = 'none';
-                      const fallback = target.parentElement?.querySelector('.thumb-fallback');
-                      if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                    }}
-                  />
-                  <div className="thumb-fallback absolute inset-0 hidden flex-col items-center justify-center p-1 bg-slate-100 text-slate-700 text-center">
-                    <span className="text-[10px] font-black">{pageNumberLabel}</span>
+                  {shouldRenderThumb ? (
+                    <img
+                      src={pageImageUrl}
+                      alt=""
+                      loading="lazy"
+                      className="w-full h-full object-fill block pointer-events-none"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        const fallback = target.parentElement?.querySelector('.thumb-fallback');
+                        if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={`thumb-fallback absolute inset-0 ${
+                      shouldRenderThumb ? 'hidden' : 'flex'
+                    } flex-col items-center justify-center p-1 bg-slate-800 text-slate-300 text-center`}
+                  >
+                    <span className="text-[10px] font-bold">{pageNumberLabel}</span>
                   </div>
                 </div>
 
@@ -934,6 +976,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
           const pageAspect = pageAspectMap[pageNum] || bookAspectRatio || 1.2593;
           const computedPageHeight = Math.round(computedPageWidth * pageAspect);
+          const shouldRenderImg = loadedPages.has(pageNum) || Math.abs(pageNum - currentPage) <= 2;
 
           return (
             <div
@@ -965,36 +1008,47 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               </div>
 
               {/* Rendered Book Page Image */}
-              <img
-                src={pageImageUrl}
-                alt={`Kitob ${book.title} ${pageNum}-sahifa`}
-                loading={Math.abs(pageNum - currentPage) <= 3 ? 'eager' : 'lazy'}
-                className="w-full h-full object-fill block pointer-events-none select-none"
-                onLoad={(e) => {
-                  const target = e.currentTarget;
-                  target.style.display = 'block';
-                  if (target.naturalWidth > 0 && target.naturalHeight > 0) {
-                    const measuredRatio = +(target.naturalHeight / target.naturalWidth).toFixed(4);
-                    setPageAspectMap((prev) => {
-                      if (prev[pageNum] && Math.abs(prev[pageNum] - measuredRatio) < 0.005) return prev;
-                      return { ...prev, [pageNum]: measuredRatio };
-                    });
-                  }
-                  const fallbackDiv = target.parentElement?.querySelector('.page-fallback');
-                  if (fallbackDiv) {
-                    (fallbackDiv as HTMLElement).style.display = 'none';
-                  }
-                }}
-                onError={(e) => {
-                  // Fallback to textbook page mock if rendered PNG is not yet generated
-                  const target = e.currentTarget;
-                  target.style.display = 'none';
-                  const fallbackDiv = target.parentElement?.querySelector('.page-fallback');
-                  if (fallbackDiv) {
-                    (fallbackDiv as HTMLElement).style.display = 'flex';
-                  }
-                }}
-              />
+              {shouldRenderImg ? (
+                <img
+                  src={pageImageUrl}
+                  alt={`Kitob ${book.title} ${pageNum}-sahifa`}
+                  loading="eager"
+                  className="w-full h-full object-fill block pointer-events-none select-none"
+                  onLoad={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'block';
+                    if (target.naturalWidth > 0 && target.naturalHeight > 0) {
+                      const measuredRatio = +(target.naturalHeight / target.naturalWidth).toFixed(4);
+                      setPageAspectMap((prev) => {
+                        if (prev[pageNum] && Math.abs(prev[pageNum] - measuredRatio) < 0.005) return prev;
+                        return { ...prev, [pageNum]: measuredRatio };
+                      });
+                    }
+                    const fallbackDiv = target.parentElement?.querySelector('.page-fallback');
+                    if (fallbackDiv) {
+                      (fallbackDiv as HTMLElement).style.display = 'none';
+                    }
+                  }}
+                  onError={(e) => {
+                    // Fallback to textbook page mock if rendered PNG is not yet generated
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    const fallbackDiv = target.parentElement?.querySelector('.page-fallback');
+                    if (fallbackDiv) {
+                      (fallbackDiv as HTMLElement).style.display = 'flex';
+                    }
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900/40 text-slate-400 select-none">
+                  <div className="w-8 h-8 rounded-full border-2 border-slate-700 border-t-indigo-500 animate-spin mb-3" />
+                  <span className="text-xs font-bold text-slate-300">
+                    {pageDisplay.isFrontMatter
+                      ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplay.frontMatterIndex}`
+                      : `${pageDisplay.bookPage}-sahifa`}
+                  </span>
+                </div>
+              )}
 
               {/* Fallback Page Card */}
               <div

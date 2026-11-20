@@ -86,21 +86,22 @@ export class ContentController {
   }
 
   @Get('books/:bookId/pages/:pageNumber/image')
-  @ApiOperation({ summary: 'Render and stream PDF page as crisp PNG image for native mobile readers' })
+  @ApiOperation({ summary: 'Render and stream PDF page as crisp JPEG/PNG image for native mobile & web readers' })
   async getRenderedPageImage(
     @Param('bookId') bookId: string,
     @Param('pageNumber') pageNumber: string,
     @Res() res: Response,
   ) {
     const pageNum = parseInt(pageNumber, 10);
-    const pngBuffer = await this.contentService.getRenderedPdfPageImage(bookId, pageNum);
-    if (!pngBuffer) {
+    const imageBuffer = await this.contentService.getRenderedPdfPageImage(bookId, pageNum);
+    if (!imageBuffer) {
       throw new NotFoundException(`Page ${pageNumber} image for book ${bookId} not found`);
     }
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Content-Length', pngBuffer.length);
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.end(pngBuffer);
+    const isJpeg = imageBuffer.length >= 2 && imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8;
+    res.setHeader('Content-Type', isJpeg ? 'image/jpeg' : 'image/png');
+    res.setHeader('Content-Length', imageBuffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.end(imageBuffer);
   }
 
   @Get('books/:bookId/pdf')
