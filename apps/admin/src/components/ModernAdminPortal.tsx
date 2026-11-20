@@ -54,6 +54,7 @@ import {
   GraduationCap,
   Tag,
   CreditCard,
+  Crosshair,
 } from 'lucide-react';
 import { VisualPdfEditor } from './VisualPdfEditor';
 import { api } from '../services/apiClient';
@@ -1127,18 +1128,18 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       {/* ========================================================= */}
       {/* 1. LEFT SIDEBAR                                           */}
       {/* ========================================================= */}
-      <aside className="w-64 bg-white text-slate-700 flex flex-col justify-between shrink-0 border-r border-slate-200/80 shadow-[4px_0_24px_-16px_rgba(30,41,59,0.12)] select-none z-30">
+      <aside className="w-64 bg-[#0A0F1D] text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800/80 shadow-2xl select-none z-30">
         <div className="flex flex-col h-full">
           {/* Logo Brand Header — ilmçi Brand */}
-          <div className="p-5 pb-5 border-b border-slate-100">
+          <div className="p-5 pb-5 border-b border-slate-800/60">
             <div className="cursor-pointer" onClick={() => setActiveNav('dashboard')}>
-              <BrandLogo size={32} subtitle="BOSHQARUV PORTALI" darkSurface={false} />
+              <BrandLogo size={32} subtitle="Boshqaruv Portali" darkSurface={true} />
             </div>
           </div>
 
           {/* Navigation Links */}
-          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1 custom-scrollbar">
-            <p className="px-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 custom-scrollbar">
+            <p className="px-3.5 pt-3 pb-1 text-[11px] font-bold text-slate-400">
               Asosiy
             </p>
 
@@ -1147,8 +1148,8 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('dashboard')}
               className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'dashboard'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <LayoutDashboard className="w-4 h-4 shrink-0" />
@@ -1159,20 +1160,18 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             <div className="pt-1">
               <button
                 onClick={() => setContentManagerOpen(!contentManagerOpen)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
                   activeNav === 'add_book' ||
                   activeNav === 'my_books' ||
-                  activeNav === 'audio_video' ||
-                  activeNav === 'manage_content' ||
+                  activeNav === 'page_editor' ||
                   activeNav === 'grades' ||
-                  activeNav === 'subjects' ||
-                  activeNav === 'page_editor'
-                    ? 'text-indigo-700 bg-indigo-50/80'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  activeNav === 'subjects'
+                    ? 'text-white'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <BookOpen className="w-4 h-4 shrink-0 text-indigo-600" />
+                <div className="flex items-center space-x-2.5">
+                  <BookOpen className="w-4 h-4 shrink-0 text-slate-400" />
                   <span>Darsliklar & Kontent</span>
                 </div>
                 <ChevronDown
@@ -1183,121 +1182,87 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               </button>
 
               {contentManagerOpen && (
-                <div className="pl-3 pr-1 pt-1 pb-1 space-y-0.5 ml-3 border-l border-indigo-100">
+                <div className="pt-1 pb-1 space-y-1">
                   <button
                     onClick={() => setActiveNav('add_book')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2.5 ${
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2.5 ${
                       activeNav === 'add_book'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
-                    <PlusCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>Kitob Qo‘shish</span>
+                    <PlusCircle className="w-4 h-4 shrink-0 text-slate-400" />
+                    <span>Kitob qo‘shish</span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('my_books')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
                       activeNav === 'my_books'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
                     <span className="flex items-center space-x-2.5">
-                      <Library className="w-3.5 h-3.5 shrink-0" />
-                      <span>Mening Kitoblarim</span>
+                      <Library className="w-4 h-4 shrink-0 text-slate-400" />
+                      <span>Mening kitoblarim</span>
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
                       {books.length}
                     </span>
                   </button>
 
                   <button
-                    onClick={() => setActiveNav('audio_video')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
-                      activeNav === 'audio_video'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                    onClick={() => setActiveNav('page_editor')}
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2.5 ${
+                      activeNav === 'page_editor'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
-                    <span className="flex items-center space-x-2.5">
-                      <Music className="w-3.5 h-3.5 shrink-0" />
-                      <span>Audio & Video</span>
-                    </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">
-                      {mediaList.length}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveNav('manage_content')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
-                      activeNav === 'manage_content'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="flex items-center space-x-2.5">
-                      <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>Javoblar Kaliti</span>
-                    </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold">
-                      {answerMappings.length}
-                    </span>
+                    <Crosshair className="w-4 h-4 shrink-0 text-slate-300" />
+                    <span>Visual Hotspot Editor</span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('grades')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
                       activeNav === 'grades'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
                     <span className="flex items-center space-x-2.5">
-                      <GraduationCap className="w-3.5 h-3.5 shrink-0" />
-                      <span>Sinflar Boshqaruvi</span>
+                      <Layers className="w-4 h-4 shrink-0 text-slate-400" />
+                      <span>Sinflar boshqaruvi</span>
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
                       {activeGradesList.length}
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('subjects')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
                       activeNav === 'subjects'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
                     <span className="flex items-center space-x-2.5">
-                      <Tag className="w-3.5 h-3.5 shrink-0" />
-                      <span>Fanlar Boshqaruvi</span>
+                      <Tag className="w-4 h-4 shrink-0 text-slate-400" />
+                      <span>Fanlar boshqaruvi</span>
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-bold">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
                       {subjectsList.length}
                     </span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveNav('page_editor')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2.5 ${
-                      activeNav === 'page_editor'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-                    }`}
-                  >
-                    <MapPin className="w-3.5 h-3.5 shrink-0" />
-                    <span>Visual Hotspot Editor</span>
                   </button>
                 </div>
               )}
             </div>
 
-            <p className="px-3 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              Obuna va Foydalanuvchilar
+            <p className="px-3.5 pt-4 pb-1 text-[11px] font-bold text-slate-400">
+              Obuna va foydalanuvchilar
             </p>
 
             {/* Nav: Users */}
@@ -1305,17 +1270,19 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('users')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'users'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <div className="flex items-center space-x-3">
-                <Users className={`w-4 h-4 shrink-0 ${activeNav === 'users' ? 'text-white' : 'text-emerald-600'}`} />
+              <div className="flex items-center space-x-2.5">
+                <Users className="w-4 h-4 shrink-0 text-slate-400" />
                 <span>O‘qituvchilar</span>
               </div>
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                  activeNav === 'users' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700'
+                className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                  activeNav === 'users'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 }`}
               >
                 {usersList.length}
@@ -1327,17 +1294,19 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('admins')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'admins'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <div className="flex items-center space-x-3">
-                <ShieldCheck className={`w-4 h-4 shrink-0 ${activeNav === 'admins' ? 'text-white' : 'text-violet-600'}`} />
+              <div className="flex items-center space-x-2.5">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-slate-400" />
                 <span>Adminlar</span>
               </div>
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                  activeNav === 'admins' ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-700'
+                className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                  activeNav === 'admins'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-blue-600/30 text-blue-300 border border-blue-500/30'
                 }`}
               >
                 {adminsList.length}
@@ -1349,22 +1318,24 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('subscriptions')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'subscriptions'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <div className="flex items-center space-x-3">
-                <Crown className={`w-4 h-4 shrink-0 ${activeNav === 'subscriptions' ? 'text-white' : 'text-amber-500'}`} />
+              <div className="flex items-center space-x-2.5">
+                <Crown className="w-4 h-4 shrink-0 text-slate-400" />
                 <span>Obunalar & To‘lovlar</span>
               </div>
               {pendingRequestsCount > 0 ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse">
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse">
                   {pendingRequestsCount} yangi
                 </span>
               ) : (
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                    activeNav === 'subscriptions' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                    activeNav === 'subscriptions'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                   }`}
                 >
                   {requestsList.length}
@@ -1375,78 +1346,64 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             {/* Nav: Pricing & Tariffs */}
             <button
               onClick={() => setActiveNav('pricing')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'pricing'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <CreditCard className={`w-4 h-4 shrink-0 ${activeNav === 'pricing' ? 'text-white' : 'text-indigo-600'}`} />
+              <CreditCard className="w-4 h-4 shrink-0 text-slate-400" />
               <span>Tariflar & Narxlar</span>
             </button>
 
-            <p className="px-3 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+            <p className="px-3.5 pt-4 pb-1 text-[11px] font-bold text-slate-400">
               Tizim
             </p>
 
             {/* Nav: Analytics */}
             <button
               onClick={() => setActiveNav('analytics')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'analytics'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <BarChart2 className={`w-4 h-4 shrink-0 ${activeNav === 'analytics' ? 'text-white' : 'text-indigo-500'}`} />
+              <BarChart2 className="w-4 h-4 shrink-0 text-slate-400" />
               <span>Statistika</span>
             </button>
 
             {/* Nav: System Logs */}
             <button
               onClick={() => setActiveNav('system_logs')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'system_logs'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <FileText className={`w-4 h-4 shrink-0 ${activeNav === 'system_logs' ? 'text-white' : 'text-slate-500'}`} />
+              <FileText className="w-4 h-4 shrink-0 text-slate-400" />
               <span>Audit Jurnali</span>
             </button>
 
             {/* Nav: Settings */}
             <button
               onClick={() => setActiveNav('settings')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'settings'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <Settings className={`w-4 h-4 shrink-0 ${activeNav === 'settings' ? 'text-white' : 'text-slate-500'}`} />
+              <Settings className="w-4 h-4 shrink-0 text-slate-400" />
               <span>Sozlamalar</span>
             </button>
-
-            <div className="pt-2 border-t border-slate-100 mt-2">
-              <button
-                onClick={() => setActiveNav('mobile_sim')}
-                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeNav === 'mobile_sim'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
-                    : 'text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100'
-                }`}
-              >
-                <Smartphone className="w-4 h-4 shrink-0" />
-                <span>Mobil Ilova Preview</span>
-              </button>
-            </div>
           </div>
 
           {/* User Profile Footer Card */}
-          <div className="p-3.5 border-t border-slate-100 bg-slate-50/70">
-            <div className="flex items-center space-x-3 mb-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 flex items-center justify-center text-white font-black text-xs shadow-sm shrink-0">
+          <div className="p-3 mx-2.5 mb-3 rounded-2xl bg-[#131C31] border border-slate-800/80 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-[#4F46E5] flex items-center justify-center text-white font-black text-xs shadow-md shrink-0">
                 {(adminSession.name || 'SA')
                   .split(' ')
                   .map((w) => w[0])
@@ -1455,20 +1412,20 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   .toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-extrabold text-slate-900 leading-none truncate">
+                <p className="text-xs font-bold text-white leading-none truncate">
                   {adminSession.name}
                 </p>
-                <p className="text-[10px] text-indigo-600 font-medium truncate mt-1">
+                <p className="text-[10.5px] text-slate-400 font-medium truncate mt-1">
                   {adminSession.email}
                 </p>
               </div>
             </div>
             <button
               onClick={onLogout}
-              className="w-full py-1.5 rounded-xl bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 text-xs font-bold transition-all flex items-center justify-center space-x-2 border border-slate-200 hover:border-rose-200"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800/60 transition"
+              title="Tizimdan chiqish"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Tizimdan chiqish</span>
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>

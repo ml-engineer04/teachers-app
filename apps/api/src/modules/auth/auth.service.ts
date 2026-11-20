@@ -199,6 +199,17 @@ export class AuthService implements OnModuleInit {
         this.persistAuthDisk();
       }
     });
+
+    this.usersService.onUserDeleted((userId) => {
+      this.memUsers.delete(userId);
+      this.memDevices.delete(userId);
+      for (const [key, ext] of this.memExternalAccounts.entries()) {
+        if (ext.userId === userId) {
+          this.memExternalAccounts.delete(key);
+        }
+      }
+      this.persistAuthDisk();
+    });
   }
 
   private persistAuthDisk() {

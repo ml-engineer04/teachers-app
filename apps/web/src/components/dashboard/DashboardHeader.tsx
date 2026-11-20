@@ -36,10 +36,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  const languages: Array<{ code: WebLanguage; label: string; flag: string }> = [
-    { code: 'uz', label: 'O‘zbekcha', flag: '🇺🇿' },
-    { code: 'ru', label: 'Русский', flag: '🇷🇺' },
-    { code: 'en', label: 'English', flag: '🇬🇧' },
+  const languages: Array<{ code: WebLanguage; label: string; flag: string; short: string }> = [
+    { code: 'uz', label: 'Özbekça', flag: '🇺🇿', short: 'UZ' },
+    { code: 'ru', label: 'Русский', flag: '🇷🇺', short: 'RU' },
+    { code: 'en', label: 'English', flag: '🇬🇧', short: 'EN' },
   ];
 
   // Filter books matching query
@@ -92,7 +92,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               onFocus={() => {
                 if (searchQuery.trim().length > 0) setDropdownOpen(true);
               }}
-              placeholder="Darslik, sinf yoki fanni qidiring... (masalan: 5-sinf, ingliz tili)"
+              placeholder={t('dashboard.searchHint')}
               className="w-full h-11 pl-11 pr-10 text-xs sm:text-sm rounded-2xl bg-slate-100 dark:bg-[#121A2D] border border-slate-200/80 dark:border-[#23304E] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all placeholder:text-slate-400"
             />
             {searchQuery && (
@@ -113,13 +113,13 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           {dropdownOpen && searchQuery.trim().length > 0 && (
             <div className="absolute left-0 right-0 top-12 rounded-2xl bg-white dark:bg-[#121A2D] border border-slate-200 dark:border-[#23304E] shadow-2xl p-2 z-50 max-h-96 overflow-y-auto">
               <div className="px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                <span>Topilgan darsliklar</span>
-                <span>{matchedBooks.length} ta natija</span>
+                <span>{t('dashboard.searchFoundTitle')}</span>
+                <span>{t('dashboard.searchFoundCount', { count: matchedBooks.length })}</span>
               </div>
 
               {matchedBooks.length === 0 ? (
                 <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                  “{searchQuery}” bo‘yicha hech qanday darslik topilmadi
+                  {t('dashboard.searchNoResults', { query: searchQuery })}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
@@ -182,14 +182,14 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               key={item.code}
               type="button"
               onClick={() => setLanguage(item.code)}
-              className={`px-2 py-1 text-xs font-bold rounded-lg transition-all ${
+              className={`px-2.5 py-1 text-xs font-black rounded-lg transition-all ${
                 language === item.code
                   ? 'bg-white dark:bg-[#121A2D] text-indigo-600 dark:text-indigo-400 shadow-sm'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
               title={item.label}
             >
-              {item.code.toUpperCase()}
+              {item.short}
             </button>
           ))}
         </div>

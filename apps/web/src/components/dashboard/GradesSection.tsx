@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Book, Grade } from '@smartteacherbook/shared';
 import {
   BookOpen,
@@ -32,24 +32,26 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
 }) => {
   const { t, formatGrade, formatSubject, formatBookType } = useI18n();
 
-  const [selectedGradeId, setSelectedGradeId] = useState<number>(initialGradeId);
+  const gradeList = useMemo(() => {
+    return [...grades].sort((a, b) => (a.gradeNumber || a.id) - (b.gradeNumber || b.id));
+  }, [grades]);
+
+  const [selectedGradeId, setSelectedGradeId] = useState<number>(() => {
+    if (gradeList.length > 0) {
+      const match = gradeList.find((g) => g.id === initialGradeId || g.gradeNumber === initialGradeId);
+      return match ? match.id : gradeList[0].id;
+    }
+    return initialGradeId;
+  });
+
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('ALL');
   const [selectedBookType, setSelectedBookType] = useState<string>('ALL');
 
-  const gradeList = useMemo(() => {
-    if (grades.length > 0) {
-      return [...grades].sort((a, b) => a.gradeNumber - b.gradeNumber);
+  useEffect(() => {
+    if (gradeList.length > 0 && !gradeList.some((g) => g.id === selectedGradeId)) {
+      setSelectedGradeId(gradeList[0].id);
     }
-    return Array.from({ length: 11 }, (_, idx) => ({
-      id: idx + 1,
-      gradeNumber: idx + 1,
-      title: `${idx + 1}-sinf`,
-      priceMonthlyUzs: 89000,
-      priceQuarterlyUzs: 222000,
-      priceYearlyUzs: 712000,
-      isActive: true,
-    }));
-  }, [grades]);
+  }, [gradeList, selectedGradeId]);
 
   // Books filtered by selected grade
   const booksInGrade = useMemo(
@@ -83,6 +85,30 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
     { id: 'WORKBOOK', label: t('grades.bookTypeWorkbook') },
     { id: 'AUDIO', label: t('grades.bookTypeAudio') },
   ];
+
+  if (gradeList.length === 0) {
+    return (
+      <div className="rounded-3xl p-10 bg-white dark:bg-[#121A2D] border border-dashed border-slate-300 dark:border-slate-700 text-center max-w-lg mx-auto my-6 space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center">
+          <GraduationCap className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+          {t('dashboard.emptyGradesCabinetTitle')}
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+          {t('dashboard.emptyGradesCabinetDesc')}
+        </p>
+        <button
+          type="button"
+          onClick={() => onRequestSubscription(5)}
+          className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 active:scale-95 transition-all inline-flex items-center gap-2"
+        >
+          <span>{t('dashboard.goToPlansBtn')}</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -187,7 +213,7 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
             {t('grades.noBooksInGrade')}
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-            Ushbu filtr bo‘yicha darslik topilmadi. Filtrni tozalab ko‘ring.
+            {t('dashboard.emptyFilterPrompt')}
           </p>
           <button
             type="button"
@@ -257,7 +283,7 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
                   className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
-                  <span>{t('grades.openBookBtn') || 'Kitobni ochish'}</span>
+                  <span>{t('grades.openBookBtn')}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -265,6 +291,31 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
           })}
         </div>
       )}
+
+      {/* Bottom CTA Banner to subscribe to more subjects */}
+      <div className="p-5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+              {t('dashboard.addMoreSubjectTitle')}
+            </p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {t('dashboard.addMoreSubjectDesc')}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onRequestSubscription(selectedGradeId)}
+          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shrink-0 transition-all shadow-sm flex items-center gap-1.5"
+        >
+          <span>{t('dashboard.goToPlansSimple')}</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 };

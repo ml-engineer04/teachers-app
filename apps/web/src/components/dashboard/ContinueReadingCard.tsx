@@ -45,13 +45,13 @@ export const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
         <div className="space-y-2 text-center sm:text-left max-w-xl">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-white text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
             <Sparkles className="w-3.5 h-3.5" />
-            Interaktiv Kutubxona
+            {t('dashboard.continueHeroBadge')}
           </div>
           <h3 className="text-xl sm:text-2xl font-black tracking-tight">
-            Dars o‘tish uchun darslikni tanlang
+            {t('dashboard.continueHeroTitle')}
           </h3>
           <p className="text-xs sm:text-sm text-indigo-100 leading-relaxed">
-            1–11-sinflar uchun to‘liq raqamli darsliklar, audio pleyer, video darslar, tekshiruv javoblari va SmartBoard markeri bilan darsni boshlang.
+            {t('dashboard.continueHeroDesc')}
           </p>
         </div>
 
@@ -61,7 +61,7 @@ export const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
           className="shrink-0 px-6 py-3.5 rounded-2xl bg-white text-indigo-700 font-extrabold text-xs sm:text-sm shadow-lg hover:bg-indigo-50 active:scale-95 transition-all flex items-center gap-2"
         >
           <Compass className="w-4 h-4" />
-          <span>Darsliklar katalogi</span>
+          <span>{t('dashboard.textbookCatalogBtn')}</span>
         </button>
       </div>
     );
@@ -136,7 +136,7 @@ export const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
         className="w-full md:w-auto px-7 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm shadow-glow active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0"
       >
         <Bookmark className="w-4 h-4" />
-        <span>O‘qishni davom ettirish</span>
+        <span>{t('home.continueReading')}</span>
         <ArrowRight className="w-4 h-4" />
       </button>
     </div>

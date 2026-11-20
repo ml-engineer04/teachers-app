@@ -162,7 +162,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       const tokens = await webApi.loginWithEmail(email.trim(), password);
       await loginWithTokens(tokens);
-      notify.success('Xush kelibsiz! Tizimga muvaffaqiyatli kirdingiz.', t('common.success'));
+      notify.success('Xuş kelibsiz! Tizimga muvaffaqiyatli kirdingiz.', t('common.success'));
       onClose();
       onSuccess?.();
     } catch (err: any) {
@@ -180,7 +180,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
     if (password.length < 6) {
-      setErrorMessage('Parol kamida 6 ta belgidan iborat bo‘lishi kerak');
+      setErrorMessage(strings.auth.passwordShort);
       return;
     }
 
@@ -194,13 +194,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       if (res.requiresVerification) {
-        notify.info(`${email} manziliga 6 xonali tasdiqlash kodi yuborildi!`, 'Emailni tasdiqlang');
+        notify.info(`${email} manziliga 6 xonali tasdiqlaş kodi yuborildi!`, 'Emailni tasdiqlaş');
         setView('VERIFY_EMAIL');
         setResendCooldown(60);
       } else {
         const tokens = await webApi.loginWithEmail(email.trim(), password);
         await loginWithTokens(tokens);
-        notify.success('Ro‘yxatdan o‘tish muvaffaqiyatli yakunlandi!', t('common.success'));
+        notify.success('Röyxatdan ötiş muvaffaqiyatli yakunlandi!', t('common.success'));
         onClose();
         onSuccess?.();
       }
@@ -240,9 +240,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       await webApi.resendEmailVerification(email.trim());
       setResendCooldown(60);
-      notify.info('Yangi tasdiqlash kodi emailingizga qayta yuborildi.', 'Kod yuborildi');
+      notify.info('Yangi tasdiqlaş kodi emailingizga qayta yuborildi.', 'Kod yuborildi');
     } catch (err: any) {
-      notify.error(err?.message || 'Kodni yuborishda xatolik yuz berdi.');
+      notify.error(err?.message || 'Kodni yuborişda xatolik yuz berdi.');
     }
   };
 
@@ -258,7 +258,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMessage(null);
     try {
       await webApi.forgotPassword(email.trim());
-      notify.info('Parolni tiklash kodi emailingizga yuborildi.', 'Kod yuborildi');
+      notify.info('Parolni tiklaş kodi emailingizga yuborildi.', 'Kod yuborildi');
       setView('RESET_PASSWORD');
     } catch (err: any) {
       handleAuthError(err);
@@ -292,7 +292,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
         <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-[#121A2D] border border-slate-200 dark:border-[#23304E] shadow-2xl p-6 sm:p-8 overflow-hidden">
           {/* Close Button */}
           <button
@@ -482,7 +482,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   {strings.auth.verifyTitle}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {email} manziliga yuborilgan 6 xonali tasdiqlash kodini kiriting
+                  {email} manziliga yuborilgan 6 xonali tasdiqlaş kodini kiriting
                 </p>
               </div>
 

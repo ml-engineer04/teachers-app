@@ -7,6 +7,7 @@ import {
   Maximize2,
   Minimize2,
   PenTool,
+  Pen,
   List,
   KeyRound,
   Bookmark,
@@ -20,6 +21,8 @@ import {
   ChevronDown,
   Layers,
   FileQuestion,
+  Search,
+  X,
 } from 'lucide-react';
 import {
   bookPageToPdfPage,
@@ -27,6 +30,7 @@ import {
   pdfPageToBookDisplay,
 } from '@smartteacherbook/shared';
 import { useI18n } from '../../i18n/I18nContext';
+import { useAuth } from '../../context/AuthContext';
 import { webApi, resolveAssetUrl } from '../../services/api/webApi';
 import { notify } from '../../utils/notify';
 import {
@@ -60,10 +64,19 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
   const contentStartPdfPage = book.contentStartPdfPage || 1;
   const contentTotalPages = getBookContentTotalPages(totalPages, contentStartPdfPage);
 
-  // Reader UI State
+  // Reader UI State (Default 55% zoom matching desktop overview)
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
-  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [zoomLevel, setZoomLevel] = useState<number>(0.55);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // User Profile
+  const { user } = useAuth();
+  const currentUser = (user as any)?.user || user;
+  const userInitial = ((currentUser?.fullName || currentUser?.email || 'S').trim().charAt(0) || 'S').toUpperCase();
+
+  // Search in Reader State
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Marker Studio State
   const [isMarkerActive, setIsMarkerActive] = useState<boolean>(false);
@@ -106,10 +119,20 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
   // Jump page input
   const [jumpInput, setJumpInput] = useState<string>('');
 
-  // Refs for virtual/vertical scroll
+  // Refs for virtual/vertical scroll & thumbnails auto-scroll
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const thumbnailRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const thumbnailContainerRef = useRef<HTMLElement>(null);
   const progressSaveTimer = useRef<any>(null);
+
+  // Auto-scroll active thumbnail into view
+  useEffect(() => {
+    const el = thumbnailRefs.current.get(currentPage);
+    if (el && thumbnailContainerRef.current) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [currentPage]);
 
   // Load Book Data & Annotations
   useEffect(() => {
@@ -190,7 +213,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
         // Format answer keys
         const formattedAnswers: AnswerItem[] = (answersRes || []).map((a: any) => ({
           id: a.id,
-          studentExerciseLabel: a.studentExerciseLabel || a.exerciseLabel || 'Mashq',
+          studentExerciseLabel: a.studentExerciseLabel || a.exerciseLabel || 'Maşq',
           studentPageNumber: Number(a.studentPageNumber || 1),
           solutionKey: a.solutionKey || a.solutionText,
           notes: a.notes || a.methodologyNotes,
@@ -287,7 +310,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
       scrollToPage(targetPdfPage, 'smooth');
       setJumpInput('');
     } else {
-      notify.warning(`Iltimos, 1 dan ${contentTotalPages} gacha bet raqamini kiriting.`);
+      notify.warning(`Iltimos, 1 dan ${contentTotalPages} gaça bet raqamini kiriting.`);
     }
   };
 
@@ -463,11 +486,11 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
     if (exists) {
       setBookmarks((prev) => prev.filter((b) => b.pageNumber !== pageNum));
       await webApi.deleteBookmark(book.id, pageNum).catch(() => {});
-      notify.info(`${pageNum}-sahifa xatcho'plardan olindi.`);
+      notify.info(`${pageNum}-sahifa xatçöplardan olindi.`);
     } else {
       setBookmarks((prev) => [...prev, { pageNumber: pageNum }]);
       await webApi.addBookmark(book.id, pageNum).catch(() => {});
-      notify.success(`${pageNum}-sahifa xatcho'p qilib saqlandi.`);
+      notify.success(`${pageNum}-sahifa xatçöp qilib saqlandi.`);
     }
   };
 
@@ -489,14 +512,14 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
       }
       notify.success("Izoh saqlandi!");
     } catch {
-      notify.error("Izohni serverda saqlashda xatolik yuz berdi");
+      notify.error("Izohni serverda saqlaşda xatolik yuz berdi");
     }
   };
 
   const handleDeleteNote = async (noteId: string) => {
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
     await webApi.deleteNote(book.id, noteId).catch(() => {});
-    notify.info("Izoh o'chirildi.");
+    notify.info("Izoh öçirildi.");
   };
 
   // Drawing Actions
@@ -518,7 +541,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
   const handleClearDrawing = () => {
     if ((strokesByPage[currentPage] || []).length === 0) return;
     handleSaveStrokes(currentPage, []);
-    notify.info(`${currentPage}-sahifadagi barcha chizmalar tozalandi.`);
+    notify.info(`${currentPage}-sahifadagi barça çizmalar tozalandi.`);
   };
 
   // Hotspot click handler
@@ -529,7 +552,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
         (h.targetMediaId ? resolveAssetUrl(`/content/media/${h.targetMediaId}/file`) : '');
       setActiveAudioItem({
         id: h.id,
-        title: (h as any).label || (h as any).tooltipText || `Audio Mashq • ${pageNum}-sahifa`,
+        title: (h as any).label || (h as any).tooltipText || `Audio Maşq • ${pageNum}-sahifa`,
         url: url || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
         durationSeconds: 120,
       });
@@ -559,35 +582,35 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-[#0F172A] text-slate-100 select-none overflow-hidden">
       {/* =========================================================================
-          Top SmartBoard Navigation Bar
+          Top SmartBoard Navigation Bar (Matching Design)
       ========================================================================= */}
-      <header className="h-16 shrink-0 bg-[#1E293B] border-b border-slate-700/80 px-4 flex items-center justify-between gap-3 shadow-lg z-30">
+      <header className="h-14 sm:h-16 shrink-0 bg-[#0B101D] border-b border-slate-800/90 px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-3 shadow-lg z-30">
         {/* Left: Exit & Book Details */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <button
             onClick={handleExit}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-750 transition-colors text-xs font-semibold"
-            title="Chiqish"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/80 transition-colors text-xs font-semibold shadow-sm shrink-0"
+            title="Çiqiş"
           >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Chiqish</span>
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Chiqish</span>
           </button>
 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-white truncate max-w-[200px] sm:max-w-xs md:max-w-md">
+              <h1 className="text-xs sm:text-sm font-bold text-white truncate max-w-[160px] sm:max-w-xs md:max-w-md">
                 {book.title}
               </h1>
-              <span className="hidden md:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
                 {formatGrade(book.gradeId)}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 hidden sm:block">
+            <p className="text-[10px] sm:text-[11px] text-slate-400 truncate hidden sm:block">
               {book.type === 'TEACHER_BOOK'
                 ? "O'qituvchi kitobi (Teacher's Book)"
                 : book.type === 'WORKBOOK'
-                ? 'Ish daftari (Workbook)'
-                : "O'quvchi darsligi (Student's Book)"}
+                ? 'Iş daftari (Workbook)'
+                : "Öquvçi darsligi (Student's Book)"}
             </p>
           </div>
         </div>
@@ -595,19 +618,19 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
         {/* Center: Smart Page Indicator & Quick Jump */}
         <div className="flex items-center gap-2">
           {/* Page Indicator Pill */}
-          <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 px-3 py-1.5 rounded-xl shadow-inner">
-            <span className="text-xs font-bold text-indigo-400">
+          <div className="flex items-center gap-1.5 bg-[#060A14] border border-slate-750 px-3 py-1.5 rounded-xl shadow-inner text-xs font-bold text-indigo-400">
+            <span>
               {pageDisplayInfo.isFrontMatter
-                ? `${strings.common?.introShort || 'Kirish'} ${pageDisplayInfo.frontMatterIndex}`
+                ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplayInfo.frontMatterIndex}`
                 : `${pageDisplayInfo.bookPage} / ${contentTotalPages} bet`}
             </span>
-            <span className="text-[10px] text-slate-500 hidden md:inline">
+            <span className="text-[10px] text-slate-500 font-normal hidden md:inline">
               (PDF {currentPage}/{totalPages})
             </span>
           </div>
 
           {/* Quick Page Jump Form */}
-          <form onSubmit={handleJumpSubmit} className="hidden lg:flex items-center gap-1">
+          <form onSubmit={handleJumpSubmit} className="hidden sm:flex items-center gap-1.5">
             <input
               type="number"
               min={1}
@@ -615,11 +638,11 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               value={jumpInput}
               onChange={(e) => setJumpInput(e.target.value)}
               placeholder="Bet..."
-              className="w-16 h-8 text-center bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              className="w-16 h-8 text-center bg-[#060A14] border border-slate-750 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
             />
             <button
               type="submit"
-              className="h-8 px-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors"
+              className="h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors shadow-sm"
             >
               O'tish
             </button>
@@ -628,88 +651,112 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
         {/* Right: SmartBoard Tools & Drawers */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Zoom Out */}
+          {/* Search Toggle */}
           <button
-            onClick={() => changeZoom(-0.15)}
-            disabled={zoomLevel <= 0.55}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 transition-colors"
-            title="Kichraytirish (Ctrl / Cmd + -)"
+            onClick={() => setIsSearchOpen((prev) => !prev)}
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors ${
+              isSearchOpen
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'
+            }`}
+            title="Qidiriş"
           >
-            <ZoomOut className="h-4 w-4" />
+            <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
 
-          {/* Zoom Reset / Level */}
+          {/* Zoom Out */}
           <button
-            onClick={resetZoom}
-            className="hidden sm:inline-flex px-2 py-1 text-xs font-semibold text-slate-300 hover:text-white"
-            title="Hajmni tiklash (100% / Ctrl + 0)"
+            onClick={() => changeZoom(-0.05)}
+            disabled={zoomLevel <= 0.45}
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 disabled:opacity-30 transition-colors"
+            title="Kiçraytiriş (Ctrl / Cmd + -)"
           >
-            {Math.round(zoomLevel * 100)}%
+            <ZoomOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
+
+          {/* Zoom Select Dropdown */}
+          <div className="relative">
+            <select
+              value={Math.round(zoomLevel * 100)}
+              onChange={(e) => setZoomLevel(Number(e.target.value) / 100)}
+              className="appearance-none bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold pl-2.5 pr-6 py-1.5 rounded-xl border border-slate-700/80 focus:outline-none cursor-pointer"
+              title="Masshtab (Zoom)"
+            >
+              <option value={45}>45%</option>
+              <option value={50}>50%</option>
+              <option value={55}>55%</option>
+              <option value={65}>65%</option>
+              <option value={75}>75%</option>
+              <option value={85}>85%</option>
+              <option value={100}>100%</option>
+              <option value={125}>125%</option>
+              <option value={150}>150%</option>
+              <option value={200}>200%</option>
+            </select>
+            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
 
           {/* Zoom In */}
           <button
-            onClick={() => changeZoom(0.15)}
+            onClick={() => changeZoom(0.05)}
             disabled={zoomLevel >= 2.45}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 transition-colors"
-            title="Kattalashtirish (Ctrl / Cmd + +)"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 disabled:opacity-30 transition-colors"
+            title="Kattalaştiriş (Ctrl / Cmd + +)"
           >
-            <ZoomIn className="h-4 w-4" />
+            <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
-
-          <div className="h-5 w-px bg-slate-700 mx-1 hidden sm:block" />
 
           {/* Marker Studio Toggle */}
           <button
             onClick={() => setIsMarkerActive((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
               isMarkerActive
-                ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 shadow-amber-500/20'
-                : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/40'
             }`}
             title="Marker Studio (M)"
           >
-            <PenTool className="h-4 w-4" />
+            <PenTool className="h-3.5 w-3.5 text-amber-400" />
             <span className="hidden xl:inline">Marker Studio</span>
           </button>
 
           {/* TOC Drawer Toggle */}
           <button
             onClick={() => setIsTocOpen((prev) => !prev)}
-            className={`p-2 rounded-xl transition-colors ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors ${
               isTocOpen
                 ? 'bg-indigo-600 text-white'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'
             }`}
             title="Mundarija (TOC)"
           >
-            <List className="h-4 w-4" />
+            <List className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
 
-          {/* Answer Keys Drawer Toggle */}
+          {/* Quick Drawing Pen */}
           <button
-            onClick={() => setIsAnswersOpen((prev) => !prev)}
-            className={`p-2 rounded-xl transition-colors ${
-              isAnswersOpen
+            onClick={() => setIsMarkerActive((prev) => !prev)}
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors ${
+              isMarkerActive
                 ? 'bg-emerald-600 text-white'
-                : 'bg-slate-800 hover:bg-slate-700 text-emerald-400'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-emerald-400'
             }`}
-            title="Javoblar kaliti"
+            title="Çiziş qalami"
           >
-            <KeyRound className="h-4 w-4" />
+            <Pen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
 
           {/* Bookmarks & Notes Toggle */}
           <button
             onClick={() => setIsBookmarksOpen((prev) => !prev)}
-            className={`p-2 rounded-xl transition-colors relative ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors relative ${
               isBookmarksOpen
                 ? 'bg-indigo-600 text-white'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'
             }`}
-            title="Xatcho'plar va izohlar"
+            title="Xatçöplar va izohlar"
           >
-            <Bookmark className="h-4 w-4" />
+            <Bookmark className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             {bookmarks.length > 0 && (
               <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-amber-500 text-[9px] font-bold text-slate-950 flex items-center justify-center">
                 {bookmarks.length}
@@ -720,14 +767,14 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           {/* Media Library Drawer Toggle */}
           <button
             onClick={() => setIsMediaOpen((prev) => !prev)}
-            className={`p-2 rounded-xl transition-colors relative ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors relative ${
               isMediaOpen
                 ? 'bg-purple-600 text-white'
-                : 'bg-slate-800 hover:bg-slate-700 text-purple-400'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-purple-400'
             }`}
             title="Media kutubxona"
           >
-            <Headphones className="h-4 w-4" />
+            <Headphones className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             {mediaList.length > 0 && (
               <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-purple-500 text-[9px] font-bold text-white flex items-center justify-center">
                 {mediaList.length}
@@ -735,29 +782,146 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             )}
           </button>
 
+          {/* User Profile Avatar */}
+          <div
+            className="w-7 h-7 rounded-full bg-indigo-600 text-white font-black text-xs flex items-center justify-center ring-2 ring-indigo-400/30 shrink-0 select-none"
+            title={currentUser?.fullName || currentUser?.email || "Öqituvçi"}
+          >
+            {userInitial}
+          </div>
+
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors hidden sm:block"
-            title={isFullscreen ? 'Oynani kichraytirish' : 'Butun ekran (Fullscreen)'}
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-colors hidden sm:block"
+            title={isFullscreen ? 'Oynani kiçraytiriş' : 'Butun ekran (Fullscreen)'}
           >
             {isFullscreen ? (
-              <Minimize2 className="h-4 w-4" />
+              <Minimize2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             ) : (
-              <Maximize2 className="h-4 w-4" />
+              <Maximize2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             )}
           </button>
         </div>
       </header>
 
+      {/* Quick Search Overlay Dropdown */}
+      {isSearchOpen && (
+        <div className="bg-[#0B101D] border-b border-slate-800 px-4 py-2.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 z-30">
+          <div className="flex-1 max-w-md flex items-center gap-2 bg-[#060A14] border border-slate-700 px-3 py-1.5 rounded-xl">
+            <Search className="w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              autoFocus
+              value={searchQuery}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSearchQuery(val);
+                const num = parseInt(val, 10);
+                if (!isNaN(num) && num >= 1 && num <= contentTotalPages) {
+                  scrollToPage(num, 'smooth');
+                }
+              }}
+              placeholder="Sahifa raqamini kiriting (masalan: 3)..."
+              className="bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none w-full"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-white">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setIsSearchOpen(false)}
+            className="text-xs font-semibold text-slate-400 hover:text-white px-2.5 py-1 rounded-lg"
+          >
+            Yopish
+          </button>
+        </div>
+      )}
+
       {/* =========================================================================
-          Vertical Scrollable Document Canvas
+          Workspace: Left Thumbnails Sidebar + Center Document Canvas
       ========================================================================= */}
-      <main
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0F1D] py-8 px-4 flex flex-col items-center gap-8 relative select-none scroll-smooth"
-      >
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* =========================================================================
+            Left Vertical Page Thumbnails Sidebar (Matching Screenshot)
+        ========================================================================= */}
+        <aside
+          ref={thumbnailContainerRef}
+          className="w-20 sm:w-24 shrink-0 bg-[#0B0F19] border-r border-slate-800/80 overflow-y-auto overflow-x-hidden py-3 px-2 flex flex-col items-center gap-3.5 select-none z-20"
+          style={{ scrollbarWidth: 'thin' }}
+        >
+          {Array.from({ length: totalPages }, (_, i) => {
+            const pageNum = i + 1;
+            const isActive = pageNum === currentPage;
+            const pageDisplay = pdfPageToBookDisplay(
+              pageNum,
+              totalPages,
+              contentStartPdfPage,
+            );
+            const pageImageUrl = `${resolveAssetUrl(`/content/books/${book.id}/pages/${pageNum}/image`)}`;
+            const pageNumberLabel = pageDisplay.isFrontMatter
+              ? pageDisplay.frontMatterIndex
+              : pageDisplay.bookPage;
+
+            return (
+              <div
+                key={pageNum}
+                ref={(el) => {
+                  if (el) thumbnailRefs.current.set(pageNum, el);
+                  else thumbnailRefs.current.delete(pageNum);
+                }}
+                onClick={() => scrollToPage(pageNum, 'smooth')}
+                className="flex flex-col items-center cursor-pointer group w-full"
+                title={`${pageDisplay.isFrontMatter ? 'Kiriş ' + pageDisplay.frontMatterIndex : pageDisplay.bookPage + '-bet'}`}
+              >
+                {/* Thumbnail Preview Box */}
+                <div
+                  className={`w-16 h-20 sm:h-22 rounded-lg overflow-hidden bg-white relative transition-all duration-150 flex items-center justify-center ${
+                    isActive
+                      ? 'border-2 border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/30 scale-105'
+                      : 'border border-slate-700/60 opacity-60 group-hover:opacity-100 group-hover:border-slate-500'
+                  }`}
+                >
+                  <img
+                    src={pageImageUrl}
+                    alt=""
+                    loading="lazy"
+                    className="w-full h-full object-fill block pointer-events-none"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const fallback = target.parentElement?.querySelector('.thumb-fallback');
+                      if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                    }}
+                  />
+                  <div className="thumb-fallback absolute inset-0 hidden flex-col items-center justify-center p-1 bg-slate-100 text-slate-700 text-center">
+                    <span className="text-[10px] font-black">{pageNumberLabel}</span>
+                  </div>
+                </div>
+
+                {/* Page Number Underneath Thumbnail */}
+                <span
+                  className={`text-[11px] font-bold text-center mt-1 transition-colors ${
+                    isActive
+                      ? 'text-indigo-400 font-extrabold'
+                      : 'text-slate-400 group-hover:text-white'
+                  }`}
+                >
+                  {pageNumberLabel}
+                </span>
+              </div>
+            );
+          })}
+        </aside>
+
+        {/* Main Document Canvas */}
+        <main
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0F1D] py-8 px-4 flex flex-col items-center gap-8 relative select-none scroll-smooth"
+        >
         {Array.from({ length: totalPages }, (_, i) => {
           const pageNum = i + 1;
           const pageHs = hotspots.filter((h: any) => Number(h.pageNumber) === pageNum);
@@ -790,7 +954,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               <div className="absolute top-3 left-4 z-20 flex items-center gap-2">
                 <span className="rounded-full bg-slate-900/85 backdrop-blur-md px-3 py-1 text-[11px] font-bold text-white shadow-md border border-slate-700">
                   {pageDisplay.isFrontMatter
-                    ? `${strings.common?.introShort || 'Kirish'} ${pageDisplay.frontMatterIndex}`
+                    ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplay.frontMatterIndex}`
                     : `${pageDisplay.bookPage}-bet`}
                 </span>
                 {bookmarks.some((b) => b.pageNumber === pageNum) && (
@@ -851,7 +1015,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                   </div>
                   <h3 className="text-lg font-bold text-slate-900 mb-2">
                     {pageDisplay.isFrontMatter
-                      ? `${strings.common?.introShort || 'Kirish'} ${pageDisplay.frontMatterIndex}`
+                      ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplay.frontMatterIndex}`
                       : `${pageDisplay.bookPage}-bet dars mavzusi`}
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed mb-6">
@@ -882,7 +1046,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                   <span>ilmçi • Raqamli ta‘lim platformasi</span>
                   <span className="font-bold">
                     {pageDisplay.isFrontMatter
-                      ? `Kirish ${pageDisplay.frontMatterIndex}`
+                      ? `Kiriş ${pageDisplay.frontMatterIndex}`
                       : `${pageDisplay.bookPage}`}
                   </span>
                 </div>
@@ -919,7 +1083,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                           ? 'h-9 w-9 bg-rose-600 hover:bg-rose-700 text-white ring-4 ring-rose-400/30'
                           : 'h-9 w-9 bg-emerald-600 hover:bg-emerald-700 text-white ring-4 ring-emerald-400/30'
                       }`}
-                      title={hs.label || hs.tooltipText || (isAudio ? 'Audioni tinglash' : isVideo ? 'Videoni ko‘rish' : 'Javoblarni ko‘rish')}
+                      title={hs.label || hs.tooltipText || (isAudio ? 'Audioni tinglaş' : isVideo ? 'Videoni köriş' : 'Javoblarni köriş')}
                     >
                       {isAudio ? (
                         <Volume2 className="h-4.5 w-4.5 fill-current" />
@@ -948,7 +1112,8 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             </div>
           );
         })}
-      </main>
+        </main>
+      </div>
 
       {/* =========================================================================
           Floating Marker Studio Bar (SmartBoard Toolbar)

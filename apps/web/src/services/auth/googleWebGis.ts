@@ -80,7 +80,7 @@ export async function loadGoogleGisScript(): Promise<void> {
       existing.addEventListener('load', () => resolve(), { once: true });
       existing.addEventListener(
         'error',
-        () => reject(new Error('Google autentifikatsiya skriptini yuklab bo‘lmadi.')),
+        () => reject(new Error('Google autentifikatsiya skriptini yuklab bölmadi.')),
         { once: true },
       );
       return;
@@ -93,7 +93,7 @@ export async function loadGoogleGisScript(): Promise<void> {
     script.defer = true;
 
     const timeout = setTimeout(() => {
-      reject(new Error('Google xizmati bilan ulanish vaqti tugadi.'));
+      reject(new Error('Google xizmati bilan ulaniş vaqti tugadi.'));
     }, 10000);
 
     script.onload = () => {
@@ -101,7 +101,7 @@ export async function loadGoogleGisScript(): Promise<void> {
       if (window.google?.accounts?.id) {
         resolve();
       } else {
-        reject(new Error('Google Identity Services obyektini yuklab bo‘lmadi.'));
+        reject(new Error('Google Identity Services obyektini yuklab bölmadi.'));
       }
     };
 
@@ -166,7 +166,7 @@ export async function mountGoogleGisButton(params: {
 
     return true;
   } catch (err: any) {
-    params.onError?.(err?.message || 'Google tugmasini yaratishda xatolik yuz berdi.');
+    params.onError?.(err?.message || 'Google tugmasini yaratişda xatolik yuz berdi.');
     return false;
   }
 }

@@ -20,7 +20,7 @@ import {
 import { useI18n } from '../../i18n/I18nContext';
 import { webApi } from '../../services/api/webApi';
 import { LandingHeader } from './LandingHeader';
-import { SmartBoardPreview } from './SmartBoardPreview';
+import { HeroTeacherShowcase } from './HeroTeacherShowcase';
 import { BrandLogo } from '../common/BrandLogo';
 
 interface LandingPageProps {
@@ -103,24 +103,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         // fallback below
       }
       if (!mounted) return;
-      const matchedGrade = grades.find((g) => g.id === pricingGrade);
+      const matchedGrade = grades.find((g) => g.id === pricingGrade || g.gradeNumber === pricingGrade);
       setPricingPlans([
         {
           id: 'MONTHLY',
           durationDays: 30,
-          priceUzs: matchedGrade?.priceMonthlyUzs ?? 89000,
+          priceUzs: matchedGrade?.priceMonthlyUzs ?? 79000,
           badge: '',
         },
         {
           id: 'THREE_MONTHS',
           durationDays: 90,
-          priceUzs: matchedGrade?.priceQuarterlyUzs ?? 222000,
+          priceUzs: matchedGrade?.priceQuarterlyUzs ?? 199000,
           badge: t('landing.pricingPopularBadge'),
         },
         {
           id: 'YEARLY',
           durationDays: 365,
-          priceUzs: matchedGrade?.priceYearlyUzs ?? 712000,
+          priceUzs: matchedGrade?.priceYearlyUzs ?? 630000,
           badge: t('landing.pricingBestValueBadge'),
         },
       ]);
@@ -226,11 +226,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-10 items-center">
               {/* Left Text Column */}
               <div className="lg:col-span-6 space-y-7 text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 text-xs font-extrabold uppercase tracking-wider shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>{t('landing.heroBadge')}</span>
-                </div>
-
                 <h1 className="text-4xl sm:text-5xl xl:text-[54px] font-black tracking-tight text-slate-900 dark:text-white leading-[1.12]">
                   {t('landing.heroTitlePart1')}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-indigo-500 to-emerald-500 dark:from-indigo-400 dark:via-indigo-300 dark:to-emerald-400">
@@ -299,9 +294,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 </div>
               </div>
 
-              {/* Right Column: Interactive SmartBoard Preview */}
+              {/* Right Column: Hero Teacher Character Showcase */}
               <div className="lg:col-span-6 flex justify-center lg:justify-end">
-                <SmartBoardPreview />
+                <HeroTeacherShowcase />
               </div>
             </div>
           </div>
@@ -603,31 +598,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
               {(loadingPricing && pricingPlans.length === 0
                 ? [
-                    { id: 'MONTHLY', priceUzs: 89000 },
-                    { id: 'THREE_MONTHS', priceUzs: 222000 },
-                    { id: 'YEARLY', priceUzs: 712000 },
+                    { id: 'MONTHLY', priceUzs: grades.find((g) => g.id === pricingGrade)?.priceMonthlyUzs || 79000 },
+                    { id: 'THREE_MONTHS', priceUzs: grades.find((g) => g.id === pricingGrade)?.priceQuarterlyUzs || 199000 },
+                    { id: 'YEARLY', priceUzs: grades.find((g) => g.id === pricingGrade)?.priceYearlyUzs || 630000 },
                   ]
                 : pricingPlans
               ).map((plan) => {
                 const isThreeMonths = plan.id === 'THREE_MONTHS';
                 const isYearly = plan.id === 'YEARLY';
                 const title =
-                  plan.id === 'MONTHLY'
+                  plan.name ||
+                  (plan.id === 'MONTHLY'
                     ? t('landing.pricingMonthly')
                     : plan.id === 'THREE_MONTHS'
                     ? t('landing.pricingThreeMonths')
-                    : t('landing.pricingYearly');
+                    : t('landing.pricingYearly'));
                 const duration =
                   plan.id === 'MONTHLY'
                     ? t('landing.pricingPerMonth')
                     : plan.id === 'THREE_MONTHS'
                     ? t('landing.pricingPerThreeMonths')
                     : t('landing.pricingPerYear');
-                const badge = isYearly
-                  ? t('landing.pricingBestValueBadge')
-                  : isThreeMonths
-                  ? t('landing.pricingPopularBadge')
-                  : '';
+                const badge =
+                  plan.badge !== undefined && plan.badge !== null && plan.badge !== ''
+                    ? plan.badge
+                    : isYearly
+                    ? t('landing.pricingBestValueBadge')
+                    : isThreeMonths
+                    ? t('landing.pricingPopularBadge')
+                    : '';
 
                 return (
                   <div

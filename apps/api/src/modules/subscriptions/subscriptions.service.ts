@@ -148,7 +148,32 @@ export class SubscriptionsService implements OnModuleInit {
         // Fallback
       }
     }
-    return this.subscriptionsStore.filter((s) => s.userId === userId);
+    const direct = this.subscriptionsStore.filter((s) => s.userId === userId);
+    if (direct.length > 0) return direct;
+
+    try {
+      const users = readJsonDiskSync<any[]>('users-state.json');
+      const currentUser = users?.find((u) => u.id === userId);
+      if (currentUser?.email) {
+        const reqs = readJsonDiskSync<any[]>('requests-state.json');
+        const approvedReqs = reqs?.filter(
+          (r) =>
+            r.userEmail?.toLowerCase() === currentUser.email.toLowerCase() &&
+            r.status === AccessRequestStatus.PAID_APPROVED,
+        );
+        if (approvedReqs && approvedReqs.length > 0) {
+          const matchedIds = new Set(approvedReqs.map((r) => r.userId));
+          const matchedSubs = this.subscriptionsStore.filter((s) => matchedIds.has(s.userId));
+          if (matchedSubs.length > 0) {
+            return matchedSubs.map((s) => ({ ...s, userId }));
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return [];
   }
 
   async findById(id: string): Promise<Subscription | undefined> {
@@ -210,6 +235,92 @@ export class SubscriptionsService implements OnModuleInit {
       plan: sub.plan,
       durationDays,
     });
+  }
+
+  async cancelSubscription(id: string): Promise<{ success: boolean; message: string }> {
+    if (this.prisma.isConnected) {
+      try {
+        await this.prisma.subscription.update({
+          where: { id },
+          data: { isActive: false },
+        });
+      } catch (err: any) {
+        this.logger.warn(`Prisma cancelSubscription fallback: ${err.message}`);
+      }
+    }
+
+    const sub = this.subscriptionsStore.find((s) => s.id === id);
+    if (!sub) {
+      // Check if ID matches in approved requests
+      try {
+        const reqs = readJsonDiskSync<any[]>('requests-state.json') || [];
+        const matchedReq = reqs.find((r) => r.id === id || r.userId === id);
+        if (matchedReq) {
+          matchedReq.status = 'CANCELLED';
+          writeJsonDiskSync('requests-state.json', reqs);
+        }
+      } catch {}
+      throw new NotFoundException(`Subscription ${id} topilmadi`);
+    }
+
+    sub.isActive = false;
+    sub.expiresAt = new Date().toISOString(); // expire immediately
+    this.persistDisk();
+
+    // Also update matching request if exists
+    try {
+      const reqs = readJsonDiskSync<any[]>('requests-state.json') || [];
+      let reqUpdated = false;
+      for (const r of reqs) {
+        if (r.userId === sub.userId && Number(r.gradeId) === Number(sub.gradeId)) {
+          r.status = 'CANCELLED';
+          r.internalNote = (r.internalNote || '') + ' [Admin tomonidan obuna bekor qilindi]';
+          reqUpdated = true;
+        }
+      }
+      if (reqUpdated) {
+        writeJsonDiskSync('requests-state.json', reqs);
+      }
+    } catch {}
+
+    this.logger.log(`Subscription ${id} cancelled by admin.`);
+    return { success: true, message: 'Obuna muvaffaqiyatli bekor qilindi' };
+  }
+
+  async deleteByUserId(userId: string): Promise<number> {
+    if (this.prisma.isConnected) {
+      try {
+        await this.prisma.subscription.deleteMany({
+          where: { userId },
+        });
+      } catch (err: any) {
+        this.logger.warn(`Prisma deleteByUserId fallback: ${err.message}`);
+      }
+    }
+
+    const initialLen = this.subscriptionsStore.length;
+    this.subscriptionsStore = this.subscriptionsStore.filter((s) => s.userId !== userId);
+    const removedCount = initialLen - this.subscriptionsStore.length;
+    if (removedCount > 0) {
+      this.persistDisk();
+    }
+    return removedCount;
+  }
+
+  async findByUserEmail(email: string): Promise<Subscription[]> {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) return [];
+    try {
+      const reqs = readJsonDiskSync<any[]>('requests-state.json') || [];
+      const userReqs = reqs.filter(
+        (r) => (r.userEmail || '').trim().toLowerCase() === cleanEmail && r.status === AccessRequestStatus.PAID_APPROVED,
+      );
+      if (userReqs.length > 0) {
+        const userIds = new Set(userReqs.map((r) => r.userId));
+        return this.subscriptionsStore.filter((s) => userIds.has(s.userId));
+      }
+    } catch {}
+    return [];
   }
 
   getPublicKey(): string {

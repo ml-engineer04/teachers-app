@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Delete,
   Param,
@@ -34,6 +35,30 @@ export class UsersController {
   @ApiOperation({ summary: 'Get user details with active hardware devices' })
   async findById(@Param('id') id: string) {
     return this.usersService.findById(id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Completely delete teacher user from database (Admin)' })
+  async deleteUser(@Param('id') userId: string) {
+    return this.usersService.deleteUser(userId);
+  }
+
+  @Post(':id/subscriptions/:subscriptionId/cancel')
+  @ApiOperation({ summary: 'Cancel teacher active subscription (Admin)' })
+  async cancelSubscription(
+    @Param('id') userId: string,
+    @Param('subscriptionId') subscriptionId: string,
+  ) {
+    return this.usersService.cancelUserSubscription(userId, subscriptionId);
+  }
+
+  @Delete(':id/subscriptions/:subscriptionId')
+  @ApiOperation({ summary: 'Cancel teacher active subscription (Admin - Alias)' })
+  async cancelSubscriptionDelete(
+    @Param('id') userId: string,
+    @Param('subscriptionId') subscriptionId: string,
+  ) {
+    return this.usersService.cancelUserSubscription(userId, subscriptionId);
   }
 
   @Delete(':id/devices/:deviceId')

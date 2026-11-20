@@ -36,6 +36,7 @@ import {
   AlertTriangle,
   List,
   BookOpen,
+  GraduationCap,
 } from 'lucide-react';
 import {
   Book,
@@ -2521,33 +2522,45 @@ export function VisualPdfEditor({
           </button>
         </div>
 
-        {/* Right: View Mode Switcher */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-500">View Mode:</span>
-          <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-0.5">
-            {(
-              [
-                { id: 'MOBILE', icon: Smartphone, title: 'Mobile (410px)' },
-                { id: 'TABLET', icon: Tablet, title: 'Tablet (560px)' },
-                { id: 'DESKTOP', icon: Monitor, title: 'Desktop (720px)' },
-              ] as const
-            ).map((vm) => {
-              const Icon = vm.icon;
-              const active = viewMode === vm.id;
-              return (
-                <button
-                  key={vm.id}
-                  onClick={() => setViewMode(vm.id)}
-                  title={vm.title}
-                  className={`p-1.5 rounded-lg transition ${
-                    active ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                </button>
-              );
-            })}
+        {/* Right: View Mode Switcher & O'qituvchi kabineti */}
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500">View Mode:</span>
+            <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-0.5">
+              {(
+                [
+                  { id: 'MOBILE', icon: Smartphone, title: 'Mobile (410px)' },
+                  { id: 'TABLET', icon: Tablet, title: 'Tablet (560px)' },
+                  { id: 'DESKTOP', icon: Monitor, title: 'Desktop (720px)' },
+                ] as const
+              ).map((vm) => {
+                const Icon = vm.icon;
+                const active = viewMode === vm.id;
+                return (
+                  <button
+                    key={vm.id}
+                    onClick={() => setViewMode(vm.id)}
+                    title={vm.title}
+                    className={`p-1.5 rounded-lg transition ${
+                      active ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          <a
+            href="/cabinet"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3.5 py-1.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition"
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>O‘qituvchi kabineti</span>
+          </a>
         </div>
       </div>
 

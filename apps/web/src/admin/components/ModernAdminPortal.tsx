@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BrandLogo } from './BrandLogo';
 import {
   LayoutDashboard,
@@ -54,6 +55,7 @@ import {
   GraduationCap,
   Tag,
   CreditCard,
+  Crosshair,
 } from 'lucide-react';
 import { VisualPdfEditor } from './VisualPdfEditor';
 import { api } from '../services/apiClient';
@@ -95,7 +97,64 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     return { email: 'mlrahmonjon@gmail.com', name: 'Super Admin' };
   });
 
-  const [activeNav, setActiveNav] = useState<AdminPortalNav>('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const navToPathMap: Record<AdminPortalNav, string> = {
+    dashboard: '/admin/dashboard',
+    add_book: '/admin/add-book',
+    my_books: '/admin/books',
+    audio_video: '/admin/editor',
+    manage_content: '/admin/editor',
+    grades: '/admin/grades',
+    subjects: '/admin/subjects',
+    page_editor: '/admin/editor',
+    users: '/admin/users',
+    admins: '/admin/admins',
+    subscriptions: '/admin/subscriptions',
+    pricing: '/admin/pricing',
+    analytics: '/admin/analytics',
+    system_logs: '/admin/logs',
+    settings: '/admin/settings',
+    mobile_sim: '/admin/mobile-sim',
+  };
+
+  const getNavFromPath = (path: string): AdminPortalNav => {
+    const clean = path.replace(/\/+$/, '').toLowerCase();
+    if (clean === '/admin' || clean === '/admin/dashboard') return 'dashboard';
+    if (clean === '/admin/add-book') return 'add_book';
+    if (clean === '/admin/books') return 'my_books';
+    if (clean === '/admin/audio-video' || clean === '/admin/content') return 'page_editor';
+    if (clean === '/admin/grades') return 'grades';
+    if (clean === '/admin/subjects') return 'subjects';
+    if (clean === '/admin/editor' || clean.startsWith('/admin/editor/')) return 'page_editor';
+    if (clean === '/admin/users') return 'users';
+    if (clean === '/admin/admins') return 'admins';
+    if (clean === '/admin/subscriptions') return 'subscriptions';
+    if (clean === '/admin/pricing') return 'pricing';
+    if (clean === '/admin/analytics') return 'analytics';
+    if (clean === '/admin/logs') return 'system_logs';
+    if (clean === '/admin/settings') return 'settings';
+    if (clean === '/admin/mobile-sim') return 'mobile_sim';
+    return 'dashboard';
+  };
+
+  const [activeNav, setActiveNavState] = useState<AdminPortalNav>(() =>
+    getNavFromPath(location.pathname)
+  );
+
+  useEffect(() => {
+    const nav = getNavFromPath(location.pathname);
+    setActiveNavState(nav);
+  }, [location.pathname]);
+
+  const setActiveNav = (nav: AdminPortalNav) => {
+    setActiveNavState(nav);
+    const targetPath = navToPathMap[nav] || '/admin/dashboard';
+    if (location.pathname !== targetPath) {
+      navigate(targetPath);
+    }
+  };
   const [contentManagerOpen, setContentManagerOpen] = useState(true);
   const [globalSearch, setGlobalSearch] = useState('');
 
@@ -176,6 +235,12 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [requestsList, setRequestsList] = useState<any[]>([]);
   const [reqStatusFilter, setReqStatusFilter] = useState<'ALL' | 'PENDING' | 'PAID_APPROVED' | 'REJECTED'>('ALL');
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [userTabFilter, setUserTabFilter] = useState<'ALL' | 'PAID' | 'UNPAID' | 'BLOCKED'>('ALL');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userToDelete, setUserToDelete] = useState<any | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [subToCancel, setSubToCancel] = useState<{ user: any; subId: string; subTitle?: string } | null>(null);
+  const [isCancellingSub, setIsCancellingSub] = useState(false);
   const [isManualSubscriptionModalOpen, setIsManualSubscriptionModalOpen] = useState(false);
   const [manualTeacherName, setManualTeacherName] = useState('');
   const [manualTeacherPhone, setManualTeacherPhone] = useState('+998 ');
@@ -370,6 +435,36 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       if (Array.isArray(data)) setUsersList(data);
     } catch (err) {
       console.warn('Load users error:', err);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    setIsDeletingUser(true);
+    try {
+      await api.deleteUser(userToDelete.id);
+      showToast(`O‘qituvchi (${userToDelete.fullName || userToDelete.email}) bazadan butunlay o‘chirildi`);
+      setUserToDelete(null);
+      await loadUsers();
+    } catch (err: any) {
+      showToast(`Xatolik: ${err?.message || 'O‘chirib bo‘lmadi'}`);
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!subToCancel) return;
+    setIsCancellingSub(true);
+    try {
+      await api.cancelUserSubscription(subToCancel.user.id, subToCancel.subId);
+      showToast(`Obuna muvaffaqiyatli bekor qilindi`);
+      setSubToCancel(null);
+      await loadUsers();
+    } catch (err: any) {
+      showToast(`Xatolik: ${err?.message || 'Obunani bekor qilib bo‘lmadi'}`);
+    } finally {
+      setIsCancellingSub(false);
     }
   };
 
@@ -1127,18 +1222,18 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       {/* ========================================================= */}
       {/* 1. LEFT SIDEBAR                                           */}
       {/* ========================================================= */}
-      <aside className="w-64 bg-white text-slate-700 flex flex-col justify-between shrink-0 border-r border-slate-200/80 shadow-[4px_0_24px_-16px_rgba(30,41,59,0.12)] select-none z-30">
+      <aside className="w-64 bg-[#0A0F1D] text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800/80 shadow-2xl select-none z-30">
         <div className="flex flex-col h-full">
           {/* Logo Brand Header — ilmçi Brand */}
-          <div className="p-5 pb-5 border-b border-slate-100">
+          <div className="p-5 pb-5 border-b border-slate-800/60">
             <div className="cursor-pointer" onClick={() => setActiveNav('dashboard')}>
-              <BrandLogo size={32} subtitle="BOSHQARUV PORTALI" darkSurface={false} />
+              <BrandLogo size={32} subtitle="Boshqaruv Portali" darkSurface={true} />
             </div>
           </div>
 
           {/* Navigation Links */}
-          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1 custom-scrollbar">
-            <p className="px-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 custom-scrollbar">
+            <p className="px-3.5 pt-3 pb-1 text-[11px] font-bold text-slate-400">
               Asosiy
             </p>
 
@@ -1147,8 +1242,8 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('dashboard')}
               className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'dashboard'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <LayoutDashboard className="w-4 h-4 shrink-0" />
@@ -1159,20 +1254,18 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             <div className="pt-1">
               <button
                 onClick={() => setContentManagerOpen(!contentManagerOpen)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
                   activeNav === 'add_book' ||
                   activeNav === 'my_books' ||
-                  activeNav === 'audio_video' ||
-                  activeNav === 'manage_content' ||
+                  activeNav === 'page_editor' ||
                   activeNav === 'grades' ||
-                  activeNav === 'subjects' ||
-                  activeNav === 'page_editor'
-                    ? 'text-indigo-700 bg-indigo-50/80'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  activeNav === 'subjects'
+                    ? 'text-white'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <BookOpen className="w-4 h-4 shrink-0 text-indigo-600" />
+                <div className="flex items-center space-x-2.5">
+                  <BookOpen className="w-4 h-4 shrink-0 text-slate-400" />
                   <span>Darsliklar & Kontent</span>
                 </div>
                 <ChevronDown
@@ -1183,121 +1276,87 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               </button>
 
               {contentManagerOpen && (
-                <div className="pl-3 pr-1 pt-1 pb-1 space-y-0.5 ml-3 border-l border-indigo-100">
+                <div className="pt-1 pb-1 space-y-1">
                   <button
                     onClick={() => setActiveNav('add_book')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2.5 ${
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2.5 ${
                       activeNav === 'add_book'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
-                    <PlusCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>Kitob Qo‘shish</span>
+                    <PlusCircle className="w-4 h-4 shrink-0 text-slate-400" />
+                    <span>Kitob qo‘shish</span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('my_books')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
                       activeNav === 'my_books'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
                     <span className="flex items-center space-x-2.5">
-                      <Library className="w-3.5 h-3.5 shrink-0" />
-                      <span>Mening Kitoblarim</span>
+                      <Library className="w-4 h-4 shrink-0 text-slate-400" />
+                      <span>Mening kitoblarim</span>
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
                       {books.length}
                     </span>
                   </button>
 
                   <button
-                    onClick={() => setActiveNav('audio_video')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
-                      activeNav === 'audio_video'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                    onClick={() => setActiveNav('page_editor')}
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2.5 ${
+                      activeNav === 'page_editor'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
-                    <span className="flex items-center space-x-2.5">
-                      <Music className="w-3.5 h-3.5 shrink-0" />
-                      <span>Audio & Video</span>
-                    </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold">
-                      {mediaList.length}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveNav('manage_content')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
-                      activeNav === 'manage_content'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="flex items-center space-x-2.5">
-                      <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>Javoblar Kaliti</span>
-                    </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold">
-                      {answerMappings.length}
-                    </span>
+                    <Crosshair className="w-4 h-4 shrink-0 text-slate-300" />
+                    <span>Visual Hotspot Editor</span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('grades')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
                       activeNav === 'grades'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
                     <span className="flex items-center space-x-2.5">
-                      <GraduationCap className="w-3.5 h-3.5 shrink-0" />
-                      <span>Sinflar Boshqaruvi</span>
+                      <Layers className="w-4 h-4 shrink-0 text-slate-400" />
+                      <span>Sinflar boshqaruvi</span>
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
                       {activeGradesList.length}
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActiveNav('subjects')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
                       activeNav === 'subjects'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
                     <span className="flex items-center space-x-2.5">
-                      <Tag className="w-3.5 h-3.5 shrink-0" />
-                      <span>Fanlar Boshqaruvi</span>
+                      <Tag className="w-4 h-4 shrink-0 text-slate-400" />
+                      <span>Fanlar boshqaruvi</span>
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-bold">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
                       {subjectsList.length}
                     </span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveNav('page_editor')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2.5 ${
-                      activeNav === 'page_editor'
-                        ? 'text-indigo-700 bg-indigo-50 font-bold'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-                    }`}
-                  >
-                    <MapPin className="w-3.5 h-3.5 shrink-0" />
-                    <span>Visual Hotspot Editor</span>
                   </button>
                 </div>
               )}
             </div>
 
-            <p className="px-3 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              Obuna va Foydalanuvchilar
+            <p className="px-3.5 pt-4 pb-1 text-[11px] font-bold text-slate-400">
+              Obuna va foydalanuvchilar
             </p>
 
             {/* Nav: Users */}
@@ -1305,17 +1364,19 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('users')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'users'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <div className="flex items-center space-x-3">
-                <Users className={`w-4 h-4 shrink-0 ${activeNav === 'users' ? 'text-white' : 'text-emerald-600'}`} />
+              <div className="flex items-center space-x-2.5">
+                <Users className="w-4 h-4 shrink-0 text-slate-400" />
                 <span>O‘qituvchilar</span>
               </div>
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                  activeNav === 'users' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700'
+                className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                  activeNav === 'users'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 }`}
               >
                 {usersList.length}
@@ -1327,17 +1388,19 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('admins')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'admins'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <div className="flex items-center space-x-3">
-                <ShieldCheck className={`w-4 h-4 shrink-0 ${activeNav === 'admins' ? 'text-white' : 'text-violet-600'}`} />
+              <div className="flex items-center space-x-2.5">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-slate-400" />
                 <span>Adminlar</span>
               </div>
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                  activeNav === 'admins' ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-700'
+                className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                  activeNav === 'admins'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-blue-600/30 text-blue-300 border border-blue-500/30'
                 }`}
               >
                 {adminsList.length}
@@ -1349,22 +1412,24 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
               onClick={() => setActiveNav('subscriptions')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'subscriptions'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <div className="flex items-center space-x-3">
-                <Crown className={`w-4 h-4 shrink-0 ${activeNav === 'subscriptions' ? 'text-white' : 'text-amber-500'}`} />
+              <div className="flex items-center space-x-2.5">
+                <Crown className="w-4 h-4 shrink-0 text-slate-400" />
                 <span>Obunalar & To‘lovlar</span>
               </div>
               {pendingRequestsCount > 0 ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse">
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse">
                   {pendingRequestsCount} yangi
                 </span>
               ) : (
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                    activeNav === 'subscriptions' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                    activeNav === 'subscriptions'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                   }`}
                 >
                   {requestsList.length}
@@ -1375,78 +1440,64 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             {/* Nav: Pricing & Tariffs */}
             <button
               onClick={() => setActiveNav('pricing')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'pricing'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <CreditCard className={`w-4 h-4 shrink-0 ${activeNav === 'pricing' ? 'text-white' : 'text-indigo-600'}`} />
+              <CreditCard className="w-4 h-4 shrink-0 text-slate-400" />
               <span>Tariflar & Narxlar</span>
             </button>
 
-            <p className="px-3 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+            <p className="px-3.5 pt-4 pb-1 text-[11px] font-bold text-slate-400">
               Tizim
             </p>
 
             {/* Nav: Analytics */}
             <button
               onClick={() => setActiveNav('analytics')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'analytics'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <BarChart2 className={`w-4 h-4 shrink-0 ${activeNav === 'analytics' ? 'text-white' : 'text-indigo-500'}`} />
+              <BarChart2 className="w-4 h-4 shrink-0 text-slate-400" />
               <span>Statistika</span>
             </button>
 
             {/* Nav: System Logs */}
             <button
               onClick={() => setActiveNav('system_logs')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'system_logs'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <FileText className={`w-4 h-4 shrink-0 ${activeNav === 'system_logs' ? 'text-white' : 'text-slate-500'}`} />
+              <FileText className="w-4 h-4 shrink-0 text-slate-400" />
               <span>Audit Jurnali</span>
             </button>
 
             {/* Nav: Settings */}
             <button
               onClick={() => setActiveNav('settings')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 activeNav === 'settings'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               }`}
             >
-              <Settings className={`w-4 h-4 shrink-0 ${activeNav === 'settings' ? 'text-white' : 'text-slate-500'}`} />
+              <Settings className="w-4 h-4 shrink-0 text-slate-400" />
               <span>Sozlamalar</span>
             </button>
-
-            <div className="pt-2 border-t border-slate-100 mt-2">
-              <button
-                onClick={() => setActiveNav('mobile_sim')}
-                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeNav === 'mobile_sim'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
-                    : 'text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100'
-                }`}
-              >
-                <Smartphone className="w-4 h-4 shrink-0" />
-                <span>Mobil Ilova Preview</span>
-              </button>
-            </div>
           </div>
 
           {/* User Profile Footer Card */}
-          <div className="p-3.5 border-t border-slate-100 bg-slate-50/70">
-            <div className="flex items-center space-x-3 mb-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 flex items-center justify-center text-white font-black text-xs shadow-sm shrink-0">
+          <div className="p-3 mx-2.5 mb-3 rounded-2xl bg-[#131C31] border border-slate-800/80 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-[#4F46E5] flex items-center justify-center text-white font-black text-xs shadow-md shrink-0">
                 {(adminSession.name || 'SA')
                   .split(' ')
                   .map((w) => w[0])
@@ -1455,20 +1506,20 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   .toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-extrabold text-slate-900 leading-none truncate">
+                <p className="text-xs font-bold text-white leading-none truncate">
                   {adminSession.name}
                 </p>
-                <p className="text-[10px] text-indigo-600 font-medium truncate mt-1">
+                <p className="text-[10.5px] text-slate-400 font-medium truncate mt-1">
                   {adminSession.email}
                 </p>
               </div>
             </div>
             <button
               onClick={onLogout}
-              className="w-full py-1.5 rounded-xl bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 text-xs font-bold transition-all flex items-center justify-center space-x-2 border border-slate-200 hover:border-rose-200"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800/60 transition"
+              title="Tizimdan chiqish"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Tizimdan chiqish</span>
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -1643,20 +1694,18 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 </div>
 
                 <div
-                  onClick={() => setActiveNav('manage_content')}
+                  onClick={() => setActiveNav('page_editor')}
                   className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-amber-400 transition-all"
                 >
                   <div>
-                    <p className="text-xs font-bold text-slate-500">Media & Javoblar</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">
-                      {mediaList.length} / {answerMappings.length}
-                    </p>
+                    <p className="text-xs font-bold text-slate-500">Visual Hotspot Editor</p>
+                    <p className="text-base font-black text-slate-900 mt-1">Interaktiv Studio</p>
                     <span className="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md mt-2">
-                      Audio/Video va kalitlar
+                      Audio, video & javoblar
                     </span>
                   </div>
                   <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                    <Music className="w-6 h-6" />
+                    <MapPin className="w-6 h-6" />
                   </div>
                 </div>
 
@@ -2238,29 +2287,17 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                           <span>Muqova</span>
                         </button>
 
-                        {/* Audio/Video Button for this book */}
-                        <button
-                          onClick={() => {
-                            setSelectedMediaBookFilter(book.id);
-                            setActiveNav('audio_video');
-                          }}
-                          title="Ushbu darslikka tegishli audio/videolarni ko'rish"
-                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-all flex items-center space-x-1"
-                        >
-                          <Music className="w-3.5 h-3.5" />
-                          <span>Media ({mediaList.filter((m) => m.bookId === book.id).length})</span>
-                        </button>
-
-                        {/* Visual Editor */}
+                        {/* Visual Hotspot Editor Button */}
                         <button
                           onClick={() => {
                             setSelectedBookIdForEditor(book.id);
                             setActiveNav('page_editor');
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-all flex items-center space-x-1"
+                          title="Darslik sahifalari, audio va hotspotlarni tahrirlash"
+                          className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm"
                         >
                           <MapPin className="w-3.5 h-3.5" />
-                          <span>Visual Editor</span>
+                          <span>Hotspot Studio</span>
                         </button>
 
                         {/* View PDF */}
@@ -2322,712 +2359,30 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           )}
 
           {/* =================================================================== */}
-          {/* VIEW 4: AUDIO & VIDEO (Real MP3 & MP4 File Upload Center)           */}
+          {/* VIEW 4 & 5: Audio & Answers now in Visual Hotspot Editor            */}
           {/* =================================================================== */}
-          {activeNav === 'audio_video' && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Audio & Video Kutubxonasi</h2>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Darslik sahifalari uchun tinglash (listening) audiolari va video lavhalarni kompyuterdan yuklash va tinglash
-                  </p>
-                </div>
+          {(activeNav === "audio_video" || activeNav === "manage_content") && (
+            <div className="bg-white p-8 rounded-3xl border border-slate-200/80 shadow-sm text-center max-w-lg mx-auto space-y-4 my-12 animate-fadeIn">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                <MapPin className="w-7 h-7" />
               </div>
-
-              {/* 1. Real Audio/Video File Upload Dropzone Card */}
-              <div className="bg-white p-7 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                      <UploadCloud className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900">
-                        Kompyuterdan Yangi Audio yoki Video Faylni Yuklash
-                      </h3>
-                      <p className="text-[11px] text-slate-400">
-                        MP3, WAV, M4A audio treklari yoki MP4 video fayllarni bevosita ushbu oynaga tashlang
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                  {/* Dropzone Box */}
-                  <div className="lg:col-span-6">
-                    <div className="border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 rounded-2xl p-7 text-center cursor-pointer transition-all relative">
-                      <input
-                        type="file"
-                        accept="audio/*,video/*,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleSelectMediaFile(file);
-                        }}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center mb-2">
-                        {mediaFileType === 'VIDEO' ? <Video className="w-6 h-6" /> : <Music className="w-6 h-6" />}
-                      </div>
-                      <p className="text-xs font-bold text-slate-800">
-                        {selectedMediaFile
-                          ? selectedMediaFile.name
-                          : 'Audio (.mp3) yoki Video (.mp4) faylni tanlash uchun bosing'}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        {selectedMediaFile
-                          ? `Hajmi: ${(selectedMediaFile.size / (1024 * 1024)).toFixed(2)} MB • Turi: ${mediaFileType}`
-                          : 'Kompyuteringizdagi istalgan audio yoki video dars faylini yuklashingiz mumkin'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Form Details */}
-                  <div className="lg:col-span-6 space-y-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Media Nomi / Qo‘shiq nomi <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={mediaFileTitle}
-                        onChange={(e) => setMediaFileTitle(e.target.value)}
-                        placeholder="masalan: Track 01 - Unit 1: School Life"
-                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Qaysi darslikka tegishli?</label>
-                        <select
-                          value={mediaTargetBookId}
-                          onChange={(e) => setMediaTargetBookId(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                        >
-                          <option value="">Umumiy media kutubxona</option>
-                          {books.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.title} ({b.grade}-sinf)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Unit / Bo‘lim</label>
-                        <input
-                          type="text"
-                          value={mediaFileUnit}
-                          onChange={(e) => setMediaFileUnit(e.target.value)}
-                          placeholder="Unit 1"
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2">
-                      <span className="text-xs font-medium text-slate-500">
-                        Davomiyligi: <span className="font-mono font-bold text-slate-800">{mediaFileDuration} soniya</span>
-                      </span>
-
-                      <button
-                        type="button"
-                        disabled={isUploadingMedia || !selectedMediaFile}
-                        onClick={handleUploadRealMediaFile}
-                        className={`px-6 py-2.5 rounded-xl text-xs font-black shadow-md transition-all flex items-center space-x-1.5 ${
-                          selectedMediaFile
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 cursor-pointer'
-                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                        }`}
-                      >
-                        {isUploadingMedia ? (
-                          <>
-                            <RotateCcw className="w-3.5 h-3.5 animate-spin" />
-                            <span>Serverga yuklanmoqda...</span>
-                          </>
-                        ) : (
-                          <>
-                            <UploadCloud className="w-3.5 h-3.5" />
-                            <span>🚀 Faylni Yuklash va Saqlash</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Media Playlist & Audio Player Area */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setActiveMediaTab('ALL')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        activeMediaTab === 'ALL' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      Barchasi ({mediaList.length})
-                    </button>
-                    <button
-                      onClick={() => setActiveMediaTab('AUDIO')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        activeMediaTab === 'AUDIO' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      🎧 Audiolar ({mediaList.filter((m) => m.type === 'AUDIO').length})
-                    </button>
-                    <button
-                      onClick={() => setActiveMediaTab('VIDEO')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        activeMediaTab === 'VIDEO' ? 'bg-purple-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      🎬 Videolar ({mediaList.filter((m) => m.type === 'VIDEO').length})
-                    </button>
-                  </div>
-
-                  {/* Search Media */}
-                  <div className="relative w-64">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Mavzu yoki trek nomi..."
-                      value={mediaSearchQuery}
-                      onChange={(e) => setMediaSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Media Cards List */}
-                <div className="space-y-2.5">
-                  {filteredMedia.map((item) => {
-                    const isPlaying = playingAudioId === item.id;
-                    const book = books.find((b) => b.id === item.bookId);
-
-                    return (
-                      <div
-                        key={item.id}
-                        className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                          isPlaying
-                            ? 'bg-blue-50/80 border-blue-300 shadow-sm ring-1 ring-blue-300'
-                            : 'bg-white border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3.5 min-w-0">
-                          {/* Play/Pause Button for Audio */}
-                          {item.type === 'AUDIO' ? (
-                            <button
-                              onClick={() => handleTogglePlayAudio(item.url, item.id)}
-                              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer ${
-                                isPlaying
-                                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                                  : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                              }`}
-                            >
-                              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-                            </button>
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                              <Video className="w-5 h-5" />
-                            </div>
-                          )}
-
-                          <div className="min-w-0">
-                            <h4 className="text-xs font-extrabold text-slate-900 truncate">{item.title}</h4>
-                            <div className="flex items-center space-x-2 text-[10px] text-slate-400 font-medium mt-0.5">
-                              <span className="font-bold text-slate-600">{item.unitLabel || 'Unit 1'}</span>
-                              <span>•</span>
-                              <span>{item.filename || 'media.mp3'}</span>
-                              {book && (
-                                <>
-                                  <span>•</span>
-                                  <span className="text-blue-600 font-bold">{book.title}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Player / Scrubber / Actions */}
-                        <div className="flex items-center space-x-4 shrink-0">
-                          {isPlaying && (
-                            <div className="flex items-center space-x-2 text-xs font-mono font-bold text-blue-600">
-                              <span>
-                                {Math.floor(audioCurrentTime / 60)}:
-                                {String(Math.floor(audioCurrentTime % 60)).padStart(2, '0')}
-                              </span>
-                              <span>/</span>
-                              <span>
-                                {Math.floor(audioDuration / 60)}:
-                                {String(Math.floor(audioDuration % 60)).padStart(2, '0')}
-                              </span>
-                            </div>
-                          )}
-
-                          <span className="text-xs font-mono font-bold text-slate-500">
-                            {Math.floor((item.durationSeconds || 120) / 60)}:
-                            {String((item.durationSeconds || 120) % 60).padStart(2, '0')}
-                          </span>
-
-                          {/* Direct Listen / Download link */}
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-all"
-                            title="Faylni brauzerda ochish"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
-
-                          {/* Delete Media */}
-                          <button
-                            onClick={() => handleDeleteMedia(item.id)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all"
-                            title="Media faylni o‘chirish"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {filteredMedia.length === 0 && (
-                    <div className="p-12 text-center text-slate-400 space-y-2">
-                      <Music className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
-                      <p className="text-sm font-bold text-slate-600">Hozircha hech qanday media fayl yuklanmagan</p>
-                      <p className="text-xs text-slate-400">
-                        Yuqoridagi maydonga kompyuteringizdan audio yoki video faylni tanlang va yuklang.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <h3 className="text-lg font-black text-slate-900">
+                Audio, Video va Javoblar Visual Hotspot Editorga Birlashtirildi
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Barcha listening audiolari, videolar va javoblar kalitini to‘g‘ridan-to‘g‘ri darslik sahifasining o‘zida Visual Hotspot Editor orqali biriktirish va boshqarish mumkin.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveNav("page_editor")}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all inline-flex items-center space-x-2"
+              >
+                <span>Visual Hotspot Editorga O‘tish</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           )}
 
-          {/* =================================================================== */}
-          {/* VIEW 5: JAVOBLAR KALITI (Answer Key Mapping & Methodology)          */}
-          {/* =================================================================== */}
-          {activeNav === 'manage_content' && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                    Javoblar Kaliti va Metodika (Answer Keys)
-                  </h2>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    O‘qituvchi kitobidagi mashq yechimlarini o‘quvchi darsligining sahifalariga bog‘lash
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setIsCsvImportModalOpen(true)}
-                    className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center space-x-1"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                    <span>Excel / CSV Import</span>
-                  </button>
-                  <button
-                    onClick={() => setIsAddAnswerModalOpen(true)}
-                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 flex items-center space-x-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+ Yangi Javob Bog‘lash</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Mappings Table */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <div className="divide-y divide-slate-100">
-                  {answerMappings.map((mapping) => (
-                    <div
-                      key={mapping.id}
-                      className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/80 transition-colors"
-                    >
-                      <div className="flex items-center space-x-4">
-                        {mapping.imageUrl ? (
-                          <div
-                            onClick={() => setPreviewImageModalUrl(mapping.imageUrl)}
-                            className="relative group cursor-pointer shrink-0"
-                            title="Skrinshotni to‘liq hajmda ko‘rish"
-                          >
-                            <img
-                              src={mapping.imageUrl}
-                              alt="Screenshot preview"
-                              className="w-14 h-14 rounded-2xl object-cover border-2 border-amber-300 shadow-sm group-hover:scale-105 transition-transform"
-                            />
-                            <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Eye className="w-5 h-5 text-white" />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 font-black text-xs flex items-center justify-center shrink-0">
-                            {mapping.gradeId}-sinf
-                          </div>
-                        )}
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <h4 className="text-sm font-extrabold text-slate-900">
-                              {mapping.studentExerciseLabel || 'Mashq'}
-                            </h4>
-                            <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">
-                              O‘quvchi: {mapping.studentPageNumber}-bet
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold">
-                              O‘qituvchi: {mapping.teacherPageNumber}-bet
-                            </span>
-                            {mapping.imageUrl ? (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold flex items-center space-x-1">
-                                <Camera className="w-3 h-3" />
-                                <span>Skrinshotli</span>
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">
-                                Matnli
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-600 font-medium mt-1">
-                            <span className="font-bold text-slate-800">Kalit / Izoh:</span> {mapping.notes || mapping.solutionKey}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-3">
-                        {mapping.imageUrl && (
-                          <button
-                            onClick={() => setPreviewImageModalUrl(mapping.imageUrl)}
-                            className="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all flex items-center space-x-1"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Rasmni Ko‘rish</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteAnswerMapping(mapping.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all"
-                          title="Javobni o‘chirish"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {answerMappings.length === 0 && (
-                    <div className="p-12 text-center text-slate-400 space-y-3">
-                      <CheckCircle className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
-                      <p className="text-sm font-bold text-slate-600">Hozircha javoblar kaliti bog‘lanmagan</p>
-                      <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                        O‘qituvchi kitobidagi mashq yechimlarini o‘quvchi betiga bog‘lash uchun quyidagi tugmani bosing.
-                      </p>
-                      <button
-                        onClick={() => setIsAddAnswerModalOpen(true)}
-                        className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition-all"
-                      >
-                        + Birinchi Javobni Bog‘lash
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Add Answer Modal */}
-              {isAddAnswerModalOpen && (
-                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                  <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <h3 className="text-sm font-black text-slate-900">Yangi Javoblar Kalitini Bog‘lash</h3>
-                      <button
-                        onClick={() => setIsAddAnswerModalOpen(false)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-3.5">
-                      {/* Format Selector Pills */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                          Javoblar Shakli (Format)
-                        </label>
-                        <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl">
-                          <button
-                            type="button"
-                            onClick={() => setAnswerFormat('IMAGE')}
-                            className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
-                              answerFormat === 'IMAGE'
-                                ? 'bg-white text-indigo-700 shadow-sm'
-                                : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                          >
-                            📸 Skrinshot Rasm
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setAnswerFormat('TEXT')}
-                            className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
-                              answerFormat === 'TEXT'
-                                ? 'bg-white text-indigo-700 shadow-sm'
-                                : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                          >
-                            📝 Matnli Yechim
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setAnswerFormat('BOTH')}
-                            className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
-                              answerFormat === 'BOTH'
-                                ? 'bg-white text-indigo-700 shadow-sm'
-                                : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                          >
-                            ⚡ Ikkalasi ham
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Sinf</label>
-                          <select
-                            value={answerGrade}
-                            onChange={(e) => setAnswerGrade(Number(e.target.value))}
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                          >
-                            {activeGradesList.map((g) => (
-                              <option key={g.gradeNumber} value={g.gradeNumber}>
-                                {g.title || `${g.gradeNumber}-sinf`}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Fan</label>
-                          <select
-                            value={answerSubject}
-                            onChange={(e) => setAnswerSubject(e.target.value)}
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                          >
-                            {subjectsList.map((s) => (
-                              <option key={s.id || s.code} value={s.name}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">O‘quvchi beti</label>
-                          <input
-                            type="number"
-                            value={answerStudentPage}
-                            onChange={(e) => setAnswerStudentPage(Number(e.target.value))}
-                            placeholder="1"
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">O‘qituvchi kitobi beti</label>
-                          <input
-                            type="number"
-                            value={answerTeacherPage}
-                            onChange={(e) => setAnswerTeacherPage(Number(e.target.value))}
-                            placeholder="1"
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Mashq / Topshiriq Nomi <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={answerExercise}
-                          onChange={(e) => setAnswerExercise(e.target.value)}
-                          placeholder="masalan: Unit 1, Exercise 4 - Reading"
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                        />
-                      </div>
-
-                      {/* Screenshot Image Upload (If IMAGE or BOTH) */}
-                      {(answerFormat === 'IMAGE' || answerFormat === 'BOTH') && (
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                            <span className="flex items-center space-x-1.5">
-                              <Camera className="w-3.5 h-3.5 text-amber-600" />
-                              <span>Javoblar Skrinshot Fotosurati</span>
-                            </span>
-                            <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full">
-                              JPG, PNG, WebP
-                            </span>
-                          </label>
-                          <div className="border-2 border-dashed border-amber-200 hover:border-amber-400 bg-amber-50/30 rounded-2xl p-4 text-center cursor-pointer transition-all relative">
-                            <input
-                              type="file"
-                              accept="image/png,image/jpeg,image/webp,image/jpg"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  setAnswerScreenshotFile(file);
-                                  setAnswerScreenshotPreview(URL.createObjectURL(file));
-                                }
-                              }}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                            {answerScreenshotPreview ? (
-                              <div className="flex items-center justify-center space-x-3">
-                                <img
-                                  src={answerScreenshotPreview}
-                                  alt="Screenshot"
-                                  className="w-16 h-16 rounded-xl object-cover border-2 border-amber-400 shadow-sm"
-                                />
-                                <div className="text-left">
-                                  <p className="text-xs font-black text-slate-800">{answerScreenshotFile?.name}</p>
-                                  <p className="text-[10px] text-slate-500">
-                                    {((answerScreenshotFile?.size || 0) / 1024).toFixed(0)} KB • Skrinshot tanlandi
-                                  </p>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setAnswerScreenshotFile(null);
-                                      setAnswerScreenshotPreview(null);
-                                    }}
-                                    className="text-xs text-rose-600 font-bold hover:underline"
-                                  >
-                                    Bekor qilish
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="py-2">
-                                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 mx-auto flex items-center justify-center mb-1">
-                                  <Camera className="w-5 h-5" />
-                                </div>
-                                <p className="text-xs font-bold text-slate-800">
-                                  O‘qituvchi kitobi javoblar fotosuratini yuklang
-                                </p>
-                                <p className="text-[10px] text-slate-400 mt-0.5">
-                                  Telefon kamerasidan yoki skanerdan olingan skrinshot
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Text Solution (If TEXT or BOTH) */}
-                      {(answerFormat === 'TEXT' || answerFormat === 'BOTH') && (
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            To‘g‘ri Javoblar Kaliti (Matn ko‘rinishida)
-                          </label>
-                          <textarea
-                            rows={2}
-                            value={answerSolutionKey}
-                            onChange={(e) => setAnswerSolutionKey(e.target.value)}
-                            placeholder="masalan: 1. B, 2. C, 3. A, 4. D"
-                            className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50/50"
-                          />
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Metodik Tavsiya (Ixtiyoriy)
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={answerNotes}
-                          onChange={(e) => setAnswerNotes(e.target.value)}
-                          placeholder="O‘quvchilarga qoidani tushuntirish bo‘yicha ko‘rsatma..."
-                          className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-slate-50/50"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => setIsAddAnswerModalOpen(false)}
-                        className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                      >
-                        Bekor qilish
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isSavingAnswer}
-                        onClick={handleSaveNewAnswerMapping}
-                        className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 flex items-center space-x-1"
-                      >
-                        {isSavingAnswer ? <span>Saqlanmoqda...</span> : <span>💾 Saqlash</span>}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* CSV Import Modal */}
-              {isCsvImportModalOpen && (
-                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                  <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <h3 className="text-sm font-black text-slate-900">Excel / CSV orqali Ommaviy Yuklash</h3>
-                      <button
-                        onClick={() => setIsCsvImportModalOpen(false)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-3 text-xs">
-                      <p className="text-slate-500">
-                        Quyidagi formatda CSV matnini joylang (studentPage,teacherPage,studentExercise,solutionKey):
-                      </p>
-                      <textarea
-                        rows={6}
-                        value={csvImportContent}
-                        onChange={(e) => setCsvImportContent(e.target.value)}
-                        placeholder={`studentPage,teacherPage,studentExercise,solutionKey\n10,18,Unit 1 Ex 1,1. A 2. B 3. C\n11,19,Unit 1 Ex 2,1. True 2. False`}
-                        className="w-full font-mono text-xs p-3 rounded-xl border border-slate-200 bg-slate-50"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => setIsCsvImportModalOpen(false)}
-                        className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                      >
-                        Bekor qilish
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleImportCsv}
-                        className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md"
-                      >
-                        📥 CSV Yuklash
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* =================================================================== */}
           {/* VIEW 6: VISUAL HOTSPOT EDITOR                                       */}
@@ -3357,56 +2712,436 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           {/* =================================================================== */}
           {/* VIEW 9: USERS                                                       */}
           {/* =================================================================== */}
-          {activeNav === 'users' && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">O‘qituvchilar (Users)</h2>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Tizimda ro‘yxatdan o‘tgan pedagoglar va ularning qurilmalari (Android Keystore max 2 ta)
-                  </p>
-                </div>
-                <div className="text-xs font-bold text-slate-600 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200">
-                  Jami: {usersList.length} o‘qituvchi
-                </div>
-              </div>
+          {activeNav === 'users' && (() => {
+            const paidUsers = usersList.filter(
+              (u) =>
+                (Array.isArray(u.subscriptions) &&
+                  u.subscriptions.some(
+                    (s: any) => s.isActive && new Date(s.expiresAt).getTime() > Date.now(),
+                  )) ||
+                u.activeSubscriptionsCount > 0,
+            );
+            const unpaidUsers = usersList.filter(
+              (u) =>
+                !(
+                  (Array.isArray(u.subscriptions) &&
+                    u.subscriptions.some(
+                      (s: any) => s.isActive && new Date(s.expiresAt).getTime() > Date.now(),
+                    )) ||
+                  u.activeSubscriptionsCount > 0
+                ),
+            );
+            const blockedUsers = usersList.filter((u) => u.isBlocked);
 
-              <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden divide-y divide-slate-100">
-                {usersList.map((user, idx) => (
-                  <div key={user.id || idx} className="p-5 flex items-center justify-between hover:bg-slate-50">
-                    <div className="flex items-center space-x-3.5">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
-                        👩‍🏫
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">{user.fullName || user.email}</h4>
-                        <p className="text-[11px] text-slate-400">
-                          {user.email} • {user.phoneNumber || 'Tel biriktirilmagan'}
-                        </p>
-                      </div>
-                    </div>
+            const filteredUsers = usersList.filter((u) => {
+              const isPaid =
+                (Array.isArray(u.subscriptions) &&
+                  u.subscriptions.some(
+                    (s: any) => s.isActive && new Date(s.expiresAt).getTime() > Date.now(),
+                  )) ||
+                u.activeSubscriptionsCount > 0;
 
-                    <div className="flex items-center space-x-6 text-xs font-semibold">
-                      <span className="text-slate-500">📱 {user.devices?.length || 0} / 2 qurilma</span>
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold">
-                        {user.isActive ? 'Faol' : 'Nofaol'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              if (userTabFilter === 'PAID' && !isPaid) return false;
+              if (userTabFilter === 'UNPAID' && isPaid) return false;
+              if (userTabFilter === 'BLOCKED' && !u.isBlocked) return false;
 
-                {usersList.length === 0 && (
-                  <div className="p-12 text-center text-slate-400 space-y-2">
-                    <Users className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
-                    <p className="text-sm font-bold text-slate-600">Hozircha foydalanuvchilar yo‘q (Baza toza)</p>
-                    <p className="text-xs text-slate-400">
-                      O‘qituvchilar mobil ilovadan Gmail OTP orqali kirganlarida avtomatik ushbu ro‘yxatga qo‘shiladi
+              if (userSearchQuery.trim()) {
+                const q = userSearchQuery.toLowerCase();
+                const matchName = (u.fullName || '').toLowerCase().includes(q);
+                const matchEmail = (u.email || '').toLowerCase().includes(q);
+                const matchPhone = (u.phoneNumber || '').toLowerCase().includes(q);
+                return matchName || matchEmail || matchPhone;
+              }
+              return true;
+            });
+
+            return (
+              <div className="space-y-6 animate-fadeIn">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                      O‘qituvchilar va To‘lovlar Boshqaruvi
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Tizimdagi barcha o‘qituvchilar, ularning to‘lov qilingan faol obunalari va ulangan qurilmalari
                     </p>
                   </div>
-                )}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        loadUsers();
+                        showToast('O‘qituvchilar ro‘yxati yangilandi');
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold shadow-sm flex items-center space-x-1.5 transition-all"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Yangilash</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4 Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div
+                    onClick={() => setUserTabFilter('ALL')}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                      userTabFilter === 'ALL'
+                        ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-500/20'
+                        : 'bg-white border-slate-200/80 hover:border-slate-300'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-slate-500">Jami O‘qituvchilar</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">{usersList.length} ta</p>
+                    <span className="text-[10px] text-slate-400 font-semibold">Tizimda mavjud</span>
+                  </div>
+
+                  <div
+                    onClick={() => setUserTabFilter('PAID')}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                      userTabFilter === 'PAID'
+                        ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-500/20'
+                        : 'bg-white border-slate-200/80 hover:border-emerald-300'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-emerald-700">✓ To‘lov Qilganlar</p>
+                    <p className="text-2xl font-black text-emerald-900 mt-1">{paidUsers.length} ta</p>
+                    <span className="text-[10px] text-emerald-600 font-bold">Faol obunachilar</span>
+                  </div>
+
+                  <div
+                    onClick={() => setUserTabFilter('UNPAID')}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                      userTabFilter === 'UNPAID'
+                        ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-500/20'
+                        : 'bg-white border-slate-200/80 hover:border-amber-300'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-slate-500">Obunasizlar</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">{unpaidUsers.length} ta</p>
+                    <span className="text-[10px] text-slate-400 font-semibold">Obunasi tugagan/yo‘q</span>
+                  </div>
+
+                  <div
+                    onClick={() => setUserTabFilter('BLOCKED')}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                      userTabFilter === 'BLOCKED'
+                        ? 'bg-rose-50/80 border-rose-400 ring-2 ring-rose-500/20'
+                        : 'bg-white border-slate-200/80 hover:border-rose-300'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-rose-700">Bloklanganlar</p>
+                    <p className="text-2xl font-black text-rose-900 mt-1">{blockedUsers.length} ta</p>
+                    <span className="text-[10px] text-rose-600 font-semibold">Kirish to‘xtatilgan</span>
+                  </div>
+                </div>
+
+                {/* Filter Tabs & Search Bar */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setUserTabFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        userTabFilter === 'ALL'
+                          ? 'bg-slate-900 text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Barchasi ({usersList.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserTabFilter('PAID')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 ${
+                        userTabFilter === 'PAID'
+                          ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
+                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                      }`}
+                    >
+                      <span>✓ To‘lov qilganlar ({paidUsers.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserTabFilter('UNPAID')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        userTabFilter === 'UNPAID'
+                          ? 'bg-slate-900 text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Obunasizlar ({unpaidUsers.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserTabFilter('BLOCKED')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        userTabFilter === 'BLOCKED'
+                          ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
+                          : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                      }`}
+                    >
+                      Bloklanganlar ({blockedUsers.length})
+                    </button>
+                  </div>
+
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Ism, email yoki telefon bo‘yicha izlash..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      className="pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-64"
+                    />
+                  </div>
+                </div>
+
+                {/* Teachers List */}
+                <div className="space-y-3">
+                  {filteredUsers.map((user) => {
+                    const hasLiveSub =
+                      (Array.isArray(user.subscriptions) &&
+                        user.subscriptions.some(
+                          (s: any) => s.isActive && new Date(s.expiresAt).getTime() > Date.now(),
+                        )) ||
+                      user.activeSubscriptionsCount > 0;
+
+                    return (
+                      <div
+                        key={user.id}
+                        className={`bg-white rounded-3xl border p-5 shadow-sm transition-all space-y-4 ${
+                          hasLiveSub
+                            ? 'border-emerald-200/90 hover:border-emerald-400'
+                            : 'border-slate-200/80 hover:border-slate-300'
+                        }`}
+                      >
+                        {/* Top user row */}
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                          <div className="flex items-start space-x-3.5">
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0">
+                              {(user.fullName || user.email || 'O')
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="text-sm font-black text-slate-900">
+                                  {user.fullName || user.email}
+                                </h4>
+                                {hasLiveSub ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    ✓ TO‘LOV QILINGAN (FAOL OBUNA)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">
+                                    To‘lov qilinmagan
+                                  </span>
+                                )}
+                                {user.isBlocked && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700">
+                                    Bloklangan
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mt-1.5 font-medium">
+                                <span className="flex items-center space-x-1">
+                                  <span className="text-slate-400">Email:</span>
+                                  <strong className="text-slate-700">{user.email}</strong>
+                                </span>
+                                <span className="flex items-center space-x-1">
+                                  <span className="text-slate-400">Tel:</span>
+                                  {user.phoneNumber ? (
+                                    <strong className="text-indigo-700 font-mono">
+                                      {user.phoneNumber}
+                                    </strong>
+                                  ) : (
+                                    <span className="text-slate-400 italic">Kiritilmagan</span>
+                                  )}
+                                </span>
+                                <span className="flex items-center space-x-1">
+                                  <Smartphone className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>{user.devices?.length || 0} / 2 qurilma</span>
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Actions */}
+                          <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await api.toggleUserBlock(user.id, !user.isBlocked);
+                                  showToast(
+                                    user.isBlocked
+                                      ? 'Foydalanuvchi blokdan chiqarildi'
+                                      : 'Foydalanuvchi bloklandi',
+                                  );
+                                  loadUsers();
+                                } catch {
+                                  showToast('Holatni o‘zgartirib bo‘lmadi');
+                                }
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                                user.isBlocked
+                                  ? 'border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                                  : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              {user.isBlocked ? '🔓 Blokdan chiqarish' : '🔒 Bloklash'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setUserToDelete(user)}
+                              className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 text-xs font-bold transition-all flex items-center space-x-1"
+                              title="Foydalanuvchini bazadan butunlay o‘chirish"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Butunlay o‘chirish</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Active Subscriptions Box */}
+                        {Array.isArray(user.subscriptions) && user.subscriptions.length > 0 ? (
+                          <div className="mt-3 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-black text-slate-800 flex items-center space-x-1.5">
+                                <Crown className="w-4 h-4 text-amber-500" />
+                                <span>Obuna Tafsilotlari & Muddatlari:</span>
+                              </p>
+                              <span className="text-[10px] font-bold text-slate-500">
+                                {user.subscriptions.length} ta yozuv
+                              </span>
+                            </div>
+
+                            <div className="space-y-2">
+                              {user.subscriptions.map((sub: any) => {
+                                const isLive =
+                                  sub.isActive &&
+                                  new Date(sub.expiresAt).getTime() > Date.now();
+                                const daysLeft = Math.max(
+                                  0,
+                                  Math.ceil(
+                                    (new Date(sub.expiresAt).getTime() - Date.now()) /
+                                      (86400 * 1000),
+                                  ),
+                                );
+                                const planLabel =
+                                  sub.plan === 'MONTHLY'
+                                    ? '1 Oylik'
+                                    : sub.plan === 'THREE_MONTHS'
+                                    ? '3 Oylik'
+                                    : sub.plan === 'YEARLY'
+                                    ? '1 Yillik'
+                                    : sub.plan;
+
+                                return (
+                                  <div
+                                    key={sub.id}
+                                    className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                                      isLive
+                                        ? 'bg-white border-emerald-300 shadow-sm'
+                                        : 'bg-slate-100/70 border-slate-200 opacity-60'
+                                    }`}
+                                  >
+                                    <div className="space-y-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span
+                                          className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                            isLive
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : 'bg-slate-200 text-slate-600'
+                                          }`}
+                                        >
+                                          {isLive
+                                            ? `✓ Faol (${daysLeft} kun qoldi)`
+                                            : 'Bekor qilingan / Muddati o‘tgan'}
+                                        </span>
+                                        <span className="text-xs font-black text-slate-900">
+                                          📚 {sub.gradeId}-sinf
+                                          {sub.subjectId ? ` • ${sub.subjectId}` : ' • Barcha fanlar'}
+                                        </span>
+                                        <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                                          Tarif: {planLabel}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-slate-500 font-medium">
+                                        Boshlanish:{' '}
+                                        <strong className="text-slate-700">
+                                          {new Date(sub.startsAt).toLocaleDateString()}
+                                        </strong>{' '}
+                                        • Tugash:{' '}
+                                        <strong className="text-slate-700">
+                                          {new Date(sub.expiresAt).toLocaleDateString()}
+                                        </strong>
+                                      </p>
+                                    </div>
+
+                                    {isLive && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setSubToCancel({
+                                            user,
+                                            subId: sub.id,
+                                            subTitle: `${sub.gradeId}-sinf (${planLabel})`,
+                                          })
+                                        }
+                                        className="px-3 py-1.5 rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all flex items-center space-x-1 shrink-0 self-start sm:self-auto"
+                                        title="Ushbu obunani muddatidan oldin bekor qilish"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                        <span>Obunani bekor qilish</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-400 font-medium flex items-center justify-between">
+                            <span>💳 Bu o‘qituvchida hozircha to‘lov qilingan faol obuna yo‘q</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setManualTeacherName(user.fullName || user.email);
+                                setManualTeacherPhone(user.phoneNumber || '+998 ');
+                                setIsManualSubscriptionModalOpen(true);
+                              }}
+                              className="text-indigo-600 hover:text-indigo-800 font-bold text-xs"
+                            >
+                              + Obuna qo‘shish
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {filteredUsers.length === 0 && (
+                    <div className="p-12 text-center text-slate-400 bg-white rounded-3xl border border-slate-200/80 space-y-2">
+                      <Users className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
+                      <p className="text-sm font-bold text-slate-600">
+                        {userSearchQuery || userTabFilter !== 'ALL'
+                          ? 'Filtr bo‘yicha hech qanday o‘qituvchi topilmadi'
+                          : 'Hozircha foydalanuvchilar yo‘q (Baza toza)'}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        O‘qituvchilar mobil ilova yoki saytdan kirganlarida avtomatik ushbu ro‘yxatda ko‘rinadi
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* =================================================================== */}
           {/* VIEW: SINFLAR BOSHQARUVI (Dynamic Grades Management)                */}
@@ -4447,6 +4182,99 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     alt="Javoblar skrinshoti"
                     className="w-auto h-auto max-h-[75vh] max-w-full object-contain rounded-xl shadow"
                   />
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Delete User Confirmation Modal */}
+          {userToDelete && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
+                <div className="flex items-center space-x-3 text-rose-600">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-6 h-6 text-rose-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">O‘qituvchini Butunlay O‘chirish</h3>
+                    <p className="text-xs text-rose-600 font-bold">Qaytarib bo‘lmas amal</p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-100 text-xs text-slate-700 space-y-2">
+                  <p>
+                    Haqiqatan ham <strong className="text-slate-900">{userToDelete.fullName || userToDelete.email}</strong> hisobini ma’lumotlar bazasidan butunlay o‘chirib tashlamoqchimisiz?
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    • Foydalanuvchining barcha aktiv qurilmalari uziladi.<br />
+                    • To‘lov qilingan barcha litsenziyalari bekor qilinadi.<br />
+                    • Barcha darslik o‘qish tarixi tozalanadi.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setUserToDelete(null)}
+                    disabled={isDeletingUser}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteUser}
+                    disabled={isDeletingUser}
+                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/30 flex items-center space-x-1.5"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>{isDeletingUser ? "O‘chirilmoqda..." : "Ha, Butunlay O‘chirilsin"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cancel Subscription Confirmation Modal */}
+          {subToCancel && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
+                <div className="flex items-center space-x-3 text-amber-600">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0">
+                    <AlertCircle className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">Obunani Bekor Qilish</h3>
+                    <p className="text-xs text-amber-600 font-bold">{subToCancel.subTitle || "Faol litsenziya"}</p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-100 text-xs text-slate-700 space-y-2">
+                  <p>
+                    <strong className="text-slate-900">{subToCancel.user.fullName || subToCancel.user.email}</strong> o‘qituvchisining ushbu obunasini bekor qilishni tasdiqlaysizmi?
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Ushbu amal bajarilgach, o‘qituvchining mobil ilova va saytda ushbu sinf darsliklariga kirish ruxsati darhol to‘xtatiladi.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSubToCancel(null)}
+                    disabled={isCancellingSub}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Ortga
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelSubscription}
+                    disabled={isCancellingSub}
+                    className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/30 flex items-center space-x-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{isCancellingSub ? "Bekor qilinmoqda..." : "Tasdiqlash (Bekor qilish)"}</span>
+                  </button>
                 </div>
               </div>
             </div>

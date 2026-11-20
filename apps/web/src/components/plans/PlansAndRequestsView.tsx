@@ -41,7 +41,6 @@ export const PlansAndRequestsView: React.FC = () => {
 
   const [selectedGradeId, setSelectedGradeId] = useState<number>(5);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('sub_eng');
-  const [scopeType, setScopeType] = useState<'ALL_GRADE' | 'SINGLE_SUBJECT'>('ALL_GRADE');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>(SubscriptionPlan.THREE_MONTHS);
   const [phone, setPhone] = useState<string>(UZ_PHONE_PREFIX);
   const [note, setNote] = useState<string>('');
@@ -87,16 +86,15 @@ export const PlansAndRequestsView: React.FC = () => {
 
   // Fetch dynamic pricing when grade or subject changes
   useEffect(() => {
-    const subjectParam = scopeType === 'SINGLE_SUBJECT' ? selectedSubjectId : undefined;
     webApi
-      .getPricingPlans(selectedGradeId, subjectParam)
+      .getPricingPlans(selectedGradeId, selectedSubjectId)
       .then((plans) => {
         if (Array.isArray(plans) && plans.length > 0) {
           setPricingPlans(plans);
         }
       })
       .catch(() => {});
-  }, [selectedGradeId, selectedSubjectId, scopeType]);
+  }, [selectedGradeId, selectedSubjectId]);
 
   const activeSubject = subjects.find((s) => s.id === selectedSubjectId) || subjects[0];
 
@@ -111,10 +109,7 @@ export const PlansAndRequestsView: React.FC = () => {
       .replace(/^fizika$/, 'phys')
       .replace(/^ona tili$/, 'uzb');
 
-  const selectedSubKey =
-    scopeType === 'SINGLE_SUBJECT'
-      ? canonicalSubjectKey(activeSubject?.code || activeSubject?.id || selectedSubjectId)
-      : null;
+  const selectedSubKey = canonicalSubjectKey(activeSubject?.code || activeSubject?.id || selectedSubjectId);
 
   // Duplicate checks
   const duplicatePendingRequest = myRequests.find((r) => {
@@ -129,6 +124,8 @@ export const PlansAndRequestsView: React.FC = () => {
 
   const duplicateApprovedSub = mySubscriptions.find((s) => {
     if (Number(s.gradeId) !== Number(selectedGradeId)) return false;
+    if (s.isActive === false) return false;
+    if (new Date(s.expiresAt).getTime() <= Date.now()) return false;
     const subKey = canonicalSubjectKey(s.subjectId);
     return !selectedSubKey || !subKey || subKey === selectedSubKey;
   });
@@ -170,7 +167,7 @@ export const PlansAndRequestsView: React.FC = () => {
     e.preventDefault();
     if (duplicatePendingRequest || duplicateApprovedSub) {
       notify.warning(
-        'Ushbu sinf uchun faol yoki kutilayotgan so‘rov allaqachon mavjud.',
+        'Uşbu sinf uçun faol yoki kutilayotgan sörov allaqaçon mavjud.',
         t('common.warning'),
       );
       return;
@@ -185,7 +182,7 @@ export const PlansAndRequestsView: React.FC = () => {
     try {
       const created = await webApi.createAccessRequest({
         gradeId: selectedGradeId,
-        subjectId: scopeType === 'SINGLE_SUBJECT' && activeSubject?.id ? activeSubject.id : undefined,
+        subjectId: activeSubject?.id || selectedSubjectId,
         plan: selectedPlan,
         phoneNumber: phone.trim(),
       });
@@ -273,15 +270,15 @@ export const PlansAndRequestsView: React.FC = () => {
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-black text-sm">{formatGrade(sub.gradeId)}</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400 text-slate-900">
-                    Faol
+                    {strings.settings?.statusActive || 'Faol'}
                   </span>
                 </div>
                 <p className="text-xs opacity-90 truncate">
-                  {sub.subjectName ? formatSubject(sub.subjectName, sub.subjectId) : 'Barcha fanlar'}
+                  {sub.subjectName ? formatSubject(sub.subjectName, sub.subjectId) : t('common.allSubjects')}
                 </p>
                 {sub.expiresAt && (
                   <p className="text-[11px] opacity-75 mt-2">
-                    Amal qilish muddati: {formatDate(sub.expiresAt)}
+                    {strings.settings?.expiresDate || 'Amal qiliş muddati'}: {formatDate(sub.expiresAt)}
                   </p>
                 )}
               </div>
@@ -326,65 +323,39 @@ export const PlansAndRequestsView: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. Access Scope */}
+            {/* 2. Select Subject */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                2. {strings.requests.scopeLabel}
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setScopeType('ALL_GRADE')}
-                  className={`p-3.5 rounded-2xl border text-left transition-all ${
-                    scopeType === 'ALL_GRADE'
-                      ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 dark:border-[#2D3B5C] bg-slate-50 dark:bg-[#19233C] text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <p className="text-xs font-extrabold">{strings.requests.scopeAllGrade}</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    1–11-sinfning barcha darslik va metodikalariga to‘liq kirish
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setScopeType('SINGLE_SUBJECT')}
-                  className={`p-3.5 rounded-2xl border text-left transition-all ${
-                    scopeType === 'SINGLE_SUBJECT'
-                      ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/20'
-                      : 'border-slate-200 dark:border-[#2D3B5C] bg-slate-50 dark:bg-[#19233C] text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <p className="text-xs font-extrabold">{strings.requests.scopeSingleSubject}</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Faqat o‘zingiz dars beradigan muayyan bitta fan uchun
-                  </p>
-                </button>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  2. {strings.requests.selectSubject || 'Fanni tanlang'}
+                </label>
+                <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-extrabold bg-indigo-50 dark:bg-indigo-950/70 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60">
+                  {strings.requests.singleSubjectOnly || 'Faqat bitta tanlangan fan uçun'}
+                </span>
               </div>
-
-              {scopeType === 'SINGLE_SUBJECT' && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none pt-1">
-                  {subjects.map((sub) => {
-                    const active = selectedSubjectId === sub.id;
-                    return (
-                      <button
-                        key={sub.id}
-                        type="button"
-                        onClick={() => setSelectedSubjectId(sub.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${
-                          active
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-slate-50 dark:bg-[#19233C] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#2D3B5C]'
-                        }`}
-                      >
-                        <span>{sub.icon || '📘'}</span>
-                        <span>{formatSubject(sub.name, sub.id)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none pt-1">
+                {subjects.map((sub) => {
+                  const active = selectedSubjectId === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setSelectedSubjectId(sub.id)}
+                      className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all border shrink-0 flex items-center gap-2 ${
+                        active
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20 scale-[1.02]'
+                          : 'bg-slate-50 dark:bg-[#19233C] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#2D3B5C] hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className="text-sm">{sub.icon || '📘'}</span>
+                      <span>{formatSubject(sub.name, sub.id)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                {strings.requests.subjectNotice || 'Har bir fan uçun alohida obuna amal qiladi.'} {strings.requests.selectedSubjectPrompt || 'Siz tanlagan fan:'} <strong className="text-slate-900 dark:text-white">{formatGrade(selectedGradeId)} • {formatSubject(activeSubject?.name, activeSubject?.id)}</strong>
+              </p>
             </div>
 
             {/* 3. Duration Plans (3 Cards) */}
@@ -467,7 +438,7 @@ export const PlansAndRequestsView: React.FC = () => {
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  To‘lovni tasdiqlash uchun amaldagi O‘zbekiston telefon raqamingiz
+                  {strings.requests.phoneHint || 'Tölovni tasdiqlaş uçun amaldagi Özbekiston telefon raqamingiz'}
                 </p>
               </div>
 
@@ -483,7 +454,7 @@ export const PlansAndRequestsView: React.FC = () => {
                   className="w-full h-11 px-3.5 text-sm rounded-xl bg-slate-50 dark:bg-[#19233C] border border-slate-200 dark:border-[#2D3B5C] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all placeholder:text-slate-400"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Ixtiyoriy: to‘lov cheki yoki qo‘shimcha izoh
+                  {strings.requests.noteHint || 'Ixtiyoriy: tölov çeki yoki qöşimça izoh'}
                 </p>
               </div>
             </div>
@@ -495,11 +466,11 @@ export const PlansAndRequestsView: React.FC = () => {
                 <div>
                   <p className="font-bold">
                     {duplicateApprovedSub
-                      ? 'Sizda ushbu sinf uchun faol obuna mavjud!'
-                      : 'Ushbu sinf uchun tasdiqlanishi kutilayotgan so‘rov yuborilgan.'}
+                      ? (strings.requests.activeSubscriptionNotice || 'Sizda uşbu fan uçun faol obuna mavjud!')
+                      : (strings.requests.pendingRequestNotice || 'Uşbu fan uçun tasdiqlanişi kutilayotgan sörov yuborilgan.')}
                   </p>
                   <p className="mt-0.5 opacity-90">
-                    Takroriy so‘rov yuborish talab etilmaydi. Administrator to‘lovni tasdiqlashi bilan kitoblaringiz ochiladi.
+                    {strings.requests.noDuplicateNeeded || 'Takroriy sörov yuboriş talab etilmaydi. Administrator tölovni tasdiqlaşi bilan kitoblaringiz oçiladi.'}
                   </p>
                 </div>
               </div>
@@ -508,7 +479,7 @@ export const PlansAndRequestsView: React.FC = () => {
             {/* Submit Button */}
             <div className="pt-2 flex items-center justify-between gap-4">
               <div className="text-xs">
-                <span className="text-slate-400">Jami narx: </span>
+                <span className="text-slate-400">{strings.common?.totalPrice || 'Jami narx'}: </span>
                 <span className="font-black text-lg text-slate-900 dark:text-white">
                   {formatPriceUzs(activePlanObj.priceUzs)} {t('common.currencySom')}
                 </span>
@@ -545,7 +516,7 @@ export const PlansAndRequestsView: React.FC = () => {
 
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                Savollaringiz bormi yoki tezkor tasdiqlash kerakmi?
+                {strings.requests.helpTitle || 'Savollaringiz bormi yoki tezkor tasdiqlaş kerakmi?'}
               </p>
               <a
                 href="https://t.me/ilmchi_support"
@@ -569,7 +540,7 @@ export const PlansAndRequestsView: React.FC = () => {
             <span>{strings.requests.historyTitle}</span>
           </h3>
           <span className="text-xs font-bold text-slate-400">
-            {myRequests.length} ta so‘rov
+            {t('requests.requestsCount', { count: myRequests.length }) || `${myRequests.length} ta sörov`}
           </span>
         </div>
 

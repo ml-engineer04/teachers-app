@@ -83,10 +83,10 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
               ? 'bg-rose-600 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
           }`}
-          title="O‘chirg‘ich"
+          title="Öçirğiç"
         >
           <Eraser className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">O‘chirg‘ich</span>
+          <span className="hidden sm:inline">Öçirğiç</span>
         </button>
       </div>
 
@@ -137,7 +137,7 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
           type="button"
           onClick={onUndo}
           className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          title="Bekor qilish (Undo)"
+          title="Bekor qiliş (Undo)"
         >
           <RotateCcw className="w-4 h-4" />
         </button>
@@ -146,7 +146,7 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
           type="button"
           onClick={onClear}
           className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-          title="Sahifani tozalash"
+          title="Sahifani tozalaş"
         >
           <Trash2 className="w-4 h-4" />
         </button>

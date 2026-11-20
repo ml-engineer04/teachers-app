@@ -402,6 +402,14 @@ export const webApi = {
     }));
   },
 
+  async getBookById(bookId: string): Promise<Book> {
+    const book = await request<Book>(`/content/books/${bookId}`);
+    return {
+      ...book,
+      coverImageUrl: resolveAssetUrl(book?.coverImageUrl),
+    };
+  },
+
   async getBookPages(bookId: string): Promise<any[]> {
     const pages = await request<any[]>(`/content/books/${bookId}/pages`);
     return (pages || []).map((p) => ({

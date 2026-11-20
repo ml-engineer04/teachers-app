@@ -19,19 +19,19 @@ export interface WebDrawStroke {
 
 export const HIGHLIGHTER_COLORS = [
   { id: 'yellow', hex: '#FDE047', label: 'Sariq' },
-  { id: 'green', hex: '#4ADE80', label: 'Yashil' },
+  { id: 'green', hex: '#4ADE80', label: 'Yaşil' },
   { id: 'blue', hex: '#38BDF8', label: 'Moviy' },
-  { id: 'pink', hex: '#F472B6', label: 'Pushti' },
+  { id: 'pink', hex: '#F472B6', label: 'Puşti' },
   { id: 'orange', hex: '#FB923C', label: 'Apelsin' },
 ];
 
 export const PEN_COLORS = [
   { id: 'indigo', hex: '#4F46E5', label: 'Indigo' },
   { id: 'red', hex: '#EF4444', label: 'Qizil' },
-  { id: 'emerald', hex: '#10B981', label: 'Yashil' },
+  { id: 'emerald', hex: '#10B981', label: 'Yaşil' },
   { id: 'amber', hex: '#F59E0B', label: 'Sariq' },
   { id: 'slate', hex: '#0F172A', label: 'Qora' },
-  { id: 'purple', hex: '#9333EA', label: 'Binafsha' },
+  { id: 'purple', hex: '#9333EA', label: 'Binafşa' },
 ];
 
 export function getStrokeWidth(tool: 'PEN' | 'HIGHLIGHTER', size: DrawStrokeSize): number {

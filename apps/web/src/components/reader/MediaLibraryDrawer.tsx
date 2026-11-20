@@ -63,7 +63,7 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
     if (!pdfPage) return null;
     const info = pdfPageToBookDisplay(pdfPage, totalPages, contentStartPdfPage);
     if (info.isFrontMatter) {
-      return `${strings.common?.introShort || 'Kirish'} ${info.frontMatterIndex}`;
+      return `${strings.common?.introShort || 'Kiriş'} ${info.frontMatterIndex}`;
     }
     return `${info.bookPage ?? pdfPage}-${strings.common?.pageShort || 'bet'}`;
   };
@@ -90,7 +90,7 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
         <button
           onClick={onClose}
           className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-          title="Yopish"
+          title="Yopiş"
         >
           <X className="h-5 w-5" />
         </button>
@@ -106,7 +106,7 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          Barchasi ({mediaItems.length})
+          Barçasi ({mediaItems.length})
         </button>
         <button
           onClick={() => setFilter('AUDIO')}
@@ -143,7 +143,7 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
               Fayllar topilmadi
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-              Ushbu darslikka biriktirilgan audio yoki video materiallar mavjud emas.
+              Uşbu darslikka biriktirilgan audio yoki video materiallar mavjud emas.
             </p>
           </div>
         ) : (
@@ -197,7 +197,7 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
                       ? 'bg-purple-600 hover:bg-purple-700'
                       : 'bg-rose-600 hover:bg-rose-700'
                   }`}
-                  title={isAudio ? 'Audioni eshitish' : "Videoni ko'rish"}
+                  title={isAudio ? 'Audioni eşitiş' : "Videoni köriş"}
                 >
                   <Play className="h-4 w-4 fill-current ml-0.5" />
                 </button>

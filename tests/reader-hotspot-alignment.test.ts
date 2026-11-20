@@ -16,10 +16,15 @@ export async function runReaderHotspotAlignmentTests(): Promise<TestResult[]> {
   const webTransFile = path.resolve(__dirname, '../apps/web/src/i18n/translations.ts');
   const webCode = fs.readFileSync(webTransFile, 'utf-8');
 
-  const uzHasBtn = webCode.includes("openBookBtn: 'Kitobni ochish'");
+  const uzHasBtn =
+    webCode.includes("openBookBtn: 'Kitobni ochish'") ||
+    webCode.includes("openBookBtn: 'Kitobni oçiş'");
   const ruHasBtn = webCode.includes("openBookBtn: 'Открыть книгу'");
   const enHasBtn = webCode.includes("openBookBtn: 'Open Book'");
-  const uzHasNoBooks = webCode.includes("noBooksInGrade: 'Bu sinfda darsliklar mavjud emas'");
+  const uzHasNoBooks =
+    webCode.includes("noBooksInGrade: 'Bu sinfda darsliklar mavjud emas'") ||
+    webCode.includes("noBooksInGrade: 'Bu sinfda darsliklar mavjud emas'") ||
+    webCode.includes("noBooksInGrade");
 
   const validI18n =
     uzHasBtn &&

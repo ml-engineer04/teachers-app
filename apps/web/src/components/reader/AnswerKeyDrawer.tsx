@@ -46,7 +46,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                   {t('reader.answerKeysTitle')}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  {currentPage}-bet uchun tekshiruv javoblari
+                  {currentPage}-bet uçun tekşiruv javoblari
                 </p>
               </div>
             </div>
@@ -65,7 +65,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
             {answers.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-400 dark:text-slate-500">
                 <HelpCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <span>Ushbu sahifa uchun alohida javoblar kiritilmagan</span>
+                <span>Uşbu sahifa uçun alohida javoblar kiritilmagan</span>
               </div>
             ) : (
               answers.map((item, idx) => (
@@ -75,7 +75,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-xs text-indigo-600 dark:text-indigo-400 uppercase">
-                      {item.studentExerciseLabel || `Mashq #${idx + 1}`}
+                      {item.studentExerciseLabel || `Maşq #${idx + 1}`}
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
                       Kalit

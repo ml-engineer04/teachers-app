@@ -71,13 +71,13 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
       }
 
       notify.success(
-        'Eski qurilma muvaffaqiyatli uzildi. Endi joriy qurilmadan kirishingiz mumkin!',
+        'Eski qurilma muvaffaqiyatli uzildi. Endi joriy qurilmadan kirişingiz mumkin!',
         t('common.success'),
       );
       onDeviceEvicted(targetDeviceId);
     } catch (err: any) {
       notify.error(
-        err?.message || 'Qurilmani uzishda xatolik yuz berdi.',
+        err?.message || 'Qurilmani uzişda xatolik yuz berdi.',
         t('common.error'),
       );
     } finally {
@@ -183,7 +183,7 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
                         ) : (
                           <CheckCircle2 className="w-3.5 h-3.5" />
                         )}
-                        <span>{isBusy ? 'O‘chirilmoqda...' : 'Tasdiqlash'}</span>
+                        <span>{isBusy ? 'Öçirilmoqda...' : 'Tasdiqlaş'}</span>
                       </button>
                     </div>
                   )}
@@ -196,7 +196,7 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
         {/* Footer info */}
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Biror qurilmani uzsangiz, yangi joy darhol ochiladi.
+            Biror qurilmani uzsangiz, yangi joy darhol oçiladi.
           </span>
           <button
             type="button"

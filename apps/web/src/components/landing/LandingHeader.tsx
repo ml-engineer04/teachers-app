@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import {
-  BookOpen,
   Sun,
   Moon,
   Menu,
   X,
   LogIn,
-  UserPlus,
+  ChevronDown,
 } from 'lucide-react';
 import { useTheme } from '../../theme/ThemeContext';
 import { useI18n } from '../../i18n/I18nContext';
@@ -15,22 +14,15 @@ import { BrandLogo } from '../common/BrandLogo';
 
 interface LandingHeaderProps {
   onOpenLogin: () => void;
-  onOpenRegister: () => void;
+  onOpenRegister?: () => void;
 }
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   onOpenLogin,
-  onOpenRegister,
 }) => {
   const { themeMode, isDark, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const languages: Array<{ code: WebLanguage; label: string; flag: string }> = [
-    { code: 'uz', label: 'O‘zbekcha', flag: '🇺🇿' },
-    { code: 'ru', label: 'Русский', flag: '🇷🇺' },
-    { code: 'en', label: 'English', flag: '🇬🇧' },
-  ];
 
   const scrollToSection = (id: string) => {
     setMobileMenuOpen(false);
@@ -41,199 +33,185 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-white/85 dark:bg-[#090D18]/90 border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+    <header className="sticky top-2.5 sm:top-3 z-40 w-full px-3 sm:px-6 max-w-7xl mx-auto transition-all duration-200">
+      <div className="h-14 sm:h-16 px-3.5 sm:px-5 flex items-center justify-between rounded-2xl bg-white/90 dark:bg-[#0c1222]/90 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-lg shadow-slate-900/5 dark:shadow-black/40 transition-all">
         {/* Brand / Logo */}
         <a
           href="#"
-          className="flex items-center gap-3 group focus:outline-none"
+          className="flex items-center gap-2.5 group focus:outline-none"
           onClick={(e) => {
             e.preventDefault();
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         >
-          <BrandLogo size={36} />
-          <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-            Web
+          <BrandLogo size={30} />
+          <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            Demo
           </span>
         </a>
 
         {/* Desktop Nav Links */}
-        <nav className="hidden lg:flex items-center gap-8">
+        <nav className="hidden lg:flex items-center gap-6">
           <button
             type="button"
             onClick={() => scrollToSection('features')}
-            className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           >
             {t('landing.navFeatures')}
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('grades')}
-            className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           >
             {t('landing.navGrades')}
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('workflow')}
-            className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           >
             {t('landing.navWorkflow')}
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('pricing')}
-            className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           >
             {t('landing.navPricing')}
           </button>
         </nav>
 
         {/* Desktop Right Controls & Auth Actions */}
-        <div className="hidden sm:flex items-center gap-3">
+        <div className="hidden sm:flex items-center gap-2.5">
           {/* Language Selector */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60">
-            {languages.map((item) => (
-              <button
-                key={item.code}
-                type="button"
-                onClick={() => setLanguage(item.code)}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                  language === item.code
-                    ? 'bg-white dark:bg-[#121A2D] text-indigo-600 dark:text-indigo-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-                title={item.label}
-              >
-                <span className="mr-1">{item.flag}</span>
-                <span className="uppercase">{item.code}</span>
-              </button>
-            ))}
+          <div className="relative inline-flex items-center">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as WebLanguage)}
+              className="appearance-none bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-800 dark:text-slate-200 text-xs font-bold pl-2.5 pr-7 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/70 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer transition-all"
+              aria-label="Tilni tanlaş"
+            >
+              <option value="uz" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                🇺🇿 Özbekça
+              </option>
+              <option value="ru" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                🇷🇺 Русский
+              </option>
+              <option value="en" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                🇬🇧 English
+              </option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 absolute right-2 text-slate-500 pointer-events-none" />
           </div>
 
           {/* Theme Toggle */}
           <button
             type="button"
             onClick={toggleTheme}
-            className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/60 transition-colors"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/60 transition-colors"
             aria-label="Toggle dark/light mode"
             title={themeMode === 'dark' ? 'Light mode' : 'Dark mode'}
           >
-            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+            {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
           </button>
 
-          <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 mx-0.5" />
 
           {/* Login Button */}
           <button
             type="button"
             onClick={onOpenLogin}
-            className="px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1.5"
+            className="px-4 py-1.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-indigo-600/25 active:scale-95 transition-all flex items-center gap-1.5"
           >
-            <LogIn className="w-4 h-4" />
+            <LogIn className="w-3.5 h-3.5" />
             <span>{t('auth.loginTab')}</span>
-          </button>
-
-          {/* Register Button */}
-          <button
-            type="button"
-            onClick={onOpenRegister}
-            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-sm shadow-glow active:scale-95 transition-all flex items-center gap-2"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>{t('auth.registerTab')}</span>
           </button>
         </div>
 
         {/* Mobile Hamburger Button */}
-        <div className="flex sm:hidden items-center gap-2">
+        <div className="flex sm:hidden items-center gap-1.5">
+          {/* Mobile Language Selector */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as WebLanguage)}
+              className="appearance-none bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[11px] font-bold pl-2 pr-5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
+              aria-label="Tilni tanlaş"
+            >
+              <option value="uz" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                🇺🇿 UZ
+              </option>
+              <option value="ru" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                🇷🇺 RU
+              </option>
+              <option value="en" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                🇬🇧 EN
+              </option>
+            </select>
+            <ChevronDown className="w-3 h-3 absolute right-1 text-slate-500 pointer-events-none" />
+          </div>
+
           <button
             type="button"
             onClick={toggleTheme}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+            className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
           >
-            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+            {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
           </button>
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+            className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
             aria-label="Open navigation menu"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="sm:hidden border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#090D18]/95 px-4 pt-3 pb-6 flex flex-col gap-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <span className="text-xs font-bold text-slate-500 uppercase">{t('landing.navFeatures')}</span>
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
-              {languages.map((item) => (
-                <button
-                  key={item.code}
-                  type="button"
-                  onClick={() => setLanguage(item.code)}
-                  className={`px-2 py-1 text-xs font-bold rounded-md ${
-                    language === item.code ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  {item.code.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="sm:hidden mt-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#090D18]/95 backdrop-blur-xl p-3.5 shadow-xl flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
           <button
             type="button"
             onClick={() => scrollToSection('features')}
-            className="text-left py-2 font-semibold text-slate-700 dark:text-slate-200"
+            className="text-left py-1.5 font-semibold text-xs text-slate-700 dark:text-slate-200 hover:text-indigo-600"
           >
             {t('landing.navFeatures')}
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('grades')}
-            className="text-left py-2 font-semibold text-slate-700 dark:text-slate-200"
+            className="text-left py-1.5 font-semibold text-xs text-slate-700 dark:text-slate-200 hover:text-indigo-600"
           >
             {t('landing.navGrades')}
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('workflow')}
-            className="text-left py-2 font-semibold text-slate-700 dark:text-slate-200"
+            className="text-left py-1.5 font-semibold text-xs text-slate-700 dark:text-slate-200 hover:text-indigo-600"
           >
             {t('landing.navWorkflow')}
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('pricing')}
-            className="text-left py-2 font-semibold text-slate-700 dark:text-slate-200"
+            className="text-left py-1.5 font-semibold text-xs text-slate-700 dark:text-slate-200 hover:text-indigo-600"
           >
             {t('landing.navPricing')}
           </button>
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
                 onOpenLogin();
               }}
-              className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-sm text-slate-700 dark:text-slate-200 text-center"
+              className="w-full py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs text-center shadow-md flex items-center justify-center gap-2"
             >
-              {t('auth.loginTab')}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenRegister();
-              }}
-              className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm text-center shadow-md"
-            >
-              {t('auth.registerTab')}
+              <LogIn className="w-3.5 h-3.5" />
+              <span>{t('auth.loginTab')}</span>
             </button>
           </div>
         </div>

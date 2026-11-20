@@ -48,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand & Workspace Logo */}
       <div>
         <div className="px-2 mb-8">
-          <BrandLogo size={34} subtitle="O‘QITUVCHI KABINETI" />
+          <BrandLogo size={34} subtitle={t('dashboard.cabinetSubtitle')} />
         </div>
 
         {/* Navigation Links */}
@@ -86,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black text-slate-900 dark:text-white truncate">
-              {user?.fullName || 'O‘qituvchi'}
+              {user?.fullName || t('common.userFallback')}
             </p>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
               {user?.email || 'teacher@ilmchi.uz'}

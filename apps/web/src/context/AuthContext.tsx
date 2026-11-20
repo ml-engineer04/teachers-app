@@ -60,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setIsAuthenticated(false);
       notify.warning(
-        'Xavfsizlik maqsadida tizimdan chiqildi. Iltimos, qayta kiring.',
+        'Xavfsizlik maqsadida tizimdan çiqildi. Iltimos, qayta kiring.',
         'Sessiya muddati tugadi',
       );
     });
@@ -95,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setUser(null);
       setIsAuthenticated(false);
-      notify.info('Hisobdan muvaffaqiyatli chiqildi.', t('common.appName'));
+      notify.info('Hisobdan muvaffaqiyatli çiqildi.', t('common.appName'));
     }
   };
 
@@ -107,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setUser(null);
       setIsAuthenticated(false);
-      notify.info('Barcha qurilmalardan muvaffaqiyatli chiqildi.', t('common.appName'));
+      notify.info('Barça qurilmalardan muvaffaqiyatli çiqildi.', t('common.appName'));
     }
   };
 
