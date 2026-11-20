@@ -80,6 +80,13 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           >
             {t('landing.navPricing')}
           </button>
+          <button
+            type="button"
+            onClick={() => scrollToSection('faq')}
+            className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          >
+            Savollar
+          </button>
         </nav>
 
         {/* Desktop Right Controls & Auth Actions */}
@@ -200,6 +207,13 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             className="text-left py-1.5 font-semibold text-xs text-slate-700 dark:text-slate-200 hover:text-indigo-600"
           >
             {t('landing.navPricing')}
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollToSection('faq')}
+            className="text-left py-1.5 font-semibold text-xs text-slate-700 dark:text-slate-200 hover:text-indigo-600"
+          >
+            Savollar
           </button>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
             <button

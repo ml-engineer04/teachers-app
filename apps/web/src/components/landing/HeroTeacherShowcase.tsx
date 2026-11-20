@@ -12,13 +12,14 @@ export const HeroTeacherShowcase: React.FC = () => {
       <div className="relative w-full flex items-center justify-center">
         <img
           src="/assets/hero-teacher.png"
-          alt="ilmçi — Interaktiv darsliklar"
+          alt="ilmçi — Maktab o‘qituvchilari uchun interaktiv raqamli darsliklar va SmartBoard ta'lim platformasi"
           className="w-full h-auto max-h-[500px] object-contain"
           style={{
             maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
             WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
           }}
           loading="eager"
+          {...({ fetchpriority: 'high' } as any)}
         />
       </div>
     </div>

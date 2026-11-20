@@ -1,6 +1,14 @@
+# ==============================================================================
+# ilmçi (ilmchi.uz) — Robots.txt for Search Engines
+# ==============================================================================
+
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /admin/
 Disallow: /api/
+Disallow: /reader/
+Disallow: /dashboard
 
+# Sitemaps
 Sitemap: https://ilmchi.uz/sitemap.xml

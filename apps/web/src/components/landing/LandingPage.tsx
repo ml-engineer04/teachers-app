@@ -4,10 +4,12 @@ import {
   ArrowRight,
   BookOpen,
   Check,
+  ChevronDown,
   ChevronRight,
   Cloud,
   Globe2,
   GraduationCap,
+  HelpCircle,
   KeyRound,
   Layers,
   Lock,
@@ -46,6 +48,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
   const [pricingGrade, setPricingGrade] = useState<number>(5);
   const [pricingPlans, setPricingPlans] = useState<any[]>([]);
   const [loadingPricing, setLoadingPricing] = useState<boolean>(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
+  const faqItems = useMemo(
+    () => [
+      {
+        q: 'ilmçi nima va u o‘qituvchiga darsda qanday yordam beradi?',
+        a: 'ilmçi — bu umumta‘lim maktablari o‘qituvchilari uchun maxsus yaratilgan raqamli ta‘lim platformasi. Unda 1–11-sinf darsliklari to‘liq interaktiv formatda taqdim etiladi. O‘qituvchi darslik ichidagi audio va video belgilarni bosib eshitishi, mashq javoblari kalitini ochishi va SmartBoard elektron doskasida rangli markerlar orqali chizib, qoidalarni tushuntirishi mumkin.',
+      },
+      {
+        q: 'Bitta hisob (akkaunt) orqali nechta qurilmada kirish mumkin?',
+        a: 'Bitta faol obuna bilan bir vaqtning o‘zida 2 tagacha qurilmada (masalan, sinfdagi SmartBoard/noutbuk hamda uydagi shaxsiy telefon yoki planshet) tizimga kirib foydalanish mumkin.',
+      },
+      {
+        q: 'Internet bo‘lmaganda platformadan foydalanish mumkinmi (Offline)?',
+        a: 'Ha, darsliklar va multimedia fayllari qurilmaga oldindan yuklab olinsa, ulardan internet aloqasi bo‘lmagan joylarda ham to‘liq offline rejimda foydalanish mumkin.',
+      },
+      {
+        q: 'SmartBoard Marker studiyasi qanday ishlaydi?',
+        a: 'Marker studiyasi sichqoncha, stilus yoki sensorli ekran orqali kitob sahifalari ustiga erkin yozish, qoidalarni rangli ajratish va formulalarni chizish imkonini beradi. Barcha yozuvlar avtomatik saqlanadi.',
+      },
+      {
+        q: 'Obuna narxlari qanday va qanday to‘lov qilinadi?',
+        a: 'Platformada 1 oylik (79 000 so‘m), 3 oylik (199 000 so‘m) va 1 yillik (630 000 so‘m) qulay tariflar mavjud. Tariflar bo‘limidan o‘zingizga mos muddatni tanlab, to‘g‘ridan-to‘g‘ri so‘rov yuborishingiz mumkin.',
+      },
+    ],
+    [],
+  );
 
   // Fetch catalog once
   useEffect(() => {
@@ -718,7 +747,57 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         </section>
 
         {/* ============================================================ */}
-        {/* 6. BOTTOM CTA BANNER */}
+        {/* 6. FAQ SECTION (SEO & Trust Booster)                        */}
+        {/* ============================================================ */}
+        <section
+          id="faq"
+          className="py-20 bg-slate-50/70 dark:bg-[#0B1020]/70 border-t border-slate-200/70 dark:border-slate-800/70"
+        >
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <span className="px-3.5 py-1 text-xs font-bold rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 inline-flex items-center gap-1.5 mb-3">
+                <HelpCircle className="w-3.5 h-3.5" />
+                <span>Savol-Javoblar</span>
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-3">
+                Ko‘p beriladigan savollar
+              </h2>
+              <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
+                Platforma, darsliklar va obuna haqida eng muhim savollarga javoblar
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {faqItems.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#121A2D] shadow-sm overflow-hidden transition-colors"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
+                    className="w-full px-6 py-4 text-left flex items-center justify-between gap-4 font-bold text-sm sm:text-base text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  >
+                    <span>{item.q}</span>
+                    <ChevronDown
+                      className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${
+                        openFaqIndex === idx ? 'rotate-180 text-indigo-600' : ''
+                      }`}
+                    />
+                  </button>
+                  {openFaqIndex === idx && (
+                    <div className="px-6 pb-5 pt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-slate-800/60">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ============================================================ */}
+        {/* 7. BOTTOM CTA BANNER */}
         {/* ============================================================ */}
         <section className="py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto rounded-[2rem] bg-gradient-to-r from-indigo-600 via-indigo-700 to-slate-900 p-8 sm:p-14 text-white shadow-elevated flex flex-col lg:flex-row items-center justify-between gap-8 relative overflow-hidden">
@@ -780,6 +859,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               <li>
                 <a href="#pricing" className="hover:text-indigo-600 dark:hover:text-indigo-400">
                   {t('landing.navPricing')}
+                </a>
+              </li>
+              <li>
+                <a href="#faq" className="hover:text-indigo-600 dark:hover:text-indigo-400">
+                  Savol-Javoblar
                 </a>
               </li>
             </ul>
