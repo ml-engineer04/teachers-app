@@ -13,9 +13,10 @@ export class SubscriptionsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'List current user active and past subscriptions' })
-  async getMySubscriptions(@CurrentUser() user?: { userId?: string; id?: string }) {
+  async getMySubscriptions(@CurrentUser() user?: { userId?: string; id?: string; email?: string }) {
     const userId = user?.userId || user?.id || 'user_1';
-    return this.subscriptionsService.findByUserId(userId);
+    const email = user?.email;
+    return this.subscriptionsService.findByUserIdOrEmail(userId, email);
   }
 
   @Get('license/:id')

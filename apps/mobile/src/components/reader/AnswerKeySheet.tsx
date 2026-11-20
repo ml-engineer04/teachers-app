@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   Image,
   Pressable,
+  ImageStyle,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { pdfPageToBookDisplay } from '@smartteacherbook/shared';
@@ -21,6 +22,13 @@ export interface AnswerItem {
   solutionText: string;
   methodologyNotes?: string;
   imageUrl?: string;
+  answerImages?: string[];
+  transcriptText?: string;
+  transcriptImages?: string[];
+  targetMediaId?: string;
+  targetMediaTitle?: string;
+  targetMediaUrl?: string;
+  targetTeacherBookId?: string;
 }
 
 interface AnswerKeySheetProps {
@@ -35,6 +43,7 @@ interface AnswerKeySheetProps {
   methodologyNotes?: string;
   imageUrl?: string;
   items?: AnswerItem[];
+  selectedHotspotId?: string | null;
   onSwitchToTeachersBook?: (teacherPage: number) => void;
 }
 
@@ -50,13 +59,38 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
   methodologyNotes,
   imageUrl,
   items = [],
+  selectedHotspotId,
   onSwitchToTeachersBook,
 }) => {
   const { colors } = useTheme();
   const { strings, t } = useI18n();
-  const [activeTab, setActiveTab] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [zoomImageVisible, setZoomImageVisible] = useState(false);
+
+  // Active Tab: Answers vs Listening Transcript
+  const [activeTab, setActiveTab] = useState<'ANSWERS' | 'TRANSCRIPT'>('ANSWERS');
+  const [selectedIndex, setSelectedIndex] = useState<number>(() => {
+    if (selectedHotspotId && items.length > 0) {
+      const idx = items.findIndex((it) => it.id === selectedHotspotId);
+      if (idx !== -1) return idx;
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    if (selectedHotspotId && items.length > 0) {
+      const idx = items.findIndex((it) => it.id === selectedHotspotId);
+      if (idx !== -1) {
+        setSelectedIndex(idx);
+        return;
+      }
+    }
+    setSelectedIndex((prev) => (prev < items.length ? prev : 0));
+  }, [selectedHotspotId, items, visible]);
+
+  // Transcript font size scaler (A- / A+)
+  const [transcriptFontSize, setTranscriptFontSize] = useState<number>(15);
+
+  // Fullscreen Zoom image modal
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
 
   const pageDisplayInfo = pdfPageToBookDisplay(pageNumber, totalPages, contentStartPdfPage);
   const displayPageLabel = pageDisplayInfo.isFrontMatter
@@ -72,6 +106,7 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
           solutionText,
           methodologyNotes,
           imageUrl,
+          answerImages: imageUrl ? [imageUrl] : [],
         };
 
   const parsedPills = useMemo(() => {
@@ -88,6 +123,16 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
     return tokens.length >= 2 ? tokens : [];
   }, [currentItem.solutionText]);
 
+  // Combined answer images
+  const answerImagesList = useMemo(() => {
+    if (currentItem.answerImages && currentItem.answerImages.length > 0) {
+      return currentItem.answerImages;
+    }
+    return currentItem.imageUrl ? [currentItem.imageUrl] : [];
+  }, [currentItem.answerImages, currentItem.imageUrl]);
+
+  const transcriptImagesList = currentItem.transcriptImages || [];
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
@@ -98,12 +143,12 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
             styles.card,
             {
               backgroundColor: colors.surface,
-              borderColor: colors.border,
-              shadowColor: colors.shadowColor,
+              borderColor: colors.borderStrong,
+              shadowColor: colors.borderStrong,
             },
           ]}
         >
-          {/* Header Row */}
+          {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Text style={styles.bulbEmoji}>💡</Text>
@@ -112,10 +157,11 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
               </Text>
             </View>
             <TouchableOpacity
-              style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt }]}
               onPress={onClose}
+              style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt }]}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
                 <Path
                   d="M18 6L6 18M6 6l12 12"
                   stroke={colors.textSecondary}
@@ -126,48 +172,49 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Segmented Pill Toggle */}
+          {/* Segmented Tab Toggle: [ 🔑 Javoblar ] and [ 📜 Transkript ] */}
           <View style={[styles.segmentRow, { backgroundColor: colors.surfaceAlt }]}>
             <TouchableOpacity
               style={[
                 styles.segmentBtn,
-                activeTab === 'STUDENT' && {
+                activeTab === 'ANSWERS' && {
                   backgroundColor: colors.cardBg,
                   borderColor: colors.primary,
                 },
               ]}
-              onPress={() => setActiveTab('STUDENT')}
+              onPress={() => setActiveTab('ANSWERS')}
             >
               <Text
                 style={[
                   styles.segmentText,
-                  { color: activeTab === 'STUDENT' ? colors.textPrimary : colors.textSecondary },
+                  { color: activeTab === 'ANSWERS' ? colors.primaryText : colors.textSecondary },
                 ]}
               >
-                {strings.grades.bookTypeStudent}
+                🔑 {strings.reader.answerKeysTitle}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.segmentBtn,
-                activeTab === 'TEACHER' && {
+                activeTab === 'TRANSCRIPT' && {
                   backgroundColor: colors.cardBg,
                   borderColor: colors.primary,
                 },
               ]}
-              onPress={() => setActiveTab('TEACHER')}
+              onPress={() => setActiveTab('TRANSCRIPT')}
             >
               <Text
                 style={[
                   styles.segmentText,
-                  { color: activeTab === 'TEACHER' ? colors.textPrimary : colors.textSecondary },
+                  { color: activeTab === 'TRANSCRIPT' ? colors.primaryText : colors.textSecondary },
                 ]}
               >
-                {strings.grades.bookTypeTeacher}
+                📜 Transkript
               </Text>
             </TouchableOpacity>
           </View>
 
+          {/* Multiple Exercise Switcher Chips */}
           {items.length > 1 && (
             <ScrollView
               horizontal
@@ -204,124 +251,217 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
             {currentItem.exerciseLabel || strings.reader.openAnswers} • {displayPageLabel}
           </Text>
 
+          {/* Scrollable Body Content */}
           <ScrollView style={styles.bodyScroll} showsVerticalScrollIndicator={false}>
-            {!!currentItem.imageUrl && (
-              <TouchableOpacity
-                style={[
-                  styles.imageCard,
-                  { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
-                ]}
-                onPress={() => setZoomImageVisible(true)}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={{ uri: currentItem.imageUrl }}
-                  style={styles.answerImage}
-                  resizeMode="contain"
-                />
-                <View style={styles.zoomBadge}>
-                  <Text style={styles.zoomBadgeText}>🔍 {strings.reader.openAnswers}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
+            {/* ========================================================= */}
+            {/* TAB 1: ANSWERS                                             */}
+            {/* ========================================================= */}
+            {activeTab === 'ANSWERS' && (
+              <>
+                {/* Answer Images Gallery (Single or Multiple) */}
+                {answerImagesList.length > 0 && (
+                  <View style={styles.galleryWrap}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
+                      {answerImagesList.map((uri, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[
+                            styles.imageCard,
+                            { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+                          ]}
+                          onPress={() => setZoomImageUrl(uri)}
+                          activeOpacity={0.9}
+                        >
+                          <Image source={{ uri }} style={styles.answerImage} resizeMode="contain" />
+                          <View style={styles.zoomBadge}>
+                            <Text style={styles.zoomBadgeText}>🔍 #{idx + 1}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
 
-            {parsedPills.length > 0 ? (
-              <View style={styles.pillsRow}>
-                {parsedPills.map((p, idx) => (
+                {/* Parsed Smart Pills */}
+                {parsedPills.length > 0 ? (
+                  <View style={styles.pillsRow}>
+                    {parsedPills.map((p, idx) => (
+                      <View
+                        key={`${p.num}-${idx}`}
+                        style={[
+                          styles.answerCapsule,
+                          { backgroundColor: colors.cardBg, borderColor: colors.border },
+                        ]}
+                      >
+                        <Text style={[styles.capsuleText, { color: colors.textPrimary }]}>
+                          {p.num}. {p.ans}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : !!currentItem.solutionText ? (
                   <View
-                    key={`${p.num}-${idx}`}
                     style={[
-                      styles.answerCapsule,
-                      { backgroundColor: colors.cardBg, borderColor: colors.border },
+                      styles.textKeyCard,
+                      { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
                     ]}
                   >
-                    <Text style={[styles.capsuleText, { color: colors.textPrimary }]}>
-                      {p.num}. {p.ans}
+                    <Text style={[styles.textKeyValue, { color: colors.textPrimary }]}>
+                      {currentItem.solutionText}
                     </Text>
                   </View>
-                ))}
-              </View>
-            ) : !!currentItem.solutionText ? (
-              <View
-                style={[
-                  styles.textKeyCard,
-                  { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
-                ]}
-              >
-                <Text style={[styles.textKeyValue, { color: colors.textPrimary }]}>
-                  {currentItem.solutionText}
-                </Text>
-              </View>
-            ) : !currentItem.imageUrl ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.surfaceAlt }]}>
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  {strings.reader.noAnswerKeys}
-                </Text>
-              </View>
-            ) : null}
+                ) : answerImagesList.length === 0 ? (
+                  <View style={[styles.emptyCard, { backgroundColor: colors.surfaceAlt }]}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                      {strings.reader.noAnswerKeys}
+                    </Text>
+                  </View>
+                ) : null}
 
-            <View
-              style={[
-                styles.methodCard,
-                { backgroundColor: colors.primarySoft, borderColor: colors.border },
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <View style={styles.methodHeader}>
-                  <Text style={styles.starIcon}>⭐</Text>
-                  <Text style={[styles.methodTitle, { color: colors.textPrimary }]}>
-                    {strings.grades.bookTypeTeacher}
-                  </Text>
-                </View>
-                <Text style={[styles.methodText, { color: colors.textSecondary }]}>
-                  {currentItem.methodologyNotes || strings.common.noData}
-                </Text>
-              </View>
-
-              {onSwitchToTeachersBook && (
-                <TouchableOpacity
+                {/* Teacher's Methodology Notes & Page Jump */}
+                <View
                   style={[
-                    styles.miniPageThumb,
-                    { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+                    styles.methodCard,
+                    { backgroundColor: colors.primarySoft, borderColor: colors.border },
                   ]}
-                  onPress={() => {
-                    onClose();
-                    onSwitchToTeachersBook(currentItem.teacherPageNumber || pageNumber);
-                  }}
-                  activeOpacity={0.8}
                 >
-                  <View style={styles.thumbLineBold} />
-                  <View style={[styles.thumbLine, { backgroundColor: colors.border }]} />
-                  <View style={[styles.thumbLineShort, { backgroundColor: colors.borderStrong }]} />
-                  <Text style={[styles.thumbPageNum, { color: colors.primaryText }]}>
-                    {t('common.pageShort')} {currentItem.teacherPageNumber || pageNumber}
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.methodHeader}>
+                      <Text style={styles.starIcon}>⭐</Text>
+                      <Text style={[styles.methodTitle, { color: colors.textPrimary }]}>
+                        {strings.grades.bookTypeTeacher}
+                      </Text>
+                    </View>
+                    <Text style={[styles.methodText, { color: colors.textSecondary }]}>
+                      {currentItem.methodologyNotes || strings.common.noData}
+                    </Text>
+                  </View>
+
+                  {onSwitchToTeachersBook && (
+                    <TouchableOpacity
+                      style={[
+                        styles.miniPageThumb,
+                        { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+                      ]}
+                      onPress={() => {
+                        onClose();
+                        onSwitchToTeachersBook(currentItem.teacherPageNumber || pageNumber);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.thumbLineBold} />
+                      <View style={[styles.thumbLine, { backgroundColor: colors.border }]} />
+                      <View style={[styles.thumbLineShort, { backgroundColor: colors.borderStrong }]} />
+                      <Text style={[styles.thumbPageNum, { color: colors.primaryText }]}>
+                        {t('common.pageShort')} {currentItem.teacherPageNumber || pageNumber}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
+            )}
+
+            {/* ========================================================= */}
+            {/* TAB 2: TRANSCRIPT                                          */}
+            {/* ========================================================= */}
+            {activeTab === 'TRANSCRIPT' && (
+              <View style={styles.transcriptWrap}>
+                {/* Font Size Scaler Controls */}
+                <View style={[styles.fontSizeBar, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+                  <Text style={[styles.fontSizeLabel, { color: colors.textSecondary }]}>
+                    🎧 Audio Transkript Matni:
                   </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                  <View style={styles.fontButtonsRow}>
+                    <TouchableOpacity
+                      style={[styles.fontBtn, { backgroundColor: colors.cardBg }]}
+                      onPress={() => setTranscriptFontSize((s) => Math.max(12, s - 2))}
+                    >
+                      <Text style={[styles.fontBtnText, { color: colors.textPrimary }]}>A-</Text>
+                    </TouchableOpacity>
+                    <Text style={[styles.fontSizeIndicator, { color: colors.primaryText }]}>
+                      {transcriptFontSize}px
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.fontBtn, { backgroundColor: colors.cardBg }]}
+                      onPress={() => setTranscriptFontSize((s) => Math.min(26, s + 2))}
+                    >
+                      <Text style={[styles.fontBtnText, { color: colors.textPrimary }]}>A+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Transcript Text */}
+                {!!currentItem.transcriptText ? (
+                  <View
+                    style={[
+                      styles.transcriptCard,
+                      { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.transcriptBody,
+                        { fontSize: transcriptFontSize, color: colors.textPrimary },
+                      ]}
+                    >
+                      {currentItem.transcriptText}
+                    </Text>
+                  </View>
+                ) : transcriptImagesList.length === 0 ? (
+                  <View style={[styles.emptyCard, { backgroundColor: colors.surfaceAlt }]}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                      Ushbu mashq uchun audio transkript kiritilmagan.
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* Transcript Images Gallery */}
+                {transcriptImagesList.length > 0 && (
+                  <View style={styles.galleryWrap}>
+                    <Text style={[styles.galleryTitle, { color: colors.textSecondary }]}>
+                      Transkript Skrinshotlari ({transcriptImagesList.length} ta):
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
+                      {transcriptImagesList.map((uri, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[
+                            styles.imageCard,
+                            { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
+                          ]}
+                          onPress={() => setZoomImageUrl(uri)}
+                          activeOpacity={0.9}
+                        >
+                          <Image source={{ uri }} style={styles.answerImage} resizeMode="contain" />
+                          <View style={styles.zoomBadge}>
+                            <Text style={styles.zoomBadgeText}>🔍 #{idx + 1}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            )}
           </ScrollView>
         </View>
       </View>
 
-      {!!currentItem.imageUrl && (
+      {/* ================================================================= */}
+      {/* FULLSCREEN LIGHTBOX ZOOM MODAL (Mayda yozuvlarni kattalashtirish)  */}
+      {/* ================================================================= */}
+      {!!zoomImageUrl && (
         <Modal
-          visible={zoomImageVisible}
+          visible={!!zoomImageUrl}
           transparent
           animationType="fade"
-          onRequestClose={() => setZoomImageVisible(false)}
+          onRequestClose={() => setZoomImageUrl(null)}
         >
           <View style={styles.zoomOverlay}>
-            <TouchableOpacity
-              style={styles.zoomCloseBtn}
-              onPress={() => setZoomImageVisible(false)}
-            >
+            <TouchableOpacity style={styles.zoomCloseBtn} onPress={() => setZoomImageUrl(null)}>
               <Text style={styles.zoomCloseText}>✕ {strings.common.close}</Text>
             </TouchableOpacity>
-            <Image
-              source={{ uri: currentItem.imageUrl }}
-              style={styles.zoomFullImage}
-              resizeMode="contain"
-            />
+            <Image source={{ uri: zoomImageUrl }} style={styles.zoomFullImage} resizeMode="contain" />
           </View>
         </Modal>
       )}
@@ -338,12 +478,12 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
-    borderRadius: 22,
+    maxWidth: 420,
+    maxHeight: '84%',
+    borderRadius: 24,
     padding: 18,
     shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.18,
     shadowRadius: 28,
     elevation: 10,
     borderWidth: 1,
@@ -352,7 +492,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -360,16 +500,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   bulbEmoji: {
-    fontSize: 17,
+    fontSize: 18,
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '800',
   },
   closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -378,7 +518,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 3,
     gap: 4,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   segmentBtn: {
     flex: 1,
@@ -390,16 +530,16 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     fontSize: 12.5,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   exChipsRow: {
     gap: 8,
     paddingBottom: 10,
   },
   exChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
   },
   exChipText: {
@@ -407,23 +547,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   exerciseMeta: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '800',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   bodyScroll: {
-    maxHeight: 340,
+    maxHeight: 380,
   },
   pillsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   answerCapsule: {
     borderWidth: 1,
     borderRadius: 10,
-    paddingHorizontal: 11,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -445,28 +585,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 20,
   },
+  galleryWrap: {
+    marginBottom: 12,
+  },
+  galleryTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  galleryScroll: {
+    flexDirection: 'row',
+  },
   imageCard: {
+    width: 240,
+    height: 150,
     borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 14,
+    marginRight: 10,
     position: 'relative',
   },
   answerImage: {
     width: '100%',
-    height: 160,
-  },
+    height: '100%',
+  } as ImageStyle,
   zoomBadge: {
     position: 'absolute',
     right: 8,
     bottom: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.78)',
-    paddingHorizontal: 9,
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   zoomBadgeText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -478,6 +632,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 12.5,
     lineHeight: 18,
+    textAlign: 'center',
   },
   methodCard: {
     borderRadius: 14,
@@ -486,6 +641,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    marginTop: 6,
   },
   methodHeader: {
     flexDirection: 'row',
@@ -539,20 +695,67 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'right',
   },
+  transcriptWrap: {
+    marginVertical: 4,
+  },
+  fontSizeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  fontSizeLabel: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  fontButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  fontBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  fontBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  fontSizeIndicator: {
+    fontSize: 11,
+    fontWeight: '800',
+    minWidth: 32,
+    textAlign: 'center',
+  },
+  transcriptCard: {
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  transcriptBody: {
+    fontWeight: '500',
+    lineHeight: 22,
+  },
   zoomOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(11, 20, 55, 0.94)',
+    backgroundColor: 'rgba(11, 20, 55, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
   zoomCloseBtn: {
     position: 'absolute',
-    top: 42,
+    top: 48,
     right: 20,
     zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 99,
   },
@@ -563,6 +766,6 @@ const styles = StyleSheet.create({
   },
   zoomFullImage: {
     width: '100%',
-    height: '80%',
-  },
+    height: '82%',
+  } as ImageStyle,
 });

@@ -159,7 +159,21 @@ export const TeacherDashboard: React.FC = () => {
 
   const visibleGrades = useMemo(() => {
     const gradeIdsWithSub = new Set(activeSubscriptions.map((s) => Number(s.gradeId)));
-    return grades.filter((g) => gradeIdsWithSub.has(Number(g.id)) || gradeIdsWithSub.has(Number(g.gradeNumber)));
+    const baseGrades =
+      grades.length > 0
+        ? grades
+        : Array.from({ length: 11 }, (_, i) => ({
+            id: i + 1,
+            gradeNumber: i + 1,
+            title: `${i + 1}-sinf`,
+            priceMonthlyUzs: 19900,
+            priceQuarterlyUzs: 55900,
+            priceYearlyUzs: 199900,
+            isActive: true,
+          } as Grade));
+    return baseGrades.filter(
+      (g) => gradeIdsWithSub.has(Number(g.id)) || gradeIdsWithSub.has(Number(g.gradeNumber)),
+    );
   }, [grades, activeSubscriptions]);
 
   const latestProgress = readingProgress.length > 0 ? readingProgress[0] : null;

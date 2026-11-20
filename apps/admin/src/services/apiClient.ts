@@ -433,6 +433,47 @@ export const api = {
     });
   },
 
+  async uploadHotspotImage(file: File): Promise<{ success: boolean; id: string; url: string }> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('stb_admin_token') : null;
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/content/hotspots/upload-image`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+      // Fallback if 404 in local dev environment
+      if (res.status === 404 && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        const directRes = await fetch(`http://${window.location.hostname}:4000/api/v1/content/hotspots/upload-image`, {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+        if (directRes.ok) return directRes.json();
+      }
+    } catch (err) {
+      if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        res = await fetch(`http://${window.location.hostname}:4000/api/v1/content/hotspots/upload-image`, {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+      } else {
+        throw err;
+      }
+    }
+
+    if (!res.ok) {
+      throw new Error(`Rasm yuklashda xatolik: HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
   async updateAnswerMapping(id: string, data: any) {
     return fetchJson<any>(`/answer-mappings/${id}`, {
       method: 'PUT',

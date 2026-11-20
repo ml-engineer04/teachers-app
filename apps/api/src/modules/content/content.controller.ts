@@ -260,6 +260,29 @@ export class ContentController {
     return this.contentService.deleteHotspot(bookId, hotspotId);
   }
 
+  @Post('hotspots/upload-image')
+  @ApiOperation({ summary: 'Upload high-resolution image for answer keys or transcripts' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('image'))
+  async uploadHotspotImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Rasm fayli yuklanmadi');
+    }
+    return this.contentService.saveHotspotImage(file);
+  }
+
+  @Get('hotspots/images/:id')
+  @ApiOperation({ summary: 'Stream high-res hotspot answer/transcript image' })
+  async streamHotspotImage(@Param('id') id: string, @Res() res: Response) {
+    const imgData = this.contentService.getHotspotImage(id);
+    if (!imgData) {
+      throw new NotFoundException(`Hotspot image ${id} topilmadi`);
+    }
+    res.setHeader('Content-Type', imgData.mimeType || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(imgData.buffer);
+  }
+
   @Get('media')
   @ApiOperation({ summary: 'List uploaded audio and video media library (Phase 3)' })
   async getMediaList(

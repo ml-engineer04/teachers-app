@@ -88,6 +88,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
   // Modals & Drawers
   const [isTocOpen, setIsTocOpen] = useState(false);
   const [isAnswersOpen, setIsAnswersOpen] = useState(false);
+  const [selectedAnswerHotspotId, setSelectedAnswerHotspotId] = useState<string | null>(null);
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isMediaOpen, setIsMediaOpen] = useState(false);
 
@@ -253,6 +254,12 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           solutionKey: a.solutionKey || a.solutionText,
           notes: a.notes || a.methodologyNotes,
           imageUrl: a.imageUrl,
+          answerImages: a.answerImages || (a.imageUrl ? [a.imageUrl] : []),
+          transcriptText: a.transcriptText,
+          transcriptImages: a.transcriptImages,
+          targetMediaId: a.targetMediaId,
+          targetTeacherBookId: a.targetTeacherBookId,
+          targetTeacherPageNumber: a.targetTeacherPageNumber,
         }));
         setAnswerKeys(formattedAnswers);
 
@@ -601,9 +608,48 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
         url,
       });
     } else if (h.type === 'ANSWER_LINK') {
+      setSelectedAnswerHotspotId(h.id);
       setIsAnswersOpen(true);
     }
   };
+
+  // Combine remote answer keys + visual hotspots for the current page
+  const pageAnswerItems = useMemo(() => {
+    const list: AnswerItem[] = [];
+    const seen = new Set<string>();
+
+    // 1. From visual hotspots on current page (highest fidelity, newly added in editor)
+    hotspots
+      .filter((h: any) => h.pageNumber === currentPage && h.type === 'ANSWER_LINK')
+      .forEach((h: any, idx: number) => {
+        const id = h.id || `hs_ans_${h.pageNumber}_${idx}`;
+        seen.add(id);
+        const linkedM = mediaList.find((m) => m.id === h.targetMediaId);
+        list.push({
+          id,
+          studentExerciseLabel: h.exerciseLabel || h.label || `Javoblar #${idx + 1}`,
+          studentPageNumber: h.pageNumber || currentPage,
+          solutionKey: h.solutionText || '',
+          notes: h.methodologyNotes || undefined,
+          imageUrl: h.imageUrl || (h.answerImages && h.answerImages[0]) || undefined,
+          answerImages: h.answerImages || (h.imageUrl ? [h.imageUrl] : []),
+          transcriptText: h.transcriptText || undefined,
+          transcriptImages: h.transcriptImages || [],
+          targetMediaId: h.targetMediaId || undefined,
+          targetMediaTitle: linkedM?.title,
+          targetMediaUrl: linkedM?.url,
+          targetTeacherBookId: h.targetTeacherBookId || undefined,
+          targetTeacherPageNumber: h.targetTeacherPageNumber || undefined,
+        });
+      });
+
+    // 2. From remote answer keys on current page
+    answerKeys
+      .filter((a) => a.studentPageNumber === currentPage && (!a.id || !seen.has(a.id)))
+      .forEach((a) => list.push(a));
+
+    return list;
+  }, [answerKeys, hotspots, currentPage, mediaList]);
 
   // Current page display info
   const pageDisplayInfo = useMemo(() => {
@@ -1144,7 +1190,14 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                       ) : isVideo ? (
                         <Play className="h-4.5 w-4.5 fill-current ml-0.5" />
                       ) : (
-                        <KeyRound className="h-4.5 w-4.5" />
+                        <div className="relative flex items-center justify-center">
+                          <KeyRound className="h-4.5 w-4.5" />
+                          {pageHs.filter((h: any) => h.type === 'ANSWER_LINK').length > 1 && (
+                            <span className="absolute -top-2.5 -right-2.5 w-4 h-4 rounded-full bg-amber-400 text-slate-900 font-black text-[9px] flex items-center justify-center shadow-xs border border-white">
+                              {pageHs.filter((h: any) => h.type === 'ANSWER_LINK').findIndex((h: any) => h.id === hs.id) + 1}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </button>
                   );
@@ -1203,10 +1256,15 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
       {/* Answer Key Drawer */}
       <AnswerKeyDrawer
         isOpen={isAnswersOpen}
-        onClose={() => setIsAnswersOpen(false)}
+        onClose={() => {
+          setIsAnswersOpen(false);
+          setSelectedAnswerHotspotId(null);
+        }}
         currentPage={currentPage}
         bookTitle={book.title}
-        answers={answerKeys}
+        answers={pageAnswerItems}
+        selectedHotspotId={selectedAnswerHotspotId}
+        onSwitchToPage={(page) => scrollToPage(page, 'smooth')}
       />
 
       {/* Bookmarks & Notes Drawer */}

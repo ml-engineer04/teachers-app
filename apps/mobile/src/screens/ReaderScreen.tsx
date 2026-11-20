@@ -354,6 +354,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
 
   const [answerModalVisible, setAnswerModalVisible] = useState(false);
   const [activeAnswerPage, setActiveAnswerPage] = useState<number>(initialRestoredPage);
+  const [selectedAnswerHotspotId, setSelectedAnswerHotspotId] = useState<string | null>(null);
   const [tocModalVisible, setTocModalVisible] = useState(false);
   const [contentStartPdfPage, setContentStartPdfPage] = useState<number>(() =>
     normalizeContentStartPage(book.contentStartPdfPage, book.totalPages),
@@ -1124,14 +1125,19 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
 
       hsForPage
         .filter((h) => h.type === HotspotType.ANSWER_LINK)
-        .forEach((h) => {
+        .forEach((h: any, idx: number) => {
           combined.push({
-            id: h.id,
-            exerciseLabel: h.exerciseLabel || 'Javoblar kaliti',
-            teacherPageNumber: h.targetPageNumber || pageNum,
+            id: h.id || `hs_ans_${h.pageNumber}_${idx}`,
+            exerciseLabel: h.exerciseLabel || h.label || `Javoblar #${idx + 1}`,
+            teacherPageNumber: h.targetTeacherPageNumber || h.targetPageNumber || pageNum,
             solutionText: h.solutionText || '',
             methodologyNotes: h.methodologyNotes || undefined,
-            imageUrl: h.imageUrl || undefined,
+            imageUrl: h.imageUrl || (h.answerImages && h.answerImages[0]) || undefined,
+            answerImages: h.answerImages || (h.imageUrl ? [h.imageUrl] : []),
+            transcriptText: h.transcriptText || undefined,
+            transcriptImages: h.transcriptImages || [],
+            targetMediaId: h.targetMediaId || undefined,
+            targetTeacherBookId: h.targetTeacherBookId || undefined,
           });
         });
 
@@ -1362,6 +1368,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
       });
     } else if (hotspot.type === HotspotType.ANSWER_LINK) {
       setActiveAnswerPage(hsPage);
+      setSelectedAnswerHotspotId(hotspot.id);
       setAnswerModalVisible(true);
     } else if (hotspot.type === HotspotType.INTERNAL_PAGE && hotspot.targetPageNumber) {
       goToPage(hotspot.targetPageNumber);
@@ -2493,7 +2500,10 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
 
       <AnswerKeySheet
         visible={answerModalVisible}
-        onClose={() => setAnswerModalVisible(false)}
+        onClose={() => {
+          setAnswerModalVisible(false);
+          setSelectedAnswerHotspotId(null);
+        }}
         pageNumber={activeAnswerPage}
         totalPages={totalPages}
         contentStartPdfPage={contentStartPdfPage}
@@ -2502,10 +2512,14 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         solutionText={firstAnswer.solutionText}
         methodologyNotes={firstAnswer.methodologyNotes}
         imageUrl={resolveMediaOrImageUrl(firstAnswer.imageUrl)}
-        items={activeAnswers.map((a) => ({
+        items={activeAnswers.map((a: any) => ({
           ...a,
           imageUrl: resolveMediaOrImageUrl(a.imageUrl),
+          answerImages: (a.answerImages || []).map((u: string) => resolveMediaOrImageUrl(u) || u),
+          transcriptImages: (a.transcriptImages || []).map((u: string) => resolveMediaOrImageUrl(u) || u),
+          targetMediaUrl: resolveMediaOrImageUrl(a.targetMediaUrl),
         }))}
+        selectedHotspotId={selectedAnswerHotspotId}
         onSwitchToTeachersBook={(targetPage) => goToPage(targetPage)}
       />
 

@@ -75,9 +75,13 @@ export interface HotspotItem {
   // Phase 4 Teacher's Book mapping fields:
   targetTeacherBookId?: string;
   targetTeacherBookTitle?: string;
+  targetTeacherPageNumber?: number;
   solutionText?: string;
   methodologyNotes?: string;
   imageUrl?: string;
+  answerImages?: string[];
+  transcriptText?: string;
+  transcriptImages?: string[];
   multiAnswers?: AnswerMappingEntry[];
 }
 
@@ -145,6 +149,10 @@ export class ContentService implements OnModuleInit {
   // Phase 4: Teacher's Book Answer Keys store
   private answerKeysStore: Map<string, AnswerKeyItem> = new Map();
   private answerKeyImagesStore: Map<string, { buffer: Buffer; mimeType: string }> = new Map();
+
+  // Hotspot image assets (answers, transcripts, screenshots)
+  private hotspotImagesStore: Map<string, { buffer: Buffer; mimeType: string }> = new Map();
+  private hotspotImgMimesStore: Map<string, string> = new Map();
 
   // Book cover images store
   private coverImagesStore: Map<string, { buffer: Buffer; mimeType: string }> = new Map();
@@ -978,6 +986,8 @@ export class ContentService implements OnModuleInit {
     this.mediaBuffersStore.clear();
     this.answerKeysStore.clear();
     this.answerKeyImagesStore.clear();
+    this.hotspotImagesStore.clear();
+    this.hotspotImgMimesStore.clear();
     this.coverImagesStore.clear();
     this.coverMimesStore.clear();
     this.mediaMimesStore.clear();
@@ -1730,6 +1740,33 @@ export class ContentService implements OnModuleInit {
     this.hotspotsStore.set(bookId, updated);
     this.persistContentToDisk();
     return { success: true, remainingCount: updated.length };
+  }
+
+  saveHotspotImage(file: { buffer: Buffer; mimetype: string }): { success: boolean; id: string; url: string } {
+    const id = `hsimg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    this.hotspotImagesStore.set(id, { buffer: file.buffer, mimeType: file.mimetype });
+    this.hotspotImgMimesStore.set(id, file.mimetype);
+    if (this.diskEnabled) {
+      writeBinaryDiskSync('hotspot-images', `${id}.bin`, file.buffer);
+    }
+    const url = `/api/v1/content/hotspots/images/${id}`;
+    this.logger.log(`🖼️ Saved Hotspot Asset Image [${id}] (${(file.buffer.length / 1024).toFixed(1)} KB)`);
+    return { success: true, id, url };
+  }
+
+  getHotspotImage(id: string): { buffer: Buffer; mimeType: string } | null {
+    const cached = this.hotspotImagesStore.get(id);
+    if (cached) return cached;
+    if (this.diskEnabled) {
+      const buf = readBinaryDiskSync('hotspot-images', `${id}.bin`);
+      if (buf) {
+        const mimeType = this.hotspotImgMimesStore.get(id) || 'image/jpeg';
+        const entry = { buffer: buf, mimeType };
+        this.hotspotImagesStore.set(id, entry);
+        return entry;
+      }
+    }
+    return null;
   }
 
   /**

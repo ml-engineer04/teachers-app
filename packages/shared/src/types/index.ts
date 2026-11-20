@@ -136,6 +136,11 @@ export interface Hotspot {
   methodologyNotes?: string | null;
   multiAnswers?: any[] | null;
   imageUrl?: string | null;
+  answerImages?: string[];
+  transcriptText?: string | null;
+  transcriptImages?: string[];
+  targetTeacherBookId?: string | null;
+  targetTeacherPageNumber?: number | null;
 }
 
 export interface MediaFile {

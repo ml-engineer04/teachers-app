@@ -312,7 +312,19 @@ export class AuthService implements OnModuleInit {
         this.logger.warn(`Prisma findUserById error, using fallback: ${err.message}`);
       }
     }
-    return this.memUsers.get(userId) || null;
+    const mem = this.memUsers.get(userId);
+    if (mem) return mem;
+
+    try {
+      const users = readJsonDiskSync<any[]>('users-state.json') || [];
+      const found = users.find((u) => u.id === userId);
+      if (found) {
+        this.memUsers.set(found.id, found);
+        return found;
+      }
+    } catch {}
+
+    return null;
   }
 
   private async findUserByEmail(email: string) {
@@ -325,7 +337,19 @@ export class AuthService implements OnModuleInit {
         this.logger.warn(`Prisma findUserByEmail error, using fallback: ${err.message}`);
       }
     }
-    return Array.from(this.memUsers.values()).find((u) => u.email === cleanEmail) || null;
+    const mem = Array.from(this.memUsers.values()).find((u) => u.email === cleanEmail);
+    if (mem) return mem;
+
+    try {
+      const users = readJsonDiskSync<any[]>('users-state.json') || [];
+      const found = users.find((u) => (u.email || '').trim().toLowerCase() === cleanEmail);
+      if (found) {
+        this.memUsers.set(found.id, found);
+        return found;
+      }
+    } catch {}
+
+    return null;
   }
 
   private async findUserByGoogleSub(sub: string) {

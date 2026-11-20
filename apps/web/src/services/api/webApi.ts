@@ -436,6 +436,15 @@ export const webApi = {
     return await request<any[]>(`/content/books/${bookId}/hotspots`);
   },
 
+  async uploadHotspotImage(file: File): Promise<{ success: boolean; id: string; url: string }> {
+    const formData = new FormData();
+    formData.append('image', file);
+    return await request<{ success: boolean; id: string; url: string }>('/content/hotspots/upload-image', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
   async getMedia(bookId?: string): Promise<any[]> {
     const q = bookId ? `?bookId=${encodeURIComponent(bookId)}` : '';
     const list = await request<any[]>(`/content/media${q}`);

@@ -351,18 +351,95 @@ export class SubscriptionsService implements OnModuleInit {
     return removedCount;
   }
 
+  async findByUserIdOrEmail(userId: string, email?: string): Promise<Subscription[]> {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const subsById = await this.findByUserId(userId);
+    if (!cleanEmail) return subsById;
+
+    const subsByEmail = await this.findByUserEmail(cleanEmail);
+    const combinedMap = new Map<string, Subscription>();
+    for (const s of [...subsById, ...subsByEmail]) {
+      const key = s.id || `${s.gradeId}:${s.subjectId || 'ALL'}`;
+      if (!combinedMap.has(key)) {
+        combinedMap.set(key, { ...s, userId });
+      }
+    }
+    return Array.from(combinedMap.values());
+  }
+
   async findByUserEmail(email: string): Promise<Subscription[]> {
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!cleanEmail) return [];
     try {
+      const results: Subscription[] = [];
+      const seenIds = new Set<string>();
+
+      // 1. Prisma
+      if (this.prisma.isConnected) {
+        try {
+          const dbUsers = await this.prisma.user.findMany({
+            where: { email: cleanEmail },
+            include: {
+              subscriptions: {
+                include: { subject: true },
+                orderBy: { createdAt: 'desc' },
+              },
+            },
+          });
+          for (const u of dbUsers) {
+            for (const s of u.subscriptions) {
+              if (!seenIds.has(s.id)) {
+                seenIds.add(s.id);
+                results.push({
+                  ...s,
+                  subjectId: s.subject?.code ? `sub_${s.subject.code.toLowerCase()}` : (s.subjectId || null),
+                  plan: s.plan as SubscriptionPlan,
+                  startsAt: s.startsAt.toISOString(),
+                  expiresAt: s.expiresAt.toISOString(),
+                  createdAt: s.createdAt.toISOString(),
+                });
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Direct match in subscriptionsStore by requests-state
       const reqs = readJsonDiskSync<any[]>('requests-state.json') || [];
       const userReqs = reqs.filter(
         (r) => (r.userEmail || '').trim().toLowerCase() === cleanEmail && r.status === AccessRequestStatus.PAID_APPROVED,
       );
       if (userReqs.length > 0) {
         const userIds = new Set(userReqs.map((r) => r.userId));
-        return this.subscriptionsStore.filter((s) => userIds.has(s.userId));
+        for (const s of this.subscriptionsStore.filter((sub) => userIds.has(sub.userId))) {
+          if (!seenIds.has(s.id)) {
+            seenIds.add(s.id);
+            results.push(s);
+          }
+        }
       }
+
+      // 3. Match in users-state.json
+      const users = readJsonDiskSync<any[]>('users-state.json') || [];
+      const matchedUser = users.find((u) => (u.email || '').trim().toLowerCase() === cleanEmail);
+      if (matchedUser) {
+        for (const s of this.subscriptionsStore.filter((sub) => sub.userId === matchedUser.id)) {
+          if (!seenIds.has(s.id)) {
+            seenIds.add(s.id);
+            results.push(s);
+          }
+        }
+        if (Array.isArray(matchedUser.subscriptions)) {
+          for (const s of matchedUser.subscriptions) {
+            if (!seenIds.has(s.id)) {
+              seenIds.add(s.id);
+              results.push(s);
+            }
+          }
+        }
+      }
+
+      return results;
     } catch {}
     return [];
   }

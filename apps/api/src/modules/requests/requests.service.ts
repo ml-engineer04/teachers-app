@@ -373,6 +373,33 @@ export class RequestsService implements OnModuleInit {
       else days = 365;
     }
 
+    // Ensure user exists in Prisma before creating subscription
+    if (this.prisma.isConnected) {
+      try {
+        const existing = await this.prisma.user.findUnique({ where: { id: req.userId } });
+        if (!existing) {
+          const userEmail = (req.userEmail || '').trim().toLowerCase();
+          const userByEmail = userEmail ? await this.prisma.user.findUnique({ where: { email: userEmail } }) : null;
+          if (userByEmail) {
+            req.userId = userByEmail.id;
+          } else if (userEmail) {
+            await this.prisma.user.create({
+              data: {
+                id: req.userId,
+                email: userEmail,
+                fullName: userEmail.split('@')[0],
+                emailVerified: true,
+                role: 'TEACHER',
+                isActive: true,
+              },
+            });
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Ensure user exists error: ${err.message}`);
+      }
+    }
+
     // 1. Create active subscription
     const subscription = await this.subscriptionsService.createSubscription({
       userId: req.userId,
@@ -480,6 +507,32 @@ export class RequestsService implements OnModuleInit {
       updatedAt: new Date().toISOString(),
     };
     this.requestsStore.unshift(newReq);
+
+    if (this.prisma.isConnected) {
+      try {
+        const existing = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!existing) {
+          const clean = userEmail.trim().toLowerCase();
+          const userByEmail = clean ? await this.prisma.user.findUnique({ where: { email: clean } }) : null;
+          if (userByEmail) {
+            // Use existing user's ID
+          } else if (clean) {
+            await this.prisma.user.create({
+              data: {
+                id: userId,
+                email: clean,
+                fullName: clean.split('@')[0],
+                emailVerified: true,
+                role: 'TEACHER',
+                isActive: true,
+              },
+            });
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Ensure user exists manual error: ${err.message}`);
+      }
+    }
 
     const subscription = await this.subscriptionsService.createSubscription({
       userId,
