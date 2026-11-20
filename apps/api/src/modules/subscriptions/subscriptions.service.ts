@@ -105,16 +105,36 @@ export class SubscriptionsService implements OnModuleInit {
 
     if (this.prisma.isConnected) {
       try {
+        let dbSubjectId: string | null = null;
+        if (subscription.subjectId) {
+          const sub = await this.prisma.subject.findFirst({
+            where: {
+              OR: [
+                { id: subscription.subjectId },
+                { code: { equals: subscription.subjectId.replace(/^sub_/, ''), mode: 'insensitive' } },
+              ],
+            },
+          });
+          dbSubjectId = sub?.id || null;
+        }
+
+        let validAdminId = subscription.grantedById;
+        const adminExists = await this.prisma.admin.findUnique({ where: { id: validAdminId } }).catch(() => null);
+        if (!adminExists) {
+          const firstAdmin = await this.prisma.admin.findFirst().catch(() => null);
+          if (firstAdmin) validAdminId = firstAdmin.id;
+        }
+
         const created = await this.prisma.subscription.create({
           data: {
             id: subscription.id,
             userId: subscription.userId,
             gradeId: subscription.gradeId,
-            subjectId: subscription.subjectId,
+            subjectId: dbSubjectId,
             plan: subscription.plan,
             startsAt: new Date(subscription.startsAt),
             expiresAt: new Date(subscription.expiresAt),
-            grantedById: subscription.grantedById,
+            grantedById: validAdminId,
             isActive: subscription.isActive,
           },
         });
@@ -136,29 +156,53 @@ export class SubscriptionsService implements OnModuleInit {
         const subs = await this.prisma.subscription.findMany({
           where: { userId },
           orderBy: { createdAt: 'desc' },
+          include: { subject: true },
         });
-        return subs.map((s) => ({
-          ...s,
-          plan: s.plan as SubscriptionPlan,
-          startsAt: s.startsAt.toISOString(),
-          expiresAt: s.expiresAt.toISOString(),
-          createdAt: s.createdAt.toISOString(),
-        }));
+        if (subs && subs.length > 0) {
+          return subs.map((s) => ({
+            ...s,
+            subjectId: s.subject?.code ? `sub_${s.subject.code.toLowerCase()}` : (s.subjectId || null),
+            plan: s.plan as SubscriptionPlan,
+            startsAt: s.startsAt.toISOString(),
+            expiresAt: s.expiresAt.toISOString(),
+            createdAt: s.createdAt.toISOString(),
+          }));
+        }
       } catch (err) {
         // Fallback
       }
     }
+
+    // Direct check in in-memory / persisted store
     const direct = this.subscriptionsStore.filter((s) => s.userId === userId);
     if (direct.length > 0) return direct;
 
     try {
-      const users = readJsonDiskSync<any[]>('users-state.json');
-      const currentUser = users?.find((u) => u.id === userId);
-      if (currentUser?.email) {
+      let userEmail: string | undefined;
+      if (this.prisma.isConnected) {
+        const dbUser = await this.prisma.user.findUnique({ where: { id: userId } }).catch(() => null);
+        userEmail = dbUser?.email;
+      }
+      if (!userEmail) {
+        const users = readJsonDiskSync<any[]>('users-state.json');
+        const currentUser = users?.find((u) => u.id === userId);
+        userEmail = currentUser?.email;
+      }
+
+      if (userEmail) {
+        const cleanEmail = userEmail.trim().toLowerCase();
+        // 1. Check in users-state.json directly
+        const users = readJsonDiskSync<any[]>('users-state.json');
+        const matchedUser = users?.find((u) => (u.email || '').trim().toLowerCase() === cleanEmail);
+        if (matchedUser?.subscriptions && matchedUser.subscriptions.length > 0) {
+          return matchedUser.subscriptions.map((s: any) => ({ ...s, userId }));
+        }
+
+        // 2. Check approved requests
         const reqs = readJsonDiskSync<any[]>('requests-state.json');
         const approvedReqs = reqs?.filter(
           (r) =>
-            r.userEmail?.toLowerCase() === currentUser.email.toLowerCase() &&
+            r.userEmail?.toLowerCase() === cleanEmail &&
             r.status === AccessRequestStatus.PAID_APPROVED,
         );
         if (approvedReqs && approvedReqs.length > 0) {

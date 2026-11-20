@@ -199,12 +199,25 @@ export class RequestsService implements OnModuleInit {
 
     if (this.prisma.isConnected) {
       try {
+        let dbSubjectId: string | null = null;
+        if (newRequest.subjectId) {
+          const sub = await this.prisma.subject.findFirst({
+            where: {
+              OR: [
+                { id: newRequest.subjectId },
+                { code: { equals: newRequest.subjectId.replace(/^sub_/, ''), mode: 'insensitive' } },
+              ],
+            },
+          }).catch(() => null);
+          dbSubjectId = sub?.id || null;
+        }
+
         await this.prisma.accessRequest.create({
           data: {
             id: newRequest.id,
             userId: newRequest.userId,
             gradeId: newRequest.gradeId,
-            subjectId: newRequest.subjectId,
+            subjectId: dbSubjectId,
             plan: newRequest.plan,
             phoneNumber: newRequest.phoneNumber,
             status: newRequest.status,
@@ -379,11 +392,18 @@ export class RequestsService implements OnModuleInit {
 
     if (this.prisma.isConnected) {
       try {
+        let validAdminId: string | null = params.adminId;
+        const adminExists = await this.prisma.admin.findUnique({ where: { id: validAdminId } }).catch(() => null);
+        if (!adminExists) {
+          const firstAdmin = await this.prisma.admin.findFirst().catch(() => null);
+          validAdminId = firstAdmin?.id || null;
+        }
+
         await this.prisma.accessRequest.update({
           where: { id: params.requestId },
           data: {
             status: AccessRequestStatus.PAID_APPROVED,
-            adminId: params.adminId,
+            adminId: validAdminId,
             resolvedAt: new Date(),
             internalNote: params.note,
           },
