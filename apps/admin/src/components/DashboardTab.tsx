@@ -186,7 +186,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: any) => void })
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">
-                REST + OpenAPI Swagger: <a href="http://localhost:4000/api/docs" target="_blank" rel="noreferrer" className="text-blue-600 underline">/api/docs</a>
+                REST + OpenAPI Swagger: <a href="/api/docs" target="_blank" rel="noreferrer" className="text-blue-600 underline">/api/docs</a>
               </p>
             </div>
 

@@ -19,6 +19,7 @@ export interface GradeSubjectPricingEntry {
   priceMonthlyUzs: number;
   priceQuarterlyUzs: number;
   priceYearlyUzs: number;
+  isActive?: boolean;
   updatedAt: string;
 }
 
@@ -219,6 +220,27 @@ export class GradesService implements OnModuleInit {
           quarterly = entry.priceQuarterlyUzs;
           yearly = entry.priceYearlyUzs;
         }
+      } else {
+        // When no subject is specified (e.g. Landing Page grade selector)
+        // Check if there is an active matrix override for this grade
+        const entries = Array.from(this.tariffMatrixStore.values()).filter(
+          (m) => m.gradeId === numGrade && (m.isActive !== false),
+        );
+        if (entries.length > 0) {
+          const matched = entries[0];
+          monthly = matched.priceMonthlyUzs;
+          quarterly = matched.priceQuarterlyUzs;
+          yearly = matched.priceYearlyUzs;
+          if (grade) {
+            grade.priceMonthlyUzs = monthly;
+            grade.priceQuarterlyUzs = quarterly;
+            grade.priceYearlyUzs = yearly;
+          }
+        } else if (this.generalPricing[0]?.priceUzs && this.generalPricing[0].priceUzs !== 119000) {
+          monthly = this.generalPricing[0].priceUzs;
+          quarterly = this.generalPricing[1]?.priceUzs ?? quarterly;
+          yearly = this.generalPricing[2]?.priceUzs ?? yearly;
+        }
       }
     }
 
@@ -302,6 +324,14 @@ export class GradesService implements OnModuleInit {
         : [canonicalSubj];
 
       for (const gId of targetGrades) {
+        // Also sync the grade's default price in gradesStore
+        const gradeObj = this.gradesStore.find((g) => g.id === gId || g.gradeNumber === gId);
+        if (gradeObj && monthly > 0) {
+          gradeObj.priceMonthlyUzs = monthly;
+          if (quarterly > 0) gradeObj.priceQuarterlyUzs = quarterly;
+          if (yearly > 0) gradeObj.priceYearlyUzs = yearly;
+        }
+
         for (const sId of targetSubjects) {
           const key = `${gId}:${sId}`;
           this.tariffMatrixStore.set(key, {

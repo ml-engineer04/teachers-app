@@ -44,7 +44,14 @@ import {
   pdfPageToBookDisplay,
 } from '@smartteacherbook/shared';
 
-const API_BASE = 'http://localhost:4000/api/v1';
+const API_BASE =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
+  '/api/v1';
+
+const cleanLocalhostUrl = (url?: string | null): string => {
+  if (!url) return '';
+  return url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):4000/i, '');
+};
 
 async function adminFetchJson<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
   const token =
@@ -595,11 +602,7 @@ export function VisualPdfEditor({
 
     const activePageObj = pages.find((p) => p.pageNumber === currentPage);
     const rawPageImg = activePageObj?.imageHighUrl || activePageObj?.imageNormalUrl;
-    const resolvedPageImg = rawPageImg
-      ? rawPageImg.startsWith('/')
-        ? `http://localhost:4000${rawPageImg}`
-        : rawPageImg
-      : '';
+    const resolvedPageImg = rawPageImg ? cleanLocalhostUrl(rawPageImg) : '';
 
     if (resolvedPageImg) {
       try {
@@ -1093,7 +1096,7 @@ export function VisualPdfEditor({
   const toggleInspectorAudioPreview = () => {
     const audioEl = audioPreviewRef.current;
     const rawUrl = selectedHotspot?.targetUrl || linkedMediaObj?.url;
-    const url = rawUrl?.startsWith('/') ? `http://localhost:4000${rawUrl}` : rawUrl;
+    const url = rawUrl ? cleanLocalhostUrl(rawUrl) : '';
     if (!audioEl || !url) {
       showToast('Avval audio fayl biriktiring (Upload yoki Replace)', 'warning');
       return;
@@ -2708,11 +2711,7 @@ export function VisualPdfEditor({
             </div>
             {previewVideoModal && (
               <video
-                src={
-                  previewVideoModal.targetUrl?.startsWith('/')
-                    ? `http://localhost:4000${previewVideoModal.targetUrl}`
-                    : previewVideoModal.targetUrl
-                }
+                src={cleanLocalhostUrl(previewVideoModal.targetUrl)}
                 controls
                 className="w-full rounded-xl bg-slate-950 aspect-video"
               />

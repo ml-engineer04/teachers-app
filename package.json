@@ -4,6 +4,7 @@
   "private": true,
   "description": "ilmçi (ilmchi.uz) - O‘qituvchilar va maktablar uchun raqamli darsliklar platformasi",
   "scripts": {
+    "build": "pnpm build:all",
     "build:shared": "pnpm --filter @smartteacherbook/shared build",
     "dev:api": "pnpm --filter @smartteacherbook/api start:dev",
     "dev:admin": "pnpm --filter @smartteacherbook/admin dev",

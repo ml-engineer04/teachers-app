@@ -2265,7 +2265,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
                         {/* View PDF */}
                         <a
-                          href={`http://localhost:4000/api/v1/content/books/${book.id}/pdf`}
+                          href={`/api/v1/content/books/${book.id}/pdf`}
                           target="_blank"
                           rel="noreferrer"
                           className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-all"

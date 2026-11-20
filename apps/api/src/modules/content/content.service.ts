@@ -1207,21 +1207,56 @@ export class ContentService implements OnModuleInit {
       const tmpId = `${bookId}_${safePage}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       const tmpPdfPath = path.join(os.tmpdir(), `stb_${tmpId}.pdf`);
       const tmpPngPath = path.join(os.tmpdir(), `stb_${tmpId}.png`);
+      const tmpPngPrefix = path.join(os.tmpdir(), `stb_${tmpId}`);
 
       try {
         const srcDoc = await this.getParsedPdfDoc(bookId, pdfBuf);
         const total = srcDoc.getPageCount();
         if (safePage > total) return null;
 
-        const singleDoc = await PDFDocument.create();
-        const [copied] = await singleDoc.copyPages(srcDoc, [safePage - 1]);
-        singleDoc.addPage(copied);
-        const singleBytes = await singleDoc.save();
+        fs.writeFileSync(tmpPdfPath, pdfBuf);
 
-        fs.writeFileSync(tmpPdfPath, singleBytes);
-        await execFileAsync('/usr/bin/sips', ['-s', 'format', 'png', '-Z', '1400', tmpPdfPath, '--out', tmpPngPath]);
+        let rendered = false;
 
-        if (!fs.existsSync(tmpPngPath)) return null;
+        // Method 1: pdftoppm (poppler-utils) - standard on Linux VPS, renders crisp single page
+        try {
+          await execFileAsync('pdftoppm', [
+            '-png',
+            '-r',
+            '150',
+            '-f',
+            String(safePage),
+            '-l',
+            String(safePage),
+            '-singlefile',
+            tmpPdfPath,
+            tmpPngPrefix,
+          ]);
+          if (fs.existsSync(tmpPngPath)) {
+            rendered = true;
+          }
+        } catch {
+          // pdftoppm not found or failed; fallback below
+        }
+
+        // Method 2: macOS sips fallback if pdftoppm was unavailable
+        if (!rendered && process.platform === 'darwin' && fs.existsSync('/usr/bin/sips')) {
+          try {
+            const singleDoc = await PDFDocument.create();
+            const [copied] = await singleDoc.copyPages(srcDoc, [safePage - 1]);
+            singleDoc.addPage(copied);
+            const singleBytes = await singleDoc.save();
+            fs.writeFileSync(tmpPdfPath, singleBytes);
+            await execFileAsync('/usr/bin/sips', ['-s', 'format', 'png', '-Z', '1400', tmpPdfPath, '--out', tmpPngPath]);
+            if (fs.existsSync(tmpPngPath)) {
+              rendered = true;
+            }
+          } catch (sipsErr: any) {
+            this.logger.warn(`sips render fallback error: ${sipsErr?.message || sipsErr}`);
+          }
+        }
+
+        if (!rendered || !fs.existsSync(tmpPngPath)) return null;
         const pngBuf = fs.readFileSync(tmpPngPath);
         if (this.diskEnabled && pngBuf.length > 0) {
           writeBinaryDiskSync('rendered-pages', cacheFilename, pngBuf);
@@ -1687,7 +1722,7 @@ export class ContentService implements OnModuleInit {
       durationSeconds: meta.durationSeconds || (detectedType === 'AUDIO' ? 120 : 300),
       sizeBytes: file.size,
       language: 'English',
-      url: `http://localhost:4000/api/v1/content/media/${id}/file`,
+      url: `/api/v1/content/media/${id}/file`,
       createdAt: new Date().toISOString(),
     };
 
@@ -1826,7 +1861,7 @@ export class ContentService implements OnModuleInit {
     if (this.diskEnabled) {
       writeBinaryDiskSync('covers', `${bookId}.bin`, file.buffer);
     }
-    book.coverImageUrl = `http://localhost:4000/api/v1/content/books/${bookId}/cover`;
+    book.coverImageUrl = `/api/v1/content/books/${bookId}/cover`;
     this.persistContentToDisk();
     this.logger.log(`📸 Saved custom cover image for book [${book.title}] (${(file.buffer.length / 1024).toFixed(1)} KB)`);
     return book;
@@ -1873,7 +1908,7 @@ export class ContentService implements OnModuleInit {
       exerciseTitle: dto.exerciseTitle || dto.exerciseNumber || 'Mashq Javoblari',
       solutionKey: dto.solutionKey || (hasImage ? "📸 Rasm orqali yuklangan javoblar kaliti" : "Javoblar ko'rsatilmagan"),
       methodologyNotes: dto.methodologyNotes || '',
-      imageUrl: hasImage ? `http://localhost:4000/api/v1/content/answers/${id}/image` : undefined,
+      imageUrl: hasImage ? `/api/v1/content/answers/${id}/image` : undefined,
       format: hasImage ? (dto.solutionKey ? 'BOTH' : 'IMAGE') : 'TEXT',
       createdAt: new Date().toISOString(),
     };

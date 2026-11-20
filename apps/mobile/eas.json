@@ -17,7 +17,7 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "API_BASE_URL": "https://api.smartteacherbook.uz"
+        "API_BASE_URL": "https://api.ilmchi.uz/api/v1"
       }
     },
     "production": {
@@ -26,7 +26,7 @@
         "gradleCommand": ":app:bundleRelease"
       },
       "env": {
-        "API_BASE_URL": "https://api.smartteacherbook.uz"
+        "API_BASE_URL": "https://api.ilmchi.uz/api/v1"
       }
     }
   },

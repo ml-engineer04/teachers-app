@@ -1,6 +1,6 @@
 const API_BASE =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
-  'http://localhost:4000/api/v1';
+  '/api/v1';
 
 const ADMIN_TOKEN_KEY = 'stb_admin_token';
 

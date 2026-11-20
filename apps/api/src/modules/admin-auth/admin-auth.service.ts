@@ -37,29 +37,44 @@ export class AdminAuthService {
   async login(dto: AdminLoginDto): Promise<AdminLoginResponse> {
     const cleanEmail = dto.email.trim().toLowerCase();
 
-    // 1. Check Super Admin hardcoded credentials requested by owner
-    if (cleanEmail === 'mlrahmonjon@gmail.com' && dto.password === 'Qriadmin7$') {
-      this.logger.log(`👑 Super Admin Rahmonjon authenticated successfully!`);
+    // 1. Primary check: PostgreSQL Database via Prisma with Bcrypt verification
+    try {
+      const dbAdmin = await this.prisma.admin.findUnique({
+        where: { email: cleanEmail },
+      });
+      if (dbAdmin) {
+        const match = await bcrypt.compare(dto.password, dbAdmin.passwordHash);
+        if (!match) {
+          throw new UnauthorizedException('Noto‘g‘ri administrator login yoki paroli');
+        }
+        if (!dbAdmin.isActive) {
+          throw new UnauthorizedException('Administrator hisobi nofaol holatda');
+        }
 
-      const accessToken = this.jwtService.sign(
-        {
-          sub: 'admin_super_mlrahmonjon',
-          email: cleanEmail,
-          role: AdminRole.SUPER_ADMIN,
-          type: 'admin',
-        },
-        { expiresIn: '24h' },
-      );
+        this.logger.log(`👑 Admin authenticated securely via PostgreSQL DB: ${dbAdmin.email}`);
+        const accessToken = this.jwtService.sign(
+          {
+            sub: dbAdmin.id,
+            email: dbAdmin.email,
+            role: dbAdmin.role,
+            type: 'admin',
+          },
+          { expiresIn: '24h' },
+        );
 
-      return {
-        accessToken,
-        admin: {
-          id: 'admin_super_mlrahmonjon',
-          email: cleanEmail,
-          role: AdminRole.SUPER_ADMIN,
-          totpEnabled: false,
-        },
-      };
+        return {
+          accessToken,
+          admin: {
+            id: dbAdmin.id,
+            email: dbAdmin.email,
+            role: dbAdmin.role as AdminRole,
+            totpEnabled: dbAdmin.totpEnabled,
+          },
+        };
+      }
+    } catch (err: any) {
+      if (err instanceof UnauthorizedException) throw err;
+      this.logger.warn(`Prisma admin query fallback: ${err.message}`);
     }
 
     // 2. Check in-memory admins store

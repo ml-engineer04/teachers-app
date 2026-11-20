@@ -340,7 +340,6 @@ export class AuthService implements OnModuleInit {
           });
           return legacyUser;
         }
-        return null;
       } catch (err: any) {
         this.logger.warn(`Prisma findUserByGoogleSub error, using fallback: ${err.message}`);
       }
@@ -769,11 +768,58 @@ export class AuthService implements OnModuleInit {
       return this.issueUserSession(updatedUser, dto);
     }
 
-    // Scenario C: Email exists already, NOT yet linked to this Google sub -> NEVER auto-link!
+    // Scenario C: Email exists already, NOT yet linked to this Google sub -> NEVER auto-link unless already Google provider!
     const existingEmailUser = await this.findUserByEmail(googleProfile.email);
     if (existingEmailUser) {
       if (existingEmailUser.isBlocked || !existingEmailUser.isActive) {
         throw new ForbiddenException('ACCOUNT_SUSPENDED: Ushbu hisob maʼmuriyat tomonidan bloklangan.');
+      }
+
+      // If the user was already created via Google or already matches googleId, safely update and login
+      if (
+        existingEmailUser.googleId === googleProfile.sub ||
+        (!existingEmailUser.passwordHash && existingEmailUser.authProvider?.includes('GOOGLE'))
+      ) {
+        if (this.prisma.isConnected) {
+          try {
+            await this.prisma.externalAccount.upsert({
+              where: {
+                provider_providerSubject: {
+                  provider: 'GOOGLE',
+                  providerSubject: googleProfile.sub,
+                },
+              },
+              update: { userId: existingEmailUser.id, email: googleProfile.email },
+              create: {
+                userId: existingEmailUser.id,
+                provider: 'GOOGLE',
+                providerSubject: googleProfile.sub,
+                email: googleProfile.email,
+              },
+            });
+          } catch (err: any) {
+            this.logger.warn(`Failed to upsert external account: ${err.message}`);
+          }
+        }
+        this.memExternalAccounts.set(`GOOGLE:${googleProfile.sub}`, {
+          id: `ext_${crypto.randomUUID()}`,
+          userId: existingEmailUser.id,
+          provider: 'GOOGLE',
+          providerSubject: googleProfile.sub,
+          email: googleProfile.email,
+        });
+
+        const updatedUser = await this.updateUserRecord(existingEmailUser.id, {
+          googleId: googleProfile.sub,
+          lastLoginAt: new Date(),
+          emailVerified: true,
+          firstName: existingEmailUser.firstName || googleProfile.firstName || null,
+          lastName: existingEmailUser.lastName || googleProfile.lastName || null,
+          fullName: existingEmailUser.fullName || googleProfile.fullName,
+          avatarUrl: googleProfile.avatarUrl || existingEmailUser.avatarUrl,
+          authProvider: this.mergeAuthProvider(existingEmailUser.authProvider, 'GOOGLE'),
+        });
+        return this.issueUserSession(updatedUser, dto);
       }
 
       const linkPayload: GoogleLinkTokenPayload = {

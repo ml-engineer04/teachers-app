@@ -56,6 +56,12 @@
           "initialOrientation": "DEFAULT"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7ef64ba4-8548-4079-910c-70136530eaed"
+      }
+    },
+    "owner": "khasimovrs-team"
   }
 }

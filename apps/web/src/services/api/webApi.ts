@@ -11,7 +11,7 @@ import { webStorage } from '../storage/webStorage';
 
 const envApiUrl =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
-  'http://localhost:4000/api/v1';
+  '/api/v1';
 
 export const API_BASE: string = String(envApiUrl).replace(/\/+$/, '');
 export const API_ORIGIN: string = API_BASE.replace(/\/api\/v1\/?$/, '');

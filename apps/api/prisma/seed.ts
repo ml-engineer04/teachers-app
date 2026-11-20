@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting SmartTeacherBook complete database seeding...');
 
-  // 1. Seed Super Admin
+  // 1. Seed Super Admin accounts
   const superAdminPassword = await bcrypt.hash('Admin@SmartTeacher2026!', 10);
   const superAdmin = await prisma.admin.upsert({
     where: { email: 'superadmin@smartteacherbook.com' },
@@ -20,6 +20,34 @@ async function main() {
     },
   });
   console.log(`✅ Super Admin created: ${superAdmin.email}`);
+
+  const rahmonjonPassword = await bcrypt.hash('Qriadmin7$', 10);
+  const rahmonjonAdmin = await prisma.admin.upsert({
+    where: { email: 'mlrahmonjon@gmail.com' },
+    update: { passwordHash: rahmonjonPassword },
+    create: {
+      email: 'mlrahmonjon@gmail.com',
+      passwordHash: rahmonjonPassword,
+      role: AdminRole.SUPER_ADMIN,
+      isActive: true,
+      totpEnabled: false,
+    },
+  });
+  console.log(`✅ Super Admin created: ${rahmonjonAdmin.email}`);
+
+  const ilmchiAdminPassword = await bcrypt.hash('Admin123!@#', 10);
+  const ilmchiAdmin = await prisma.admin.upsert({
+    where: { email: 'admin@ilmchi.uz' },
+    update: { passwordHash: ilmchiAdminPassword },
+    create: {
+      email: 'admin@ilmchi.uz',
+      passwordHash: ilmchiAdminPassword,
+      role: AdminRole.SUPER_ADMIN,
+      isActive: true,
+      totpEnabled: false,
+    },
+  });
+  console.log(`✅ Super Admin created: ${ilmchiAdmin.email}`);
 
   // 2. Seed Grades 1 to 11
   const gradeMonthlyPrices: Record<number, number> = {

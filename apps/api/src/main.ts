@@ -20,20 +20,37 @@ async function bootstrap() {
       // Allow non-browser requests (mobile apps, Postman, server-to-server)
       if (!origin) return callback(null, true);
 
+      const envCors = process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim())
+        : [];
+
       const allowedOrigins = [
         'http://localhost:3000',
         'http://localhost:5173',
         'http://localhost:4000',
+        'http://localhost:4100',
         'http://localhost:8081',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:4000',
+        'http://127.0.0.1:4100',
         'http://127.0.0.1:8081',
+        'https://ilmchi.uz',
+        'https://www.ilmchi.uz',
+        'https://admin.ilmchi.uz',
+        'http://ilmchi.uz',
+        'http://www.ilmchi.uz',
+        'http://admin.ilmchi.uz',
         process.env.ADMIN_PANEL_URL,
         process.env.API_BASE_URL,
+        process.env.FRONTEND_URL,
+        ...envCors,
       ].filter(Boolean);
 
-      if (allowedOrigins.some((allowed) => allowed && origin.startsWith(allowed as string))) {
+      if (
+        allowedOrigins.some((allowed) => allowed && origin.startsWith(allowed as string)) ||
+        /^https?:\/\/([a-z0-9-]+\.)*ilmchi\.uz(:[0-9]+)?$/i.test(origin)
+      ) {
         return callback(null, true);
       }
 
