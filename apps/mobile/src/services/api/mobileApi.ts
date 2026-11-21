@@ -1,4 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
+import Constants from 'expo-constants';
 import {
   CreateAccessRequestDto,
   AccessRequest,
@@ -11,7 +12,22 @@ import {
 } from '@smartteacherbook/shared';
 import { secureStorage } from '../storage/secureStorage';
 
+export const PRODUCTION_API_URL = 'https://api.ilmchi.uz/api/v1';
+
 const getMetroHost = (): string | null => {
+  try {
+    const hostUri =
+      Constants?.expoConfig?.hostUri ||
+      (Constants as any)?.manifest2?.extra?.expoGo?.debuggerHost ||
+      (Constants as any)?.manifest?.debuggerHost;
+    if (hostUri) {
+      const match = hostUri.match(/^([^/:]+)/);
+      if (match?.[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
+        return match[1];
+      }
+    }
+  } catch {}
+
   try {
     const sourceCode = NativeModules?.SourceCode;
     const scriptURL: string | undefined =
@@ -25,6 +41,7 @@ const getMetroHost = (): string | null => {
       }
     }
   } catch {}
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const getDevServer = require('react-native/Libraries/Core/Devtools/getDevServer');
@@ -34,33 +51,33 @@ const getMetroHost = (): string | null => {
       return match[1];
     }
   } catch {}
+
   return null;
 };
 
 // Automatic platform + LAN host discovery (works on Web, Emulator, and Expo Go on physical phone)
 const getApiBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+
+  // If explicitly configured to a remote/production URL, use it directly
+  const isLocalEnv = !envUrl || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(envUrl);
+  if (envUrl && !isLocalEnv) {
+    return envUrl.replace(/\/+$/, '');
+  }
+
+  // Web in browser
   if (Platform.OS === 'web') {
     return envUrl || 'http://localhost:4000/api/v1';
   }
 
+  // Mobile device connected to Metro on LAN
   const metroHost = getMetroHost();
-  const isLocalEnv = !envUrl || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(envUrl);
-
-  if (envUrl && !isLocalEnv) {
-    return envUrl;
-  }
-
   if (metroHost && metroHost !== 'localhost' && metroHost !== '127.0.0.1') {
-    return envUrl
-      ? envUrl.replace(/^(https?:\/\/)(localhost|127\.0\.0\.1)/i, `$1${metroHost}`)
-      : `http://${metroHost}:4000/api/v1`;
+    return `http://${metroHost}:4000/api/v1`;
   }
 
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:4000/api/v1';
-  }
-  return envUrl || 'http://localhost:4000/api/v1';
+  // Fallback for real mobile devices where 10.0.2.2 or localhost does not exist
+  return PRODUCTION_API_URL;
 };
 
 export const API_BASE = getApiBaseUrl();
@@ -494,12 +511,12 @@ export const mobileApi = {
       return [];
     } catch {
       return [
-        { id: 'sub_eng', name: 'Ingliz tili', code: 'ENG', icon: '🇬🇧', color: '#4F46E5' },
-        { id: 'sub_uzb', name: 'Ona tili', code: 'UZB', icon: '📖', color: '#EA580C' },
-        { id: 'sub_math', name: 'Matematika', code: 'MATH', icon: '📐', color: '#059669' },
-        { id: 'sub_phys', name: 'Fizika', code: 'PHYS', icon: '⚛️', color: '#7C3AED' },
-        { id: 'sub_chem', name: 'Kimyo', code: 'CHEM', icon: '🧪', color: '#DB2777' },
-        { id: 'sub_bio', name: 'Biologiya', code: 'BIO', icon: '🧬', color: '#0D9488' },
+        { id: 'sub_eng', name: 'Ingliz tili', code: 'ENG', icon: '🇬🇧', color: '#2A4FB8' },
+        { id: 'sub_uzb', name: 'Ona tili', code: 'UZB', icon: '📖', color: '#B45309' },
+        { id: 'sub_math', name: 'Matematika', code: 'MATH', icon: '📐', color: '#15803D' },
+        { id: 'sub_phys', name: 'Fizika', code: 'PHYS', icon: '⚛️', color: '#6D3FD1' },
+        { id: 'sub_chem', name: 'Kimyo', code: 'CHEM', icon: '🧪', color: '#C23B5A' },
+        { id: 'sub_bio', name: 'Biologiya', code: 'BIO', icon: '🧬', color: '#0E7C70' },
       ];
     }
   },

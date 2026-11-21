@@ -11,7 +11,7 @@ import { useI18n } from '../i18n/I18nContext';
 export const SplashScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const { strings } = useI18n();
-  const containerBg = isDark ? '#070B19' : DS.colors.navyDeep;
+  const containerBg = isDark ? '#15181E' : '#142452';
 
   return (
     <View style={[styles.container, { backgroundColor: containerBg }]}>
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     width: 340,
     height: 340,
     borderRadius: 170,
-    backgroundColor: 'rgba(79, 70, 229, 0.22)',
+    backgroundColor: 'rgba(42, 79, 184, 0.25)',
   },
   glowBottomLeft: {
     position: 'absolute',
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: 'rgba(56, 189, 248, 0.14)',
+    backgroundColor: 'rgba(14, 124, 112, 0.18)',
   },
   centerBlock: {
     flex: 1,
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15,
-    color: '#CBD5E1',
+    color: '#9AA3B0',
     textAlign: 'center',
     marginTop: 12,
     lineHeight: 22,

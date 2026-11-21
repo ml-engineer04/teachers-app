@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,42 @@ import {
   BackHandler,
   Platform,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { secureStorage } from '../services/storage/secureStorage';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { notify } from '../services/notifications/notificationService';
 import { DS } from '../theme/designSystem';
 import { useTheme } from '../theme/ThemeContext';
 import { useI18n } from '../i18n/I18nContext';
+
+const BiometricIcon = ({ color, size = 26 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 11c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"
+      stroke={color}
+      strokeWidth={1.8}
+    />
+    <Path
+      d="M12 2C6.48 2 2 6.48 2 12c0 2.17.7 4.19 1.9 5.86l1.46-1.46A7.94 7.94 0 014 12c0-4.41 3.59-8 8-8s8 3.59 8 8c0 1.6-.47 3.09-1.28 4.34l1.46 1.46A9.93 9.93 0 0022 12c0-5.52-4.48-10-10-10z"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M12 6c-3.31 0-6 2.69-6 6 0 1.29.41 2.49 1.11 3.47l1.45-1.45A3.96 3.96 0 018 12c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .74-.2 1.43-.55 2.02l1.45 1.45A5.95 5.95 0 0018 12c0-3.31-2.69-6-6-6z"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M8.5 19c1.07.63 2.31 1 3.5 1s2.43-.37 3.5-1"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
 
 interface PinLockScreenProps {
   userEmail: string;
@@ -45,14 +75,49 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
   const [draftPin, setDraftPin] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [verifying, setVerifying] = useState<boolean>(false);
+  const [biometricsAvailable, setBiometricsAvailable] = useState<boolean>(false);
+  const [biometricLoading, setBiometricLoading] = useState<boolean>(false);
+
+  const promptBiometricAuth = useCallback(async () => {
+    try {
+      setBiometricLoading(true);
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: strings.pin.biometricPrompt,
+        cancelLabel: strings.pin.enterTitle,
+        disableDeviceFallback: true,
+      });
+      setBiometricLoading(false);
+
+      if (result.success) {
+        notify.success(strings.common.success, strings.pin.biometricSuccess);
+        onUnlockSuccess();
+      }
+    } catch {
+      setBiometricLoading(false);
+    }
+  }, [strings.pin.biometricPrompt, strings.pin.enterTitle, strings.pin.biometricSuccess, strings.common.success, onUnlockSuccess]);
 
   useEffect(() => {
     let active = true;
     secureStorage
       .hasPinCode()
-      .then((hasPin) => {
+      .then(async (hasPin) => {
         if (!active) return;
         setMode(hasPin ? 'VERIFY' : 'CREATE');
+
+        if (hasPin) {
+          const hasHw = await LocalAuthentication.hasHardwareAsync().catch(() => false);
+          const isEnrolled = await LocalAuthentication.isEnrolledAsync().catch(() => false);
+          const enabled = await secureStorage.isBiometricEnabled().catch(() => true);
+
+          if (active && hasHw && isEnrolled && enabled) {
+            setBiometricsAvailable(true);
+            // Automatic biometric prompt on launch for instant unlock
+            setTimeout(() => {
+              if (active) promptBiometricAuth();
+            }, 350);
+          }
+        }
       })
       .catch(() => {
         if (active) setMode('CREATE');
@@ -60,7 +125,7 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
     return () => {
       active = false;
     };
-  }, []);
+  }, [promptBiometricAuth]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -158,13 +223,13 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
       <View
         style={[
           styles.glowTop,
-          { backgroundColor: isDark ? 'rgba(79, 70, 229, 0.22)' : 'rgba(79, 70, 229, 0.08)' },
+          { backgroundColor: isDark ? 'rgba(42, 79, 184, 0.22)' : 'rgba(42, 79, 184, 0.08)' },
         ]}
       />
       <View
         style={[
           styles.glowBottom,
-          { backgroundColor: isDark ? 'rgba(56, 189, 248, 0.14)' : 'rgba(14, 165, 233, 0.08)' },
+          { backgroundColor: isDark ? 'rgba(14, 124, 112, 0.16)' : 'rgba(14, 124, 112, 0.08)' },
         ]}
       />
 
@@ -213,11 +278,27 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
           <View style={[styles.errorPill, { backgroundColor: colors.dangerSoft }]}>
             <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {errorMsg}</Text>
           </View>
+        ) : biometricsAvailable && mode === 'VERIFY' ? (
+          <TouchableOpacity
+            style={[
+              styles.quickBiometricPill,
+              { backgroundColor: colors.primarySoft, borderColor: colors.primary + '33' },
+            ]}
+            onPress={promptBiometricAuth}
+            activeOpacity={0.75}
+          >
+            <BiometricIcon color={colors.primary} size={15} />
+            <Text style={[styles.quickBiometricText, { color: colors.primary }]}>
+              {strings.pin.biometricButton}
+            </Text>
+          </TouchableOpacity>
         ) : (
           <View style={{ height: 28 }} />
         )}
 
-        {verifying && <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 4 }} />}
+        {(verifying || biometricLoading) && (
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 4 }} />
+        )}
       </View>
 
       {/* Translucent Circular NumPad */}
@@ -249,9 +330,29 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
         ))}
 
         <View style={styles.keypadRow}>
-          <View style={styles.keyBtnGhost}>
-            <Text style={styles.biometricGlyph}>🛡️</Text>
-          </View>
+          {biometricsAvailable && mode === 'VERIFY' ? (
+            <TouchableOpacity
+              style={[
+                styles.keyBtn,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.primary + '55',
+                  shadowColor: colors.primary,
+                },
+              ]}
+              onPress={promptBiometricAuth}
+              activeOpacity={0.7}
+              accessibilityLabel={strings.pin.biometricButton}
+            >
+              {biometricLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <BiometricIcon color={colors.primary} size={28} />
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.keyBtnGhost} />
+          )}
           <TouchableOpacity
             style={[
               styles.keyBtn,
@@ -358,6 +459,20 @@ const styles = StyleSheet.create({
     borderRadius: DS.radius.pill,
   },
   errorText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  quickBiometricPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: DS.radius.pill,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  quickBiometricText: {
     fontSize: 12,
     fontWeight: '700',
   },

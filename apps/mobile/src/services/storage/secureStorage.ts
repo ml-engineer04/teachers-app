@@ -8,6 +8,7 @@ const DEVICE_ID_KEY = 'STB_SECURE_DEVICE_ID';
 const USER_PROFILE_KEY = 'STB_USER_PROFILE_DATA';
 const PIN_HASH_KEY = 'STB_SECURE_PIN_HASH';
 const LAST_ACTIVITY_KEY = 'STB_LAST_ACTIVITY_AT';
+const BIOMETRIC_ENABLED_KEY = 'STB_BIOMETRIC_ENABLED';
 
 // Fallback in-memory/localStorage store for Web development preview
 const webStorage = {
@@ -217,5 +218,29 @@ export const secureStorage = {
     }
     const parsed = raw ? Number(raw) : NaN;
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  },
+
+  async isBiometricEnabled(): Promise<boolean> {
+    if (Platform.OS === 'web') {
+      const val = webStorage.get(BIOMETRIC_ENABLED_KEY);
+      return val === null ? true : val === 'true';
+    }
+    try {
+      const val = await SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY);
+      return val === null ? true : val === 'true';
+    } catch {
+      return true;
+    }
+  },
+
+  async setBiometricEnabled(enabled: boolean): Promise<void> {
+    const val = String(enabled);
+    if (Platform.OS === 'web') {
+      webStorage.set(BIOMETRIC_ENABLED_KEY, val);
+      return;
+    }
+    try {
+      await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, val);
+    } catch {}
   },
 };

@@ -35,6 +35,7 @@ interface WelcomeScreenProps {
 }
 
 type AuthStep =
+  | 'PREFERENCES'
   | 'INPUT_EMAIL'
   | 'INPUT_CODE'
   | 'FORGOT_PASSWORD'
@@ -67,20 +68,32 @@ const GoogleLogoIcon = ({ size = 20 }: { size?: number }) => (
   </Svg>
 );
 
+const BackArrowIcon = ({ color, size = 18 }: { color: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M15 18l-6-6 6-6"
+      stroke={color}
+      strokeWidth={2.4}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const HeroSceneIllustration = ({ dark = false }: { dark?: boolean }) => (
   <Svg width="100%" height={126} viewBox="0 0 300 130" fill="none">
     <Circle
       cx="60"
       cy="40"
       r="30"
-      fill={dark ? 'rgba(99, 102, 241, 0.18)' : '#DBEAFE'}
+      fill={dark ? 'rgba(42, 79, 184, 0.20)' : '#EEF4FF'}
       opacity="0.8"
     />
     <Circle
       cx="245"
       cy="36"
       r="24"
-      fill={dark ? 'rgba(129, 140, 248, 0.16)' : '#E0E7FF'}
+      fill={dark ? 'rgba(42, 79, 184, 0.16)' : '#EEF4FF'}
       opacity="0.85"
     />
     <Rect
@@ -89,38 +102,38 @@ const HeroSceneIllustration = ({ dark = false }: { dark?: boolean }) => (
       width="150"
       height="58"
       rx="8"
-      fill={dark ? '#19233C' : '#FFFFFF'}
-      stroke={dark ? '#334368' : '#C7D2FE'}
+      fill={dark ? '#1E222A' : '#FFFFFF'}
+      stroke={dark ? '#353B47' : '#BAD2FF'}
       strokeWidth="1.5"
     />
     <Polygon
       points="150,24 232,54 68,54"
-      fill={dark ? '#25335E' : '#E0E7FF'}
-      stroke={dark ? '#6366F1' : '#818CF8'}
+      fill={dark ? '#272C36' : '#EEF4FF'}
+      stroke={dark ? '#5B93FA' : '#3461D6'}
       strokeWidth="1.5"
     />
-    <Rect x="136" y="74" width="28" height="38" rx="6" fill={dark ? '#5558EC' : '#4F46E5'} />
-    <Rect x="92" y="68" width="24" height="18" rx="4" fill={dark ? '#25335E' : '#DBEAFE'} />
-    <Rect x="184" y="68" width="24" height="18" rx="4" fill={dark ? '#25335E' : '#DBEAFE'} />
+    <Rect x="136" y="74" width="28" height="38" rx="6" fill={dark ? '#5B93FA' : '#2A4FB8'} />
+    <Rect x="92" y="68" width="24" height="18" rx="4" fill={dark ? '#272C36' : '#DCE8FF'} />
+    <Rect x="184" y="68" width="24" height="18" rx="4" fill={dark ? '#272C36' : '#DCE8FF'} />
     <Circle
       cx="44"
       cy="72"
       r="18"
-      fill={dark ? '#1E294D' : '#EEF2FF'}
-      stroke={dark ? '#3B4C7A' : '#C7D2FE'}
+      fill={dark ? '#1E222A' : '#EEF4FF'}
+      stroke={dark ? '#353B47' : '#BAD2FF'}
       strokeWidth="1.5"
     />
-    <Path d="M38 69L48 64V76L38 81V69Z" fill={dark ? '#A5B4FC' : '#4F46E5'} />
+    <Path d="M38 69L48 64V76L38 81V69Z" fill={dark ? '#8DB5FF' : '#2A4FB8'} />
     <Circle
       cx="256"
       cy="72"
       r="18"
-      fill={dark ? 'rgba(251, 191, 36, 0.16)' : '#FEF3C7'}
-      stroke={dark ? 'rgba(251, 191, 36, 0.4)' : '#FDE68A'}
+      fill={dark ? 'rgba(245, 184, 46, 0.16)' : '#FFFBEB'}
+      stroke={dark ? 'rgba(245, 184, 46, 0.4)' : '#FCD34D'}
       strokeWidth="1.5"
     />
-    <Polygon points="256,64 265,69 256,74 247,69" fill={dark ? '#FBBF24' : '#D97706'} />
-    <Rect x="252" y="73" width="8" height="4" rx="2" fill="#F59E0B" />
+    <Polygon points="256,64 265,69 256,74 247,69" fill={dark ? '#F5B82E' : '#E0A21A'} />
+    <Rect x="252" y="73" width="8" height="4" rx="2" fill="#F5B82E" />
   </Svg>
 );
 
@@ -128,9 +141,9 @@ const tr = (lang: AppLanguage, uz: string, ru: string, en: string) =>
   lang === 'ru' ? ru : lang === 'en' ? en : uz;
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) => {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, themeMode, setThemeMode } = useTheme();
   const { language, setLanguage, strings, t } = useI18n();
-  const [step, setStep] = useState<AuthStep>('INPUT_EMAIL');
+  const [step, setStep] = useState<AuthStep>('PREFERENCES');
   const [authMode, setAuthMode] = useState<AuthMode>('LOGIN');
   const [verificationPurpose, setVerificationPurpose] = useState<VerificationPurpose>('EMAIL_VERIFY');
 
@@ -199,12 +212,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         setLimitModalVisible(false);
         return true;
       }
-      if (step !== 'INPUT_EMAIL') {
-        setStep('INPUT_EMAIL');
+      if (step === 'INPUT_EMAIL') {
+        if (authMode === 'REGISTER') {
+          setAuthMode('LOGIN');
+          return true;
+        }
+        setStep('PREFERENCES');
         return true;
       }
-      if (authMode === 'REGISTER') {
-        setAuthMode('LOGIN');
+      if (step !== 'PREFERENCES') {
+        setStep('INPUT_EMAIL');
         return true;
       }
       return false;
@@ -829,38 +846,212 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Top Language Switcher Bar */}
-      {step === 'INPUT_EMAIL' && authMode === 'LOGIN' && (
-        <View style={styles.topLangBar}>
-          <View
+      {/* =================================================================== */}
+      {/* SCREEN 0: INITIAL PREFERENCES (LANGUAGE & THEME SELECTION)          */}
+      {/* =================================================================== */}
+      {step === 'PREFERENCES' && (
+        <ScrollView
+          contentContainerStyle={styles.prefScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.brandCenter, { marginTop: 14, marginBottom: 8 }]}>
+            <BrandLogo size={64} withContainer darkSurface={isDark} />
+          </View>
+
+          <Text style={[styles.prefAppSubtitle, { color: colors.textSecondary }]}>
+            {tr(
+              language,
+              "O'qituvchilar uchun zamonaviy raqamli ta'lim platformasi",
+              'Современная цифровая образовательная платформа для учителей',
+              'Modern digital educational platform for teachers',
+            )}
+          </Text>
+
+          {/* Section 1: Language Selection */}
+          <View style={styles.prefSection}>
+            <View style={styles.prefSectionHeader}>
+              <Text style={[styles.prefSectionLabel, { color: colors.textPrimary }]}>
+                {tr(language, 'Tilni tanlang', 'Выберите язык', 'Choose language')}
+              </Text>
+              <Text style={[styles.prefSectionHint, { color: colors.textMuted }]}>
+                {tr(
+                  language,
+                  'Ilova qaysi tilda ko‘rsatilsin?',
+                  'На каком языке отображать интерфейс?',
+                  'Which language would you prefer?',
+                )}
+              </Text>
+            </View>
+
+            <View style={styles.prefOptionsGrid}>
+              {[
+                { code: 'uz' as const, flag: '🇺🇿', label: "O'zbekcha", sub: 'Lotin alifbosida' },
+                { code: 'ru' as const, flag: '🇷🇺', label: 'Русский', sub: 'Интерфейс на русском' },
+                { code: 'en' as const, flag: '🇬🇧', label: 'English', sub: 'International English' },
+              ].map((item) => {
+                const isSelected = language === item.code;
+                return (
+                  <TouchableOpacity
+                    key={item.code}
+                    activeOpacity={0.78}
+                    style={[
+                      styles.prefCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                        borderWidth: isSelected ? 2 : 1,
+                      },
+                    ]}
+                    onPress={() => setLanguage(item.code)}
+                  >
+                    <View style={styles.prefCardRow}>
+                      <Text style={styles.prefFlagText}>{item.flag}</Text>
+                      <View style={{ flex: 1, marginLeft: 14 }}>
+                        <Text
+                          style={[
+                            styles.prefCardTitle,
+                            { color: isSelected ? colors.primary : colors.textPrimary },
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                        <Text style={[styles.prefCardSub, { color: colors.textSecondary }]}>
+                          {item.sub}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.prefRadio,
+                          {
+                            borderColor: isSelected ? colors.primary : colors.border,
+                            backgroundColor: isSelected ? colors.primary : 'transparent',
+                          },
+                        ]}
+                      >
+                        {isSelected && <Text style={styles.prefRadioCheck}>✓</Text>}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Section 2: Theme Selection */}
+          <View style={styles.prefSection}>
+            <View style={styles.prefSectionHeader}>
+              <Text style={[styles.prefSectionLabel, { color: colors.textPrimary }]}>
+                {tr(language, 'Mavzuni tanlang', 'Выберите тему', 'Select theme')}
+              </Text>
+              <Text style={[styles.prefSectionHint, { color: colors.textMuted }]}>
+                {tr(
+                  language,
+                  'Kunduzgi yoki tungi qulay rejim',
+                  'Светлое или темное комфортное оформление',
+                  'Light or dark comfortable appearance',
+                )}
+              </Text>
+            </View>
+
+            <View style={styles.themeGridRow}>
+              {[
+                {
+                  mode: 'light' as const,
+                  icon: '☀️',
+                  label: tr(language, "Yorug' rejim", 'Светлая', 'Light'),
+                  sub: tr(language, 'Kunduzgi', 'Дневная', 'Daytime'),
+                },
+                {
+                  mode: 'dark' as const,
+                  icon: '🌙',
+                  label: tr(language, 'Tungi rejim', 'Темная', 'Dark'),
+                  sub: tr(language, 'Qulay kontrast', 'Комфорт глаз', 'High contrast'),
+                },
+              ].map((th) => {
+                const isSelected = themeMode === th.mode;
+                return (
+                  <TouchableOpacity
+                    key={th.mode}
+                    activeOpacity={0.78}
+                    style={[
+                      styles.themeCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                        borderWidth: isSelected ? 2 : 1,
+                      },
+                    ]}
+                    onPress={() => setThemeMode(th.mode)}
+                  >
+                    <Text style={styles.themeIcon}>{th.icon}</Text>
+                    <Text
+                      style={[
+                        styles.themeTitle,
+                        { color: isSelected ? colors.primary : colors.textPrimary },
+                      ]}
+                    >
+                      {th.label}
+                    </Text>
+                    <Text style={[styles.themeSub, { color: colors.textSecondary }]}>
+                      {th.sub}
+                    </Text>
+                    <View
+                      style={[
+                        styles.prefRadio,
+                        {
+                          marginTop: 10,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                          backgroundColor: isSelected ? colors.primary : 'transparent',
+                        },
+                      ]}
+                    >
+                      {isSelected && <Text style={styles.prefRadioCheck}>✓</Text>}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* CTA: Proceed to Login */}
+          <TouchableOpacity
             style={[
-              styles.langPill,
+              styles.primaryPillBtn,
+              { backgroundColor: colors.primary, shadowColor: colors.primary, marginTop: 20, marginBottom: 14 },
+            ]}
+            onPress={() => setStep('INPUT_EMAIL')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
+              {tr(language, 'Davom etish →', 'Продолжить →', 'Continue →')}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.prefFooterNote, { color: colors.textMuted }]}>
+            {tr(
+              language,
+              '💡 Bularni istalgan payt sozlamalardan o‘zgartirishingiz mumkin',
+              '💡 Эти настройки можно изменить в любое время в профиле',
+              '💡 You can change these anytime in settings',
+            )}
+          </Text>
+        </ScrollView>
+      )}
+
+      {/* Top Back Bar for Login (No language switcher) */}
+      {step === 'INPUT_EMAIL' && authMode === 'LOGIN' && (
+        <View style={styles.topBackBar}>
+          <TouchableOpacity
+            style={[
+              styles.backIconBtn,
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
+            onPress={() => setStep('PREFERENCES')}
+            activeOpacity={0.75}
+            accessibilityLabel="Ortga"
           >
-            {(['uz', 'ru', 'en'] as const).map((langKey) => {
-              const active = language === langKey;
-              return (
-                <TouchableOpacity
-                  key={langKey}
-                  style={[
-                    styles.langBtn,
-                    active && { backgroundColor: colors.primary },
-                  ]}
-                  onPress={() => setLanguage(langKey)}
-                >
-                  <Text
-                    style={[
-                      styles.langBtnText,
-                      { color: active ? colors.onPrimary : colors.textSecondary },
-                    ]}
-                  >
-                    {langKey.toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+            <BackArrowIcon color={colors.textPrimary} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -1090,7 +1281,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
           ) : (
             <>
               {/* Register View */}
-              <View style={[styles.topBackBar, { marginBottom: 8 }]}>
+              <View style={styles.topRegisterBar}>
                 <TouchableOpacity
                   style={[
                     styles.backIconBtn,
@@ -1100,13 +1291,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                     clearFeedback();
                     setAuthMode('LOGIN');
                   }}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Ortga"
                 >
-                  <Text style={[styles.backArrow, { color: colors.textPrimary }]}>←</Text>
+                  <BackArrowIcon color={colors.textPrimary} />
                 </TouchableOpacity>
                 <View style={styles.brandCenter}>
                   <BrandLogo size={38} withContainer darkSurface={isDark} />
                 </View>
-                <View style={{ width: 38 }} />
+                <View style={{ width: 40 }} />
               </View>
 
               <Text style={[styles.welcomeTitle, { marginBottom: 4, color: colors.textPrimary }]}>
@@ -1283,15 +1476,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                 clearFeedback();
                 setStep('INPUT_EMAIL');
               }}
+              activeOpacity={0.75}
+              accessibilityLabel="Ortga"
             >
-              <Text style={[styles.backArrow, { color: colors.textPrimary }]}>←</Text>
+              <BackArrowIcon color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.otpCenter}>
             <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft }]}>
               <Svg width={52} height={52} viewBox="0 0 64 64" fill="none">
-                <Rect x="8" y="16" width="44" height="32" rx="6" fill="#4F46E5" />
+                <Rect x="8" y="16" width="44" height="32" rx="6" fill="#2A4FB8" />
                 <Path
                   d="M10 18L30 33L50 18"
                   stroke="#FFFFFF"
@@ -1299,7 +1494,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                <Circle cx="50" cy="44" r="10" fill="#10B981" stroke="#FFFFFF" strokeWidth="2.5" />
+                <Circle cx="50" cy="44" r="10" fill="#15803D" stroke="#FFFFFF" strokeWidth="2.5" />
                 <Path
                   d="M46 44L49 47L55 41"
                   stroke="#FFFFFF"
@@ -1438,8 +1633,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                 setResetCodeSent(false);
                 setStep('INPUT_EMAIL');
               }}
+              activeOpacity={0.75}
+              accessibilityLabel="Ortga"
             >
-              <Text style={[styles.backArrow, { color: colors.textPrimary }]}>←</Text>
+              <BackArrowIcon color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -1580,8 +1777,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                 setLinkingToken(null);
                 setStep('INPUT_EMAIL');
               }}
+              activeOpacity={0.75}
+              accessibilityLabel="Ortga"
             >
-              <Text style={[styles.backArrow, { color: colors.textPrimary }]}>←</Text>
+              <BackArrowIcon color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -1783,15 +1982,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                   setStep('SET_PIN');
                 }
               }}
+              activeOpacity={0.75}
+              accessibilityLabel="Ortga"
             >
-              <Text style={[styles.backArrow, { color: colors.textPrimary }]}>‹</Text>
+              <BackArrowIcon color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.pinHeaderCenter}>
             <View style={[styles.lockShieldBadge, { backgroundColor: colors.primarySoft }]}>
               <Svg width={48} height={48} viewBox="0 0 64 64" fill="none">
-                <Path d="M32 6L52 14V30C52 44 43 54 32 58C21 54 12 44 12 30V14L32 6Z" fill="#4F46E5" />
+                <Path d="M32 6L52 14V30C52 44 43 54 32 58C21 54 12 44 12 30V14L32 6Z" fill="#2A4FB8" />
                 <Rect x="23" y="29" width="18" height="15" rx="3" fill="#FFFFFF" />
                 <Path
                   d="M27 29V24C27 21.2 29.2 19 32 19C34.8 19 37 21.2 37 24V29"
@@ -1799,7 +2000,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                   strokeWidth="2.8"
                   strokeLinecap="round"
                 />
-                <Circle cx="32" cy="36.5" r="2" fill="#4F46E5" />
+                <Circle cx="32" cy="36.5" r="2" fill="#2A4FB8" />
               </Svg>
             </View>
 
@@ -2164,7 +2365,7 @@ const styles = StyleSheet.create({
   },
   registerOutlineBtn: {
     width: '100%',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: DS.colors.primarySoft,
     borderRadius: DS.radius.pill,
     paddingVertical: 13,
     paddingHorizontal: 16,
@@ -2209,15 +2410,15 @@ const styles = StyleSheet.create({
   },
   successBox: {
     width: '100%',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: DS.colors.successSoft,
     borderRadius: DS.radius.sm,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: DS.colors.successSoft,
     padding: 10,
     marginBottom: 10,
   },
   successText: {
-    color: '#065F46',
+    color: DS.colors.success,
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
@@ -2226,17 +2427,32 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 4,
     alignItems: 'flex-start',
+  },
+  topRegisterBar: {
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   backIconBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: DS.colors.white,
     borderWidth: 1,
     borderColor: DS.colors.border,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   backArrow: {
     fontSize: 20,
@@ -2373,7 +2589,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: DS.colors.border,
   },
   pinDotFilled: {
     backgroundColor: DS.colors.primary,
@@ -2417,5 +2633,126 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: DS.colors.textSecondary,
+  },
+  prefScroll: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    paddingBottom: 36,
+    alignItems: 'center',
+  },
+  prefAppTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  prefAppSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 12,
+  },
+  prefSection: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  prefSectionHeader: {
+    marginBottom: 10,
+  },
+  prefSectionLabel: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  prefSectionHint: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  prefOptionsGrid: {
+    width: '100%',
+    gap: 8,
+  },
+  prefCard: {
+    width: '100%',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  prefCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  prefFlagText: {
+    fontSize: 28,
+  },
+  prefCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  prefCardSub: {
+    fontSize: 11.5,
+    marginTop: 1,
+  },
+  prefRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prefRadioCheck: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    lineHeight: 14,
+  },
+  themeGridRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  themeCard: {
+    flex: 1,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  themeIcon: {
+    fontSize: 26,
+    marginBottom: 6,
+  },
+  themeTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  themeSub: {
+    fontSize: 11,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  prefFooterNote: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
 });

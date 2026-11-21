@@ -59,14 +59,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         style={[
           styles.bgCircle,
           styles.circleTopLeft,
-          { backgroundColor: isDark ? 'rgba(79, 70, 229, 0.22)' : '#DBEAFE' },
+          { backgroundColor: isDark ? 'rgba(42, 79, 184, 0.20)' : '#EEF4FF' },
         ]}
       />
       <View
         style={[
           styles.bgCircle,
           styles.circleBottomRight,
-          { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF3C7' },
+          { backgroundColor: isDark ? 'rgba(245, 184, 46, 0.16)' : '#FFFBEB' },
         ]}
       />
 
