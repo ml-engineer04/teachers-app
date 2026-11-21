@@ -13,6 +13,7 @@ import {
   Undo2,
   Redo2,
   Maximize2,
+  Minimize2,
   Plus,
   X,
   Play,
@@ -42,6 +43,7 @@ import {
   Volume2,
   RotateCcw,
   KeyRound,
+  Loader2,
 } from 'lucide-react';
 import {
   Book,
@@ -58,6 +60,9 @@ const cleanLocalhostUrl = (url?: string | null): string => {
   if (!url) return '';
   return url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):(4000|4100|3000|5173)/i, '');
 };
+
+// Global in-memory image cache for instantaneous (0ms) page switching
+const pageImageCache = new Map<string, HTMLImageElement>();
 
 const parseSolutionPills = (text?: string): Array<{ num: string; ans: string }> => {
   if (!text) return [];
@@ -178,6 +183,7 @@ export interface HotspotItem {
   answerImages?: string[];
   transcriptText?: string;
   transcriptImages?: string[];
+  transcriptImageUrl?: string;
 }
 
 export interface MediaItem {
@@ -211,87 +217,51 @@ interface VisualPdfEditorProps {
 }
 
 /**
- * Miniature PDF Page Thumbnail Card for the Left "Book Pages" Sidebar
+ * Miniature High-Performance Page Thumbnail Card for the Left "Book Pages" Sidebar
+ * Uses native lazy image decoding off the main thread to prevent CPU freezes with 200+ pages
  */
 const PdfPageThumbnail: React.FC<{
-  pdfDoc: any;
   pageNumber: number;
   isSelected: boolean;
   bookId?: string;
-}> = ({ pdfDoc, pageNumber, isSelected, bookId }) => {
-  const thumbRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!pdfDoc || !thumbRef.current) return;
-
-    const renderThumb = async () => {
-      try {
-        const page = await pdfDoc.getPage(pageNumber);
-        if (cancelled || !thumbRef.current) return;
-        const viewport = page.getViewport({ scale: 0.25 });
-        const canvas = thumbRef.current;
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        await page.render({ canvasContext: ctx, viewport }).promise;
-      } catch {}
-    };
-
-    renderThumb();
-    return () => {
-      cancelled = true;
-    };
-  }, [pdfDoc, pageNumber, isSelected]);
-
-  if (!pdfDoc) {
-    if (bookId) {
-      return (
-        <div className="w-full h-28 bg-white rounded-lg border border-slate-200/70 p-1 flex items-center justify-center overflow-hidden relative">
-          <img
-            src={`${API_BASE}/content/books/${bookId}/pages/${pageNumber}/image`}
-            loading="lazy"
-            alt=""
-            className="w-full h-full object-contain pointer-events-none"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              const fallback = e.currentTarget.parentElement?.querySelector('.thumb-card-fallback');
-              if (fallback) (fallback as HTMLElement).style.display = 'flex';
-            }}
-          />
-          <div className="thumb-card-fallback absolute inset-0 hidden flex-col justify-between p-2 bg-gradient-to-br from-sky-50 via-white to-indigo-50">
-            <div className="space-y-1">
-              <div className="h-2 w-3/4 bg-indigo-200/70 rounded" />
-              <div className="h-1.5 w-1/2 bg-sky-200/70 rounded" />
-            </div>
-            <div className="text-[10px] font-bold text-slate-500 text-center">{pageNumber}-bet</div>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="w-full h-28 bg-gradient-to-br from-sky-50 via-white to-indigo-50 rounded-lg border border-slate-200/70 p-2 flex flex-col justify-between overflow-hidden">
-        <div className="space-y-1">
-          <div className="h-2 w-3/4 bg-indigo-200/70 rounded" />
-          <div className="h-1.5 w-1/2 bg-sky-200/70 rounded" />
-        </div>
-        <div className="grid grid-cols-2 gap-1 my-1">
-          <div className="h-7 bg-sky-100 rounded border border-sky-200/60" />
-          <div className="h-7 bg-indigo-100 rounded border border-indigo-200/60" />
-        </div>
-        <div className="h-2 w-full bg-slate-200/70 rounded" />
-      </div>
-    );
-  }
+}> = React.memo(({ pageNumber, isSelected, bookId }) => {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const src = bookId ? cleanLocalhostUrl(`${API_BASE}/content/books/${bookId}/pages/${pageNumber}/image`) : null;
 
   return (
-    <canvas
-      ref={thumbRef}
-      className="w-full h-auto max-h-32 object-contain bg-white rounded-lg border border-slate-100 mx-auto block"
-    />
+    <div
+      className={`w-full h-28 bg-white rounded-lg border p-1 flex items-center justify-center overflow-hidden relative transition ${
+        isSelected
+          ? 'border-indigo-600 bg-indigo-50/40 ring-2 ring-indigo-500/20 shadow-xs'
+          : 'border-slate-200/80 hover:border-slate-300'
+      }`}
+    >
+      {src && !imgError ? (
+        <img
+          src={src}
+          loading="lazy"
+          decoding="async"
+          alt=""
+          onLoad={() => setImgLoaded(true)}
+          onError={() => setImgError(true)}
+          className={`w-full h-full object-contain pointer-events-none transition-opacity duration-150 ${
+            imgLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      ) : null}
+      {(!imgLoaded || imgError) && (
+        <div className="absolute inset-0 flex flex-col justify-between p-2 bg-gradient-to-br from-sky-50 via-white to-indigo-50">
+          <div className="space-y-1">
+            <div className="h-2 w-3/4 bg-indigo-200/70 rounded animate-pulse" />
+            <div className="h-1.5 w-1/2 bg-sky-200/70 rounded animate-pulse" />
+          </div>
+          <div className="text-[10px] font-bold text-slate-500 text-center">{pageNumber}-bet</div>
+        </div>
+      )}
+    </div>
   );
-};
+});
 
 export function VisualPdfEditor({
   initialBookId = '',
@@ -332,9 +302,10 @@ export function VisualPdfEditor({
   const [isJumpOpen, setIsJumpOpen] = useState<boolean>(false);
   const [jumpInput, setJumpInput] = useState<string>('1');
 
-  // PDF.js State
+  // PDF.js & Fast Page Image State
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [isLoadingPdf, setIsLoadingPdf] = useState<boolean>(false);
+  const [isLoadingPageImage, setIsLoadingPageImage] = useState<boolean>(false);
   const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
   const [isUploadingPdf, setIsUploadingPdf] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -402,6 +373,48 @@ export function VisualPdfEditor({
       observer?.disconnect();
     };
   }, [isFitToScreen, computeFitScale]);
+
+  // Fullscreen State (Distraction-free editing without sidebar)
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {});
+      } else if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
+  // Re-fit canvas smoothly when entering or exiting fullscreen
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isFitToScreen) {
+        handleFitToScreen();
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, isFitToScreen, handleFitToScreen]);
 
   // Hotspots & Undo/Redo State
   const [activeTool, setActiveTool] = useState<EditorToolMode>('SELECT');
@@ -527,10 +540,12 @@ export function VisualPdfEditor({
               imageUrl: updated[0] || cleanUrl,
             };
           } else {
-            const current = h.transcriptImages || [];
+            const current = h.transcriptImages || (h.transcriptImageUrl ? [h.transcriptImageUrl] : []);
+            const updated = [...current, cleanUrl];
             return {
               ...h,
-              transcriptImages: [...current, cleanUrl],
+              transcriptImages: updated,
+              transcriptImageUrl: updated[0] || cleanUrl,
             };
           }
         }),
@@ -604,11 +619,12 @@ export function VisualPdfEditor({
             imageUrl: current[0] || undefined,
           };
         } else {
-          const current = [...(h.transcriptImages || [])];
+          const current = [...(h.transcriptImages || (h.transcriptImageUrl ? [h.transcriptImageUrl] : []))];
           current.splice(index, 1);
           return {
             ...h,
             transcriptImages: current,
+            transcriptImageUrl: current[0] || undefined,
           };
         }
       }),
@@ -644,54 +660,6 @@ export function VisualPdfEditor({
       setSelectedBookId(initialBookId);
     }
   }, [initialBookId]);
-
-  const loadBookAssets = useCallback(async (bookId: string) => {
-    if (!bookId) {
-      setPages(
-        Array.from({ length: 6 }, (_, i) => ({
-          id: `demo_p_${i + 1}`,
-          bookId: 'demo',
-          pageNumber: i + 1,
-          width: 1200,
-          height: 1600,
-          rotation: 0,
-          audioHotspotsCount: 0,
-          videoHotspotsCount: 0,
-          answerHotspotsCount: 0,
-          hasHotspots: false,
-          titleSnippet: `Page ${i + 1}`,
-        })),
-      );
-      setPdfDoc(null);
-      return;
-    }
-
-    setIsLoadingPages(true);
-    try {
-      const [pagesRes, hsRes, mediaRes, tocRes, tbRes] = await Promise.all([
-        adminFetchJson<VisualPage[]>(`/content/books/${bookId}/pages`).catch(() => []),
-        adminFetchJson<HotspotItem[]>(`/content/books/${bookId}/hotspots`).catch(() => []),
-        adminFetchJson<MediaItem[]>(`/content/media?bookId=${bookId}`).catch(() => []),
-        adminFetchJson<any[]>(`/content/books/${bookId}/toc`).catch(() => []),
-        adminFetchJson<Book[]>('/content/teacher-books').catch(() => []),
-      ]);
-
-      setPages(Array.isArray(pagesRes) ? pagesRes : []);
-      const loadedHs = Array.isArray(hsRes) ? hsRes : [];
-      setHotspots(loadedHs);
-      setSelectedHotspotId(loadedHs.find((h) => h.pageNumber === 1)?.id || loadedHs[0]?.id || null);
-      setMediaList(Array.isArray(mediaRes) ? mediaRes : []);
-      setTocUnits(Array.isArray(tocRes) ? tocRes : []);
-      setTeacherBooksList(Array.isArray(tbRes) ? tbRes : []);
-      setUndoStack([]);
-      setRedoStack([]);
-      setHasUnsavedChanges(false);
-      setCurrentPage(1);
-      setJumpInput('1');
-    } finally {
-      setIsLoadingPages(false);
-    }
-  }, []);
 
   const loadPdfStream = useCallback(async (bookId: string) => {
     const seq = ++pdfLoadSeqRef.current;
@@ -733,6 +701,64 @@ export function VisualPdfEditor({
     }
   }, []);
 
+  const loadBookAssets = useCallback(async (bookId: string) => {
+    if (!bookId) {
+      setPages(
+        Array.from({ length: 6 }, (_, i) => ({
+          id: `demo_p_${i + 1}`,
+          bookId: 'demo',
+          pageNumber: i + 1,
+          width: 1200,
+          height: 1600,
+          rotation: 0,
+          audioHotspotsCount: 0,
+          videoHotspotsCount: 0,
+          answerHotspotsCount: 0,
+          hasHotspots: false,
+          titleSnippet: `Page ${i + 1}`,
+        })),
+      );
+      setPdfDoc(null);
+      return;
+    }
+
+    setIsLoadingPages(true);
+    try {
+      const [pagesRes, hsRes, mediaRes, tocRes, tbRes] = await Promise.all([
+        adminFetchJson<VisualPage[]>(`/content/books/${bookId}/pages`).catch(() => []),
+        adminFetchJson<HotspotItem[]>(`/content/books/${bookId}/hotspots`).catch(() => []),
+        adminFetchJson<MediaItem[]>(`/content/media?bookId=${bookId}`).catch(() => []),
+        adminFetchJson<any[]>(`/content/books/${bookId}/toc`).catch(() => []),
+        adminFetchJson<Book[]>('/content/teacher-books').catch(() => []),
+      ]);
+
+      const loadedPages = Array.isArray(pagesRes) ? pagesRes : [];
+      setPages(loadedPages);
+      const loadedHs = Array.isArray(hsRes) ? hsRes : [];
+      setHotspots(loadedHs);
+      setSelectedHotspotId(loadedHs.find((h) => h.pageNumber === 1)?.id || loadedHs[0]?.id || null);
+      setMediaList(Array.isArray(mediaRes) ? mediaRes : []);
+      setTocUnits(Array.isArray(tocRes) ? tocRes : []);
+      setTeacherBooksList(Array.isArray(tbRes) ? tbRes : []);
+      setUndoStack([]);
+      setRedoStack([]);
+      setHasUnsavedChanges(false);
+      setCurrentPage(1);
+      setJumpInput('1');
+
+      // If pre-rendered pages already exist on the server, skip downloading heavy 36MB raw PDF!
+      if (loadedPages.length === 0) {
+        loadPdfStream(bookId);
+      } else {
+        setPdfDoc(null);
+        setIsLoadingPdf(false);
+        setPdfLoadError(null);
+      }
+    } finally {
+      setIsLoadingPages(false);
+    }
+  }, [loadPdfStream]);
+
   useEffect(() => {
     const matched = booksList.find((b) => b.id === selectedBookId) || null;
     if (matched) {
@@ -740,8 +766,7 @@ export function VisualPdfEditor({
       setContentStartInput(String(matched.contentStartPdfPage || 1));
     }
     loadBookAssets(selectedBookId);
-    loadPdfStream(selectedBookId);
-  }, [selectedBookId, booksList, loadBookAssets, loadPdfStream]);
+  }, [selectedBookId, booksList, loadBookAssets]);
 
   const activeContentStartPdfPage = normalizeContentStartPage(
     currentBook?.contentStartPdfPage || parseInt(contentStartInput, 10) || 1,
@@ -776,7 +801,9 @@ export function VisualPdfEditor({
     }
   };
 
-  // Render active PDF page or real uploaded page image onto a clean white sheet (never synthetic fallback letters)
+  const totalPagesCount = Math.max(1, pdfDoc?.numPages || pages.length || currentBook?.totalPages || 6);
+
+  // Render active page image or PDF page onto canvas
   const renderPageCanvas = useCallback(async () => {
     const canvas = pageCanvasRef.current;
     if (!canvas) return;
@@ -808,6 +835,81 @@ export function VisualPdfEditor({
       }
     };
 
+    // FAST PATH: Check memory cache first (0 ms instant paint) or load crisp page image (10 ms)
+    const activePageObj = pages.find((p) => p.pageNumber === currentPage);
+    const rawPageImg =
+      (selectedBookId ? `${API_BASE}/content/books/${selectedBookId}/pages/${currentPage}/image` : '') ||
+      activePageObj?.imageHighUrl ||
+      activePageObj?.imageNormalUrl ||
+      '';
+    const resolvedPageImg = rawPageImg ? cleanLocalhostUrl(rawPageImg) : '';
+
+    if (resolvedPageImg) {
+      // 1. Check in-memory cache for INSTANT 0ms rendering
+      const cached = pageImageCache.get(resolvedPageImg);
+      if (cached && cached.naturalWidth > 0) {
+        const nextAspect = +(cached.naturalHeight / cached.naturalWidth).toFixed(4);
+        drawBlankSheet(nextAspect);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(cached, 0, 0, canvas.width, canvas.height);
+        }
+        setIsLoadingPageImage(false);
+        return;
+      }
+
+      // 2. Load image with high priority (async, non-blocking)
+      try {
+        setIsLoadingPageImage(true);
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            if (seq !== renderSeqRef.current) {
+              resolve();
+              return;
+            }
+            pageImageCache.set(resolvedPageImg, img);
+            const nextAspect =
+              img.naturalWidth > 0 ? +(img.naturalHeight / img.naturalWidth).toFixed(4) : 1.42;
+            drawBlankSheet(nextAspect);
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            }
+            setIsLoadingPageImage(false);
+            resolve();
+          };
+          img.onerror = () => {
+            setIsLoadingPageImage(false);
+            reject(new Error('Image load failed'));
+          };
+          img.src = resolvedPageImg;
+        });
+
+        // 3. Preload adjacent pages (next and previous) for 0ms transitions
+        if (selectedBookId) {
+          const preload = (pNum: number) => {
+            if (pNum >= 1 && pNum <= totalPagesCount) {
+              const url = cleanLocalhostUrl(`${API_BASE}/content/books/${selectedBookId}/pages/${pNum}/image`);
+              if (!pageImageCache.has(url)) {
+                const pImg = new Image();
+                pImg.crossOrigin = 'anonymous';
+                pImg.onload = () => pageImageCache.set(url, pImg);
+                pImg.src = url;
+              }
+            }
+          };
+          preload(currentPage + 1);
+          preload(currentPage - 1);
+        }
+        return;
+      } catch {
+        if (seq !== renderSeqRef.current) return;
+      }
+    }
+
+    // PDF.js fallback if page image is not available or if pdfDoc is explicitly used
     if (pdfDoc) {
       try {
         const safePageNum = Math.max(1, Math.min(pdfDoc.numPages || 1, currentPage));
@@ -827,7 +929,6 @@ export function VisualPdfEditor({
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          // Solid white base prevents transparent PDF layers from leaking prior content
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -847,47 +948,12 @@ export function VisualPdfEditor({
       }
     }
 
-    const activePageObj = pages.find((p) => p.pageNumber === currentPage);
-    const rawPageImg =
-      activePageObj?.imageHighUrl ||
-      activePageObj?.imageNormalUrl ||
-      (selectedBookId ? `${API_BASE}/content/books/${selectedBookId}/pages/${currentPage}/image` : '');
-    const resolvedPageImg = rawPageImg ? cleanLocalhostUrl(rawPageImg) : '';
-
-    if (resolvedPageImg) {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
-            if (seq !== renderSeqRef.current) {
-              resolve();
-              return;
-            }
-            const nextAspect =
-              img.naturalWidth > 0 ? +(img.naturalHeight / img.naturalWidth).toFixed(4) : 1.42;
-            drawBlankSheet(nextAspect);
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            }
-            resolve();
-          };
-          img.onerror = () => reject(new Error('Image load failed'));
-          img.src = resolvedPageImg;
-        });
-        return;
-      } catch {
-        if (seq !== renderSeqRef.current) return;
-      }
-    }
-
     const fallbackAspect =
       activePageObj && activePageObj.width > 0 && activePageObj.height > 0
         ? +(activePageObj.height / activePageObj.width).toFixed(4)
         : 1.42;
     drawBlankSheet(fallbackAspect);
-  }, [pdfDoc, pages, currentPage, zoomScale, viewMode]);
+  }, [pages, currentPage, zoomScale, viewMode, selectedBookId, totalPagesCount, pdfDoc]);
 
   useEffect(() => {
     renderPageCanvas();
@@ -896,7 +962,6 @@ export function VisualPdfEditor({
   // ==========================================
   // 2. COMPUTED SELECTIONS & UNDO / REDO
   // ==========================================
-  const totalPagesCount = Math.max(1, pdfDoc?.numPages || pages.length || currentBook?.totalPages || 6);
   const currentPageHotspots = useMemo(
     () => hotspots.filter((h) => h.pageNumber === currentPage),
     [hotspots, currentPage],
@@ -1054,13 +1119,20 @@ export function VisualPdfEditor({
         setCurrentPage((p) => Math.min(totalPagesCount, p + 1));
       } else if (e.key === 'ArrowLeft') {
         setCurrentPage((p) => Math.max(1, p - 1));
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'Escape') {
+        if (isFullscreen) {
+          toggleFullscreen();
+        }
       } else if (e.key === '?') {
         setIsShortcutsOpen((v) => !v);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleSaveChanges, handleUndo, handleRedo, handleDeleteHotspot, selectedHotspotId, totalPagesCount]);
+  }, [handleSaveChanges, handleUndo, handleRedo, handleDeleteHotspot, selectedHotspotId, totalPagesCount, toggleFullscreen, isFullscreen]);
 
   // ==========================================
   // 4. CANVAS MOUSE HANDLERS (DRAW / MOVE / RESIZE)
@@ -1474,7 +1546,12 @@ export function VisualPdfEditor({
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-[#F5F7FF] overflow-hidden select-none">
+    <div
+      ref={containerRef}
+      className={`w-full flex flex-col bg-[#F8FAFC] overflow-hidden select-none transition-all ${
+        isFullscreen ? 'fixed inset-0 z-50 h-screen w-screen' : 'h-full'
+      }`}
+    >
       {/* Hidden File Inputs */}
       <input
         ref={pdfFileInputRef}
@@ -1493,31 +1570,31 @@ export function VisualPdfEditor({
       <audio ref={audioPreviewRef} onEnded={() => setIsPlayingPreviewAudio(false)} />
 
       {/* ================================================================= */}
-      {/* TOP HEADER BAR (Matching Mockup 1-to-1)                           */}
+      {/* TOP HEADER BAR (Sleek, delicate & compact)                       */}
       {/* ================================================================= */}
-      <div className="h-16 bg-white border-b border-slate-200 px-4 flex items-center justify-between gap-3 shrink-0">
+      <div className="h-14 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3.5 sm:px-4 flex items-center justify-between gap-2.5 sm:gap-3 shrink-0">
         {/* Left: Back arrow + Title + Subtitle + Book Switcher */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           {onBackToBooks && (
             <button
               onClick={onBackToBooks}
-              className="w-9 h-9 rounded-full border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 transition shrink-0"
+              className="w-8 h-8 rounded-full border border-slate-200/80 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 hover:text-slate-900 transition shrink-0 shadow-xs"
               title="Darsliklarga qaytish"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
             </button>
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-[15px] font-extrabold text-slate-900 leading-tight shrink-0">
-                Edit Hotspots
+              <h2 className="text-sm font-black text-slate-900 leading-tight shrink-0 tracking-tight">
+                Hotspot Editor
               </h2>
               {booksList.length > 0 ? (
                 <select
                   aria-label="Kitobni tanlang"
                   value={selectedBookId}
                   onChange={(e) => handleSwitchBook(e.target.value)}
-                  className="text-[11.5px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-2.5 py-1 max-w-[220px] truncate cursor-pointer shrink-0 hover:bg-indigo-100/70 transition"
+                  className="text-xs font-bold bg-indigo-50/80 text-indigo-700 border border-indigo-200/80 rounded-xl px-2.5 py-1 max-w-[190px] sm:max-w-[240px] truncate cursor-pointer shrink-0 hover:bg-indigo-100/70 transition outline-none"
                 >
                   {booksList.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -1534,7 +1611,7 @@ export function VisualPdfEditor({
                 </button>
               )}
             </div>
-            <p className="text-[11.5px] font-medium text-slate-500 truncate mt-0.5">
+            <p className="text-[11px] font-medium text-slate-400 truncate mt-0.5">
               {currentBook ? `${currentBook.gradeId}-sinf • ` : ''}
               {activeUnitName} •{' '}
               {(() => {
@@ -1548,14 +1625,14 @@ export function VisualPdfEditor({
         </div>
 
         {/* Center Segmented Tool Strip: Select | Audio | Video | Answer | Note */}
-        <div className="flex items-center bg-slate-50 border border-slate-200/90 rounded-2xl p-1 gap-1 shadow-inner">
+        <div className="flex items-center bg-slate-100/90 p-0.5 rounded-xl border border-slate-200/70 shadow-xs gap-0.5">
           {(
             [
-              { id: 'SELECT', label: 'Select', icon: MousePointer },
-              { id: 'DRAW_AUDIO', label: 'Audio', icon: Headphones },
-              { id: 'DRAW_VIDEO', label: 'Video', icon: Video },
-              { id: 'DRAW_ANSWER', label: 'Answer', icon: Lightbulb },
-              { id: 'DRAW_OTHER', label: 'Note', icon: StickyNote },
+              { id: 'SELECT', label: 'Select', icon: MousePointer, activeColor: 'text-indigo-600' },
+              { id: 'DRAW_AUDIO', label: 'Audio', icon: Headphones, activeColor: 'text-purple-600' },
+              { id: 'DRAW_VIDEO', label: 'Video', icon: Video, activeColor: 'text-blue-600' },
+              { id: 'DRAW_ANSWER', label: 'Answer', icon: KeyRound, activeColor: 'text-amber-600' },
+              { id: 'DRAW_OTHER', label: 'Note', icon: StickyNote, activeColor: 'text-emerald-600' },
             ] as const
           ).map((tool) => {
             const Icon = tool.icon;
@@ -1567,51 +1644,71 @@ export function VisualPdfEditor({
                   setIsPreviewMode(false);
                   setActiveTool(tool.id);
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
                   active
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                    ? `bg-white shadow-xs ${tool.activeColor} ring-1 ring-slate-900/5 font-extrabold`
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
-                <span>{tool.label}</span>
+                <span className="hidden md:inline">{tool.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Right: Preview | Publish | Save Changes */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Right: Fullscreen | Preview | Publish | Save Changes */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Fullscreen Toggle (Sidebar va boshqa elementlarga chalg'imaslik uchun) */}
+          <button
+            onClick={toggleFullscreen}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
+              isFullscreen
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+            title={isFullscreen ? 'Ekranni kichraytirish (F / Esc)' : 'To‘liq ekran rejimi (F / Esc)'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-3.5 h-3.5" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5" />
+            )}
+            <span className="hidden sm:inline">
+              {isFullscreen ? 'Kichraytirish' : 'To‘liq ekran'}
+            </span>
+          </button>
+
           <button
             onClick={() => setIsPreviewMode((p) => !p)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition ${
               isPreviewMode
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>{isPreviewMode ? 'Editing Mode' : 'Preview'}</span>
+            <span className="hidden lg:inline">{isPreviewMode ? 'Editing' : 'Preview'}</span>
           </button>
 
           {selectedBookId && (
             <button
               onClick={handleOpenPublishCheck}
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 transition"
+              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 transition"
               title="Nashr qilish tekshiruvi"
             >
               <Rocket className="w-3.5 h-3.5" />
-              <span>Publish</span>
+              <span className="hidden lg:inline">Publish</span>
             </button>
           )}
 
           <button
             onClick={handleSaveChanges}
             disabled={isSaving}
-            className="px-4 py-2 rounded-xl text-xs font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 flex items-center gap-1.5 transition disabled:opacity-60 relative"
+            className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 transition disabled:opacity-60 relative active:scale-95"
           >
             <Check className="w-3.5 h-3.5" />
-            <span>{isSaving ? 'Saqlanmoqda...' : 'Save Changes'}</span>
+            <span>{isSaving ? 'Saqlanmoqda...' : 'Save'}</span>
             {hasUnsavedChanges && (
               <span className="w-2 h-2 rounded-full bg-amber-300 absolute -top-0.5 -right-0.5 ring-2 ring-white" />
             )}
@@ -1626,15 +1723,15 @@ export function VisualPdfEditor({
         {/* LEFT PANE: Book Switcher + Pages Thumbnails */}
         <div className="w-60 bg-white border-r border-slate-200 flex flex-col shrink-0">
           {/* Dedicated Prominent Book Switcher */}
-          <div className="p-3 bg-indigo-50/70 border-b border-indigo-100/90 space-y-1.5">
+          <div className="p-2.5 bg-gradient-to-r from-indigo-50/70 to-blue-50/50 border-b border-indigo-100/80 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Tahrirlanayotgan kitob</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
+                <BookOpen className="w-3 h-3" />
+                <span>Faol kitob</span>
               </span>
               {booksList.length > 0 && (
-                <span className="text-[10px] font-bold text-indigo-700 bg-white px-1.5 py-0.5 rounded-full border border-indigo-100">
-                  {booksList.length} ta
+                <span className="text-[9.5px] font-bold text-indigo-700 bg-white px-1.5 py-0.5 rounded-full border border-indigo-100 shadow-xs">
+                  {booksList.length} ta kitob
                 </span>
               )}
             </div>
@@ -1643,7 +1740,7 @@ export function VisualPdfEditor({
                 aria-label="Tahrirlanayotgan kitobni tanlang"
                 value={selectedBookId}
                 onChange={(e) => handleSwitchBook(e.target.value)}
-                className="w-full px-2.5 py-2 rounded-xl border border-indigo-200 bg-white text-xs font-extrabold text-slate-900 shadow-xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 outline-none cursor-pointer"
+                className="w-full px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs font-extrabold text-slate-900 shadow-xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 outline-none cursor-pointer"
               >
                 {booksList.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -1654,7 +1751,7 @@ export function VisualPdfEditor({
             ) : (
               <button
                 onClick={() => pdfFileInputRef.current?.click()}
-                className="w-full py-2 px-2.5 rounded-xl border border-dashed border-indigo-300 bg-white hover:bg-indigo-50 text-xs font-bold text-indigo-700 flex items-center justify-center gap-1.5 transition"
+                className="w-full py-1.5 px-2.5 rounded-xl border border-dashed border-indigo-300 bg-white hover:bg-indigo-50 text-xs font-bold text-indigo-700 flex items-center justify-center gap-1.5 transition"
               >
                 <UploadCloud className="w-3.5 h-3.5" />
                 <span>Hali kitob yo‘q — PDF yuklash</span>
@@ -1662,9 +1759,9 @@ export function VisualPdfEditor({
             )}
           </div>
 
-          <div className="p-3 border-b border-slate-100 space-y-2">
+          <div className="p-2.5 border-b border-slate-100 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold text-slate-900">Book Pages</span>
+              <span className="text-xs font-extrabold text-slate-900">Sahifalar</span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={openUnitsModal}
@@ -1689,7 +1786,7 @@ export function VisualPdfEditor({
                   if (!isNaN(pg)) setCurrentPage(pg);
                 }
               }}
-              className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-700"
+              className="w-full px-2 py-1 rounded-xl border border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-700 outline-none"
             >
               <option value="ALL">Barcha sahifalar</option>
               <option value="WITH_HOTSPOTS">Faqat hotspotli</option>
@@ -1766,7 +1863,6 @@ export function VisualPdfEditor({
                       </div>
                     )}
                     <PdfPageThumbnail
-                      pdfDoc={pdfDoc}
                       pageNumber={pg.pageNumber}
                       isSelected={active}
                       bookId={selectedBookId}
@@ -1819,40 +1915,40 @@ export function VisualPdfEditor({
 
         {/* CENTER WORKSPACE: Canvas Sub-Toolbar + Interactive Page Canvas */}
         <div className="flex-1 flex flex-col bg-[#F1F5FF] overflow-hidden relative">
-          {/* Sub-Toolbar */}
-          <div className="mx-4 mt-3 bg-white border border-slate-200/90 rounded-2xl px-3.5 py-2 flex items-center justify-between gap-2 shadow-sm shrink-0">
+          {/* Sub-Toolbar (Sleek & delicate) */}
+          <div className="mx-3.5 mt-2 bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-2 shadow-xs shrink-0">
             <div className="flex items-center gap-2">
-              <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-1.5 py-1 gap-1">
+              <div className="flex items-center bg-slate-100/80 border border-slate-200/60 rounded-lg p-0.5 gap-0.5">
                 <button
                   onClick={() => {
                     setIsFitToScreen(false);
                     setZoomScale((z) => Math.max(0.3, +(z - 0.1).toFixed(2)));
                   }}
-                  className="p-1 rounded-lg hover:bg-white text-slate-600"
+                  className="p-1 rounded hover:bg-white text-slate-600 transition"
                   title="Kichiklashtirish"
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
-                <span className="text-xs font-extrabold text-slate-800 min-w-[44px] text-center">
+                <span className="text-xs font-bold text-slate-700 min-w-[42px] text-center select-none">
                   {Math.round(zoomScale * 100)}%
                 </span>
                 <button
                   onClick={() => {
                     setIsFitToScreen(false);
-                    setZoomScale((z) => Math.min(2.0, +(z + 0.1).toFixed(2)));
+                    setZoomScale((z) => Math.min(2.5, +(z + 0.1).toFixed(2)));
                   }}
-                  className="p-1 rounded-lg hover:bg-white text-slate-600"
+                  className="p-1 rounded hover:bg-white text-slate-600 transition"
                   title="Kattalashtirish"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <button
                   onClick={handleUndo}
                   disabled={undoStack.length === 0}
-                  className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40"
+                  className="p-1 rounded-lg border border-slate-200/70 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-30 transition shadow-xs"
                   title="Bekor qilish (Ctrl+Z)"
                 >
                   <Undo2 className="w-3.5 h-3.5" />
@@ -1860,7 +1956,7 @@ export function VisualPdfEditor({
                 <button
                   onClick={handleRedo}
                   disabled={redoStack.length === 0}
-                  className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40"
+                  className="p-1 rounded-lg border border-slate-200/70 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-30 transition shadow-xs"
                   title="Qaytarish (Ctrl+Shift+Z)"
                 >
                   <Redo2 className="w-3.5 h-3.5" />
@@ -1869,42 +1965,42 @@ export function VisualPdfEditor({
 
               <button
                 onClick={handleFitToScreen}
-                className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
+                className={`px-2 py-1 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition ${
                   isFitToScreen
-                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
+                    : 'bg-white border-slate-200/70 text-slate-700 hover:bg-slate-50'
                 }`}
                 title="Sahifani ekranga moslash"
               >
                 <Maximize2
-                  className={`w-3.5 h-3.5 ${isFitToScreen ? 'text-white' : 'text-slate-500'}`}
+                  className={`w-3 h-3 ${isFitToScreen ? 'text-white' : 'text-slate-500'}`}
                 />
-                <span>Fit to Screen</span>
+                <span className="hidden sm:inline">Fit to Screen</span>
               </button>
 
               {selectedBookId && (
                 <button
                   onClick={handleAutoDetectLinks}
-                  className="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-xs font-bold text-indigo-700 flex items-center gap-1"
+                  className="px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-xs font-bold text-indigo-700 flex items-center gap-1 transition"
                   title="PDF havolalarni avtomatik aniqlash"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Auto Detect</span>
+                  <Sparkles className="w-3 h-3" />
+                  <span className="hidden md:inline">Auto Detect</span>
                 </button>
               )}
             </div>
 
             {/* Right: Show Hotspots Switch */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <span className="text-xs font-bold text-slate-700">Show Hotspots</span>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <span className="text-xs font-bold text-slate-600">Show Hotspots</span>
               <button
                 type="button"
                 onClick={() => setShowHotspots((s) => !s)}
-                className={`w-10 h-6 rounded-full p-0.5 transition-colors flex items-center ${
+                className={`w-8 h-4.5 rounded-full p-0.5 transition-colors flex items-center ${
                   showHotspots ? 'bg-indigo-600 justify-end' : 'bg-slate-300 justify-start'
                 }`}
               >
-                <span className="w-4 h-4 rounded-full bg-white shadow block" />
+                <span className="w-3.5 h-3.5 rounded-full bg-white shadow-xs block" />
               </button>
             </label>
           </div>
@@ -1914,10 +2010,18 @@ export function VisualPdfEditor({
             <div className="relative m-auto shrink-0 bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-visible inline-block">
               <canvas ref={pageCanvasRef} className="rounded-2xl block bg-white" />
 
-              {isLoadingPdf && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-white/80">
-                  <div className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 shadow-sm text-xs font-bold text-slate-600">
-                    Kitob sahifasi yuklanmoqda...
+              {isLoadingPageImage && (
+                <div className="pointer-events-none absolute top-3 right-3 z-30 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/90 backdrop-blur-xs border border-slate-200 shadow-xs text-xs font-bold text-indigo-600">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Sahifa yuklanmoqda...</span>
+                </div>
+              )}
+
+              {((isLoadingPages && pages.length === 0) || (isLoadingPdf && pages.length === 0)) && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-white/80 z-20">
+                  <div className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 shadow-md text-xs font-bold text-slate-700 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                    <span>Kitob ochilmoqda...</span>
                   </div>
                 </div>
               )}
@@ -2132,64 +2236,85 @@ export function VisualPdfEditor({
         </div>
 
         {/* ================================================================= */}
-        {/* RIGHT INSPECTOR PANEL (Matching Mockup 1-to-1)                    */}
+        {/* RIGHT INSPECTOR PANEL (Sleek, delicate & ergonomic)               */}
         {/* ================================================================= */}
-        <div className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0">
+        <div className="w-80 bg-white border-l border-slate-200/80 flex flex-col shrink-0">
           {selectedHotspot ? (
             <>
               {/* Header */}
-              <div className="px-4 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                    selectedHotspot.type === 'AUDIO' ? 'bg-purple-100 text-purple-700' :
+                    selectedHotspot.type === 'VIDEO' ? 'bg-blue-100 text-blue-700' :
+                    selectedHotspot.type === 'ANSWER_LINK' ? 'bg-amber-100 text-amber-700' :
+                    'bg-emerald-100 text-emerald-700'
+                  }`}>
                     {selectedHotspot.type === 'AUDIO' ? (
-                      <Headphones className="w-4 h-4" />
+                      <Headphones className="w-3.5 h-3.5" />
                     ) : selectedHotspot.type === 'VIDEO' ? (
-                      <Video className="w-4 h-4" />
+                      <Video className="w-3.5 h-3.5" />
                     ) : selectedHotspot.type === 'ANSWER_LINK' ? (
-                      <Lightbulb className="w-4 h-4" />
+                      <KeyRound className="w-3.5 h-3.5" />
                     ) : (
-                      <StickyNote className="w-4 h-4" />
+                      <StickyNote className="w-3.5 h-3.5" />
                     )}
                   </div>
-                  <h3 className="text-sm font-extrabold text-slate-900">
-                    {selectedHotspot.type === 'AUDIO'
-                      ? 'Audio Hotspot'
-                      : selectedHotspot.type === 'VIDEO'
-                      ? 'Video Hotspot'
-                      : selectedHotspot.type === 'ANSWER_LINK'
-                      ? 'Answer Hotspot'
-                      : 'Note Hotspot'}
-                  </h3>
+                  <div className="min-w-0">
+                    <h3 className="text-xs font-black text-slate-900 leading-tight truncate">
+                      {selectedHotspot.type === 'AUDIO'
+                        ? 'Audio Hotspot'
+                        : selectedHotspot.type === 'VIDEO'
+                        ? 'Video Hotspot'
+                        : selectedHotspot.type === 'ANSWER_LINK'
+                        ? 'Answer Hotspot'
+                        : 'Note Hotspot'}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {selectedHotspot.pageNumber}-bet • {selectedHotspot.label || 'Interaktiv belgi'}
+                    </p>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setSelectedHotspotId(null)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <button
+                    onClick={() => handleDeleteHotspot(selectedHotspot.id)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                    title="Hotspotni o‘chirish (Delete)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedHotspotId(null)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                    title="Yopish"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
               {/* Sub-tabs: General | Advanced */}
-              <div className="flex border-b border-slate-100 px-4">
+              <div className="flex border-b border-slate-100 px-3 bg-slate-50/50">
                 <button
                   onClick={() => setInspectorTab('GENERAL')}
-                  className={`flex-1 py-2.5 text-xs font-extrabold border-b-2 transition ${
+                  className={`flex-1 py-2 text-xs font-bold border-b-2 transition ${
                     inspectorTab === 'GENERAL'
-                      ? 'border-indigo-600 text-indigo-600'
+                      ? 'border-indigo-600 text-indigo-600 font-extrabold'
                       : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  General
+                  Asosiy
                 </button>
                 <button
                   onClick={() => setInspectorTab('ADVANCED')}
-                  className={`flex-1 py-2.5 text-xs font-extrabold border-b-2 transition ${
+                  className={`flex-1 py-2 text-xs font-bold border-b-2 transition ${
                     inspectorTab === 'ADVANCED'
-                      ? 'border-indigo-600 text-indigo-600'
+                      ? 'border-indigo-600 text-indigo-600 font-extrabold'
                       : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  Advanced
+                  Qo‘shimcha
                 </button>
               </div>
 
@@ -2319,9 +2444,129 @@ export function VisualPdfEditor({
                       </div>
                     )}
 
+                    {/* Audio Transcript Image Upload */}
+                    {selectedHotspot.type === 'AUDIO' && (
+                      <div className="space-y-2 pt-2 border-t border-slate-200">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                            <FileText className="w-4 h-4 text-purple-600" />
+                            <span>Audioga Transkript Rasmi</span>
+                          </label>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                            Rasm formati
+                          </span>
+                        </div>
+                        <p className="text-[10.5px] text-slate-500">
+                          O‘quvchi audioni eshitganda «Transkript» tugmasini bossa, ushbu rasm suzuvchi erkin oynada ochiladi.
+                        </p>
+
+                        <input
+                          type="file"
+                          ref={transcriptImageInputRef}
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const files = e.target.files;
+                            if (files && files[0]) {
+                              handleUploadHotspotImage(files[0], 'TRANSCRIPT');
+                            }
+                            e.target.value = '';
+                          }}
+                        />
+
+                        {/* Transcript Image Dropzone or Thumbnail Preview */}
+                        {(() => {
+                          const tImg =
+                            selectedHotspot.transcriptImageUrl ||
+                            (selectedHotspot.transcriptImages && selectedHotspot.transcriptImages[0]);
+                          if (tImg) {
+                            return (
+                              <div className="relative group rounded-xl overflow-hidden border border-purple-200 aspect-video bg-slate-900 shadow-xs">
+                                <img
+                                  src={cleanLocalhostUrl(tImg)}
+                                  alt="Audio Transkript"
+                                  className="w-full h-full object-contain cursor-pointer group-hover:opacity-90 transition"
+                                  onClick={() => {
+                                    setZoomImageModal(cleanLocalhostUrl(tImg));
+                                    setLightboxZoomScale(1);
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                  <button
+                                    type="button"
+                                    title="Kattalashtirib ko'rish"
+                                    onClick={() => {
+                                      setZoomImageModal(cleanLocalhostUrl(tImg));
+                                      setLightboxZoomScale(1);
+                                    }}
+                                    className="p-1.5 rounded-lg bg-white/90 text-slate-800 hover:bg-white text-xs font-bold flex items-center gap-1 shadow-sm"
+                                  >
+                                    <ZoomIn className="w-3.5 h-3.5" />
+                                    <span>Ko'rish</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Almashtirish"
+                                    onClick={() => transcriptImageInputRef.current?.click()}
+                                    className="p-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 text-xs font-bold flex items-center gap-1 shadow-sm"
+                                  >
+                                    <UploadCloud className="w-3.5 h-3.5" />
+                                    <span>Almashtirish</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="O'chirish"
+                                    onClick={() => handleRemoveHotspotImage(0, 'TRANSCRIPT')}
+                                    className="p-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 text-xs font-bold flex items-center gap-1 shadow-sm"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <span className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] font-bold">
+                                  Transkript biriktirilgan
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div
+                              onDragOver={(e) => handleDragOver(e, 'TRANSCRIPT')}
+                              onDragEnter={(e) => handleDragOver(e, 'TRANSCRIPT')}
+                              onDragLeave={handleDragLeave}
+                              onDrop={(e) => handleDropFiles(e, 'TRANSCRIPT')}
+                              onPaste={(e) => handlePasteHotspotImage(e, 'TRANSCRIPT')}
+                              onClick={() => transcriptImageInputRef.current?.click()}
+                              className={`relative cursor-pointer py-4 px-3 rounded-xl border-2 border-dashed transition flex flex-col items-center justify-center text-center gap-1 select-none ${
+                                isDraggingOverTarget === 'TRANSCRIPT'
+                                  ? 'border-purple-600 bg-purple-100/90 ring-4 ring-purple-500/20 scale-[1.01]'
+                                  : 'border-purple-300/80 bg-purple-50/50 hover:bg-purple-100/60 hover:border-purple-400'
+                              } ${isUploadingHotspotImg ? 'opacity-50 pointer-events-none' : ''}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={`p-1.5 rounded-lg transition ${isDraggingOverTarget === 'TRANSCRIPT' ? 'bg-purple-600 text-white animate-bounce' : 'bg-purple-200/80 text-purple-800'}`}>
+                                  <UploadCloud className="w-4 h-4" />
+                                </div>
+                                <span className="text-[11px] font-bold text-purple-950">
+                                  {isUploadingHotspotImg
+                                    ? 'Transkript rasmi yuklanmoqda...'
+                                    : isDraggingOverTarget === 'TRANSCRIPT'
+                                    ? 'Rasmni shu yerga tashlang!'
+                                    : 'Transkript rasmini yuklash'}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-purple-700/80 font-medium">
+                                Drag & Drop • Tanlash • yoki Ctrl+V
+                              </p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
                     {selectedHotspot.type === 'ANSWER_LINK' && (
-                      <div className="space-y-3.5 bg-amber-50/40 p-3.5 rounded-2xl border border-amber-200/80">
-                        {/* Hidden File Inputs for multi-image upload */}
+                      <div className="space-y-3 bg-amber-50/40 p-3.5 rounded-2xl border border-amber-200/80">
+                        {/* Hidden File Input for answer image upload */}
                         <input
                           type="file"
                           ref={answerImageInputRef}
@@ -2336,30 +2581,16 @@ export function VisualPdfEditor({
                             e.target.value = '';
                           }}
                         />
-                        <input
-                          type="file"
-                          ref={transcriptImageInputRef}
-                          multiple
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const files = e.target.files;
-                            if (files) {
-                              Array.from(files).forEach((f) => handleUploadHotspotImage(f, 'TRANSCRIPT'));
-                            }
-                            e.target.value = '';
-                          }}
-                        />
 
-                        {/* Sub-header with Title & Segmented Sub-tabs */}
+                        {/* Header */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                              <Lightbulb className="w-4 h-4 text-amber-600" />
-                              Javoblar & Transkript
+                              <KeyRound className="w-4 h-4 text-amber-600" />
+                              Javoblar Kaliti Rasmi
                             </span>
                             <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                              Smart Studio
+                              Suzuvchi Rasm
                             </span>
                           </div>
 
@@ -2396,428 +2627,113 @@ export function VisualPdfEditor({
 
                           {/* Exercise Label Input */}
                           <div className="space-y-1 mb-2.5">
-                            <label className="text-[11px] font-bold text-slate-700">Mashq / Trek nomi</label>
+                            <label className="text-[11px] font-bold text-slate-700">Mashq / Savol nomi</label>
                             <input
                               type="text"
                               value={selectedHotspot.exerciseLabel || ''}
                               onChange={(e) =>
                                 updateHotspot(selectedHotspot.id, { exerciseLabel: e.target.value })
                               }
-                              placeholder="Masalan: Track 14 • Ex. 3 Listening"
+                              placeholder="Masalan: Exercise 4 • Answer Key"
                               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                             />
                           </div>
-
-                          {/* 3 Section Sub-tabs */}
-                          <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-xl border border-amber-200/70 shadow-xs">
-                            <button
-                              type="button"
-                              onClick={() => setAnswerSectionTab('ANSWERS')}
-                              className={`py-1.5 px-1 rounded-lg text-[10.5px] font-extrabold transition flex items-center justify-center gap-1 ${
-                                answerSectionTab === 'ANSWERS'
-                                  ? 'bg-amber-500 text-white shadow-xs'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                              }`}
-                            >
-                              <KeyRound className="w-3 h-3" />
-                              <span>Javoblar</span>
-                              {(selectedHotspot.solutionText || (selectedHotspot.answerImages && selectedHotspot.answerImages.length > 0)) && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setAnswerSectionTab('TRANSCRIPT')}
-                              className={`py-1.5 px-1 rounded-lg text-[10.5px] font-extrabold transition flex items-center justify-center gap-1 ${
-                                answerSectionTab === 'TRANSCRIPT'
-                                  ? 'bg-amber-500 text-white shadow-xs'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                              }`}
-                            >
-                              <FileText className="w-3 h-3" />
-                              <span>Transkript</span>
-                              {(selectedHotspot.transcriptText || (selectedHotspot.transcriptImages && selectedHotspot.transcriptImages.length > 0)) && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setAnswerSectionTab('LINKED_MEDIA')}
-                              className={`py-1.5 px-1 rounded-lg text-[10.5px] font-extrabold transition flex items-center justify-center gap-1 ${
-                                answerSectionTab === 'LINKED_MEDIA'
-                                  ? 'bg-amber-500 text-white shadow-xs'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                              }`}
-                            >
-                              <Volume2 className="w-3 h-3" />
-                              <span>Audio/TB</span>
-                              {(selectedHotspot.targetMediaId || selectedHotspot.targetTeacherBookId) && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                              )}
-                            </button>
-                          </div>
                         </div>
 
-                        {/* TAB 1: ANSWERS CONTENT */}
-                        {answerSectionTab === 'ANSWERS' && (
-                          <div
-                            className="space-y-2.5 pt-1"
-                            onPaste={(e) => handlePasteHotspotImage(e, 'ANSWER')}
-                            onDragOver={(e) => handleDragOver(e, 'ANSWER')}
-                            onDragEnter={(e) => handleDragOver(e, 'ANSWER')}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDropFiles(e, 'ANSWER')}
-                          >
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between">
-                                <label className="text-[11px] font-bold text-slate-700">Javob matni (Smart Pills)</label>
-                                <span className="text-[10px] text-slate-400">Masalan: 1. A, 2. C, 3. True</span>
-                              </div>
-                              <textarea
-                                rows={3}
-                                value={selectedHotspot.solutionText || ''}
-                                onChange={(e) =>
-                                  updateHotspot(selectedHotspot.id, { solutionText: e.target.value })
-                                }
-                                placeholder="1. B, 2. A, 3. True..."
-                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
-                              />
+                        {/* Drag & Drop Upload Zone for Answer Images */}
+                        <div
+                          onDragOver={(e) => handleDragOver(e, 'ANSWER')}
+                          onDragEnter={(e) => handleDragOver(e, 'ANSWER')}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDropFiles(e, 'ANSWER')}
+                          onPaste={(e) => handlePasteHotspotImage(e, 'ANSWER')}
+                          onClick={() => answerImageInputRef.current?.click()}
+                          className={`relative cursor-pointer py-4 px-3 rounded-xl border-2 border-dashed transition flex flex-col items-center justify-center text-center gap-1 select-none ${
+                            isDraggingOverTarget === 'ANSWER'
+                              ? 'border-amber-600 bg-amber-100/90 ring-4 ring-amber-500/20 scale-[1.01]'
+                              : 'border-amber-300/80 bg-white/70 hover:bg-amber-100/50 hover:border-amber-400'
+                          } ${isUploadingHotspotImg ? 'opacity-50 pointer-events-none' : ''}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg transition ${isDraggingOverTarget === 'ANSWER' ? 'bg-amber-600 text-white animate-bounce' : 'bg-amber-200/70 text-amber-800'}`}>
+                              <UploadCloud className="w-4 h-4" />
                             </div>
+                            <span className="text-[11px] font-bold text-amber-900">
+                              {isUploadingHotspotImg
+                                ? 'Rasm yuklanmoqda...'
+                                : isDraggingOverTarget === 'ANSWER'
+                                ? 'Javob rasmini shu yerga tashlang!'
+                                : 'Javob rasmini tanlang yoki shu yerga tashlang'}
+                            </span>
+                          </div>
+                          <p className="text-[9.5px] text-amber-700/80 font-medium">
+                            Drag & Drop • Tanlash • yoki Ctrl+V
+                          </p>
+                        </div>
 
-                            {/* Smart Pills Live Preview */}
-                            {(() => {
-                              const pills = parseSolutionPills(selectedHotspot.solutionText);
-                              if (pills.length === 0) return null;
-                              return (
-                                <div className="p-2 rounded-xl bg-white border border-amber-200/90 space-y-1">
-                                  <span className="text-[10px] font-extrabold text-amber-900 uppercase tracking-wider block">
-                                    Jonli Vizual Katakchalar (Pills):
-                                  </span>
-                                  <div className="flex flex-wrap gap-1">
-                                    {pills.map((p, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10.5px] font-extrabold"
-                                      >
-                                        <span className="text-emerald-500 font-normal">{p.num}.</span>
-                                        <span>{p.ans}</span>
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            })()}
-
-                            {/* Answer Images Gallery */}
+                        {/* Uploaded Answer Images Gallery */}
+                        {(() => {
+                          const list = selectedHotspot.answerImages || (selectedHotspot.imageUrl ? [selectedHotspot.imageUrl] : []);
+                          if (list.length === 0) return null;
+                          return (
                             <div className="space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <label className="text-[11px] font-bold text-slate-700">
-                                  Javob rasmlari / Skrinshotlar
-                                </label>
-                                <span className="text-[10px] font-semibold text-amber-700">
-                                  {(selectedHotspot.answerImages || (selectedHotspot.imageUrl ? [selectedHotspot.imageUrl] : [])).length} ta rasm
-                                </span>
-                              </div>
-
-                              {/* Drag & Drop Upload Zone */}
-                              <div
-                                onDragOver={(e) => handleDragOver(e, 'ANSWER')}
-                                onDragEnter={(e) => handleDragOver(e, 'ANSWER')}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDropFiles(e, 'ANSWER')}
-                                onClick={() => answerImageInputRef.current?.click()}
-                                className={`relative cursor-pointer py-3 px-3 rounded-xl border-2 border-dashed transition flex flex-col items-center justify-center text-center gap-1 select-none ${
-                                  isDraggingOverTarget === 'ANSWER'
-                                    ? 'border-amber-600 bg-amber-100/90 ring-4 ring-amber-500/20 scale-[1.01]'
-                                    : 'border-amber-300/80 bg-amber-50/60 hover:bg-amber-100/50 hover:border-amber-400'
-                                } ${isUploadingHotspotImg ? 'opacity-50 pointer-events-none' : ''}`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div className={`p-1.5 rounded-lg transition ${isDraggingOverTarget === 'ANSWER' ? 'bg-amber-600 text-white animate-bounce' : 'bg-amber-200/70 text-amber-800'}`}>
-                                    <UploadCloud className="w-4 h-4" />
-                                  </div>
-                                  <span className="text-[11px] font-bold text-amber-900">
-                                    {isUploadingHotspotImg
-                                      ? 'Rasm yuklanmoqda...'
-                                      : isDraggingOverTarget === 'ANSWER'
-                                      ? 'Rasmni shu yerga tashlang!'
-                                      : 'Rasmni tanlang yoki shu yerga tashlang'}
-                                  </span>
-                                </div>
-                                <p className="text-[9.5px] text-amber-700/80 font-medium">
-                                  Drag & Drop • Tanlash • yoki Ctrl+V (bir nechta rasm mumkin)
-                                </p>
-                              </div>
-
-                              {/* Images Thumbnail Strip */}
-                              {(() => {
-                                const list = selectedHotspot.answerImages || (selectedHotspot.imageUrl ? [selectedHotspot.imageUrl] : []);
-                                if (list.length === 0) return null;
-                                return (
-                                  <div className="grid grid-cols-3 gap-2 pt-1">
-                                    {list.map((imgUrl, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="relative group rounded-xl overflow-hidden border border-amber-200 aspect-video bg-slate-900"
+                              <span className="text-[10px] font-bold text-amber-900 block">
+                                Biriktirilgan javob rasmlari ({list.length} ta):
+                              </span>
+                              <div className="grid grid-cols-2 gap-2">
+                                {list.map((imgUrl, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="relative group rounded-xl overflow-hidden border border-amber-200 aspect-video bg-slate-900 shadow-xs"
+                                  >
+                                    <img
+                                      src={cleanLocalhostUrl(imgUrl)}
+                                      alt={`Javob #${idx + 1}`}
+                                      className="w-full h-full object-contain cursor-pointer group-hover:opacity-90 transition"
+                                      onClick={() => {
+                                        setZoomImageModal(cleanLocalhostUrl(imgUrl));
+                                        setLightboxZoomScale(1);
+                                      }}
+                                    />
+                                    <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        title="Kattalashtirib ko'rish"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setZoomImageModal(cleanLocalhostUrl(imgUrl));
+                                          setLightboxZoomScale(1);
+                                        }}
+                                        className="p-1 rounded-md bg-white/90 text-slate-800 hover:bg-white"
                                       >
-                                        <img
-                                          src={cleanLocalhostUrl(imgUrl)}
-                                          alt={`Javob #${idx + 1}`}
-                                          className="w-full h-full object-cover cursor-pointer group-hover:opacity-90"
-                                          onClick={() => {
-                                            setZoomImageModal(cleanLocalhostUrl(imgUrl));
-                                            setLightboxZoomScale(1);
-                                          }}
-                                        />
-                                        <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1 pointer-events-none">
-                                          <button
-                                            type="button"
-                                            title="Kattalashtirib ko'rish"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setZoomImageModal(cleanLocalhostUrl(imgUrl));
-                                              setLightboxZoomScale(1);
-                                            }}
-                                            className="pointer-events-auto p-1 rounded-md bg-white/90 text-slate-800 hover:bg-white"
-                                          >
-                                            <ZoomIn className="w-3.5 h-3.5" />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            title="O'chirish"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleRemoveHotspotImage(idx, 'ANSWER');
-                                            }}
-                                            className="pointer-events-auto p-1 rounded-md bg-rose-600 text-white hover:bg-rose-700"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </button>
-                                        </div>
-                                        <span className="absolute bottom-1 left-1 px-1 py-0.2 rounded bg-black/60 text-white text-[9px] font-bold">
-                                          #{idx + 1}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* TAB 2: TRANSCRIPT CONTENT */}
-                        {answerSectionTab === 'TRANSCRIPT' && (
-                          <div
-                            className="space-y-2.5 pt-1"
-                            onPaste={(e) => handlePasteHotspotImage(e, 'TRANSCRIPT')}
-                            onDragOver={(e) => handleDragOver(e, 'TRANSCRIPT')}
-                            onDragEnter={(e) => handleDragOver(e, 'TRANSCRIPT')}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDropFiles(e, 'TRANSCRIPT')}
-                          >
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between">
-                                <label className="text-[11px] font-bold text-slate-700">Audio Transkript (Dialog matni)</label>
-                                <span className="text-[10px] text-slate-400">Teacher's Book audioscript</span>
-                              </div>
-                              <textarea
-                                rows={5}
-                                value={selectedHotspot.transcriptText || ''}
-                                onChange={(e) =>
-                                  updateHotspot(selectedHotspot.id, { transcriptText: e.target.value })
-                                }
-                                placeholder="Tom: Hi Sarah, what time does the club start?&#10;Sarah: It starts at 3:30..."
-                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-900 leading-relaxed focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
-                              />
-                            </div>
-
-                            {/* Transcript Images Gallery */}
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <label className="text-[11px] font-bold text-slate-700">
-                                  Transkript skrinshotlari (Bir nechta rasm)
-                                </label>
-                                <span className="text-[10px] font-semibold text-amber-700">
-                                  {(selectedHotspot.transcriptImages || []).length} ta rasm
-                                </span>
-                              </div>
-
-                              {/* Drag & Drop Upload Zone */}
-                              <div
-                                onDragOver={(e) => handleDragOver(e, 'TRANSCRIPT')}
-                                onDragEnter={(e) => handleDragOver(e, 'TRANSCRIPT')}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDropFiles(e, 'TRANSCRIPT')}
-                                onClick={() => transcriptImageInputRef.current?.click()}
-                                className={`relative cursor-pointer py-3 px-3 rounded-xl border-2 border-dashed transition flex flex-col items-center justify-center text-center gap-1 select-none ${
-                                  isDraggingOverTarget === 'TRANSCRIPT'
-                                    ? 'border-amber-600 bg-amber-100/90 ring-4 ring-amber-500/20 scale-[1.01]'
-                                    : 'border-amber-300/80 bg-amber-50/60 hover:bg-amber-100/50 hover:border-amber-400'
-                                } ${isUploadingHotspotImg ? 'opacity-50 pointer-events-none' : ''}`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <div className={`p-1.5 rounded-lg transition ${isDraggingOverTarget === 'TRANSCRIPT' ? 'bg-amber-600 text-white animate-bounce' : 'bg-amber-200/70 text-amber-800'}`}>
-                                    <UploadCloud className="w-4 h-4" />
-                                  </div>
-                                  <span className="text-[11px] font-bold text-amber-900">
-                                    {isUploadingHotspotImg
-                                      ? 'Rasm yuklanmoqda...'
-                                      : isDraggingOverTarget === 'TRANSCRIPT'
-                                      ? 'Transkript rasmini shu yerga tashlang!'
-                                      : 'Transkript rasmini tanlang yoki shu yerga tashlang'}
-                                  </span>
-                                </div>
-                                <p className="text-[9.5px] text-amber-700/80 font-medium">
-                                  Drag & Drop • Tanlash • yoki Ctrl+V (bir nechta rasm mumkin)
-                                </p>
-                              </div>
-
-                              {(() => {
-                                const list = selectedHotspot.transcriptImages || [];
-                                if (list.length === 0) return null;
-                                return (
-                                  <div className="grid grid-cols-3 gap-2 pt-1">
-                                    {list.map((imgUrl, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="relative group rounded-xl overflow-hidden border border-amber-200 aspect-video bg-slate-900"
+                                        <ZoomIn className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        title="O'chirish"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRemoveHotspotImage(idx, 'ANSWER');
+                                        }}
+                                        className="p-1 rounded-md bg-rose-600 text-white hover:bg-rose-700"
                                       >
-                                        <img
-                                          src={cleanLocalhostUrl(imgUrl)}
-                                          alt={`Transkript #${idx + 1}`}
-                                          className="w-full h-full object-cover cursor-pointer group-hover:opacity-90"
-                                          onClick={() => {
-                                            setZoomImageModal(cleanLocalhostUrl(imgUrl));
-                                            setLightboxZoomScale(1);
-                                          }}
-                                        />
-                                        <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1 pointer-events-none">
-                                          <button
-                                            type="button"
-                                            title="Kattalashtirib ko'rish"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setZoomImageModal(cleanLocalhostUrl(imgUrl));
-                                              setLightboxZoomScale(1);
-                                            }}
-                                            className="pointer-events-auto p-1 rounded-md bg-white/90 text-slate-800 hover:bg-white"
-                                          >
-                                            <ZoomIn className="w-3.5 h-3.5" />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            title="O'chirish"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleRemoveHotspotImage(idx, 'TRANSCRIPT');
-                                            }}
-                                            className="pointer-events-auto p-1 rounded-md bg-rose-600 text-white hover:bg-rose-700"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </button>
-                                        </div>
-                                        <span className="absolute bottom-1 left-1 px-1 py-0.2 rounded bg-black/60 text-white text-[9px] font-bold">
-                                          #{idx + 1}
-                                        </span>
-                                      </div>
-                                    ))}
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                    <span className="absolute bottom-1 left-1.5 px-1 py-0.2 rounded bg-black/60 text-white text-[9px] font-bold">
+                                      #{idx + 1}
+                                    </span>
                                   </div>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* TAB 3: AUDIO & TEACHER'S BOOK */}
-                        {answerSectionTab === 'LINKED_MEDIA' && (
-                          <div className="space-y-3 pt-1">
-                            {/* Linked Audio Track */}
-                            <div className="space-y-1">
-                              <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                                <Headphones className="w-3.5 h-3.5 text-indigo-600" />
-                                <span>Bog‘langan Audio Trek (Listening)</span>
-                              </label>
-                              <select
-                                value={selectedHotspot.targetMediaId || ''}
-                                onChange={(e) => {
-                                  const mId = e.target.value;
-                                  const mObj = mediaList.find((m) => m.id === mId);
-                                  updateHotspot(selectedHotspot.id, {
-                                    targetMediaId: mId || undefined,
-                                    targetFile: mObj?.filename || undefined,
-                                  });
-                                }}
-                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900"
-                              >
-                                <option value="">Tanlang (ixtiyoriy)...</option>
-                                {mediaList
-                                  .filter((m) => m.type === 'AUDIO')
-                                  .map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                      {m.title || m.filename} ({Math.round(m.durationSeconds || 0)}s)
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
-
-                            {/* Teacher's Book Link & Page Number */}
-                            <div className="grid grid-cols-3 gap-2">
-                              <div className="col-span-2 space-y-1">
-                                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                                  <BookOpen className="w-3.5 h-3.5 text-amber-700" />
-                                  <span>Teacher’s Book</span>
-                                </label>
-                                <select
-                                  value={selectedHotspot.targetTeacherBookId || ''}
-                                  onChange={(e) =>
-                                    updateHotspot(selectedHotspot.id, {
-                                      targetTeacherBookId: e.target.value || undefined,
-                                    })
-                                  }
-                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold"
-                                >
-                                  <option value="">Tanlang...</option>
-                                  {teacherBooksList.map((tb) => (
-                                    <option key={tb.id} value={tb.id}>
-                                      {tb.title}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div className="space-y-1">
-                                <label className="text-[11px] font-bold text-slate-700">TB Beti</label>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  placeholder="Bet #"
-                                  value={selectedHotspot.targetTeacherPageNumber || ''}
-                                  onChange={(e) =>
-                                    updateHotspot(selectedHotspot.id, {
-                                      targetTeacherPageNumber: e.target.value ? parseInt(e.target.value, 10) : undefined,
-                                    })
-                                  }
-                                  className="w-full px-2 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-center"
-                                />
+                                ))}
                               </div>
                             </div>
+                          );
+                        })()}
 
-                            {/* Methodology Notes */}
-                            <div className="space-y-1">
-                              <label className="text-[11px] font-bold text-slate-700">Metodik eslatma</label>
-                              <textarea
-                                rows={2}
-                                value={selectedHotspot.methodologyNotes || ''}
-                                onChange={(e) =>
-                                  updateHotspot(selectedHotspot.id, { methodologyNotes: e.target.value })
-                                }
-                                placeholder="O‘qituvchi uchun metodik maslahat..."
-                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold"
-                              />
-                            </div>
-                          </div>
-                        )}
+                        {/* Informative Guidance */}
+                        <div className="p-2.5 rounded-xl bg-amber-100/60 border border-amber-200/80 text-[10.5px] text-amber-900 leading-snug">
+                          💡 <strong>Reader qulayligi:</strong> O‘quvchi ushbu javob belgisini bosganda, rasm hech qanday fon qorong‘ulashtirishisiz (no overlay) markazda suzuvchi erkin oyna ko‘rinishida ochiladi. Uni sichqoncha bilan istalgan joyga surish va o‘lchamini o‘zgartirish mumkin.
+                        </div>
                       </div>
                     )}
 
@@ -3194,30 +3110,28 @@ export function VisualPdfEditor({
       </div>
 
       {/* ================================================================= */}
-      {/* BOTTOM NAVIGATION & STATUS BAR (1-to-1 Mockup Footer)             */}
+      {/* BOTTOM NAVIGATION & STATUS BAR (Sleek, delicate & compact)        */}
       {/* ================================================================= */}
-      <div className="h-14 bg-white border-t border-slate-200 px-4 flex items-center justify-between gap-4 shrink-0">
+      <div className="h-12 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-3.5 flex items-center justify-between gap-3 shrink-0">
         {/* Left: Keyboard Shortcuts */}
         <button
           onClick={() => setIsShortcutsOpen(true)}
-          className="flex items-center gap-2 text-left hover:bg-slate-50 px-2.5 py-1.5 rounded-xl transition"
+          className="flex items-center gap-1.5 text-left hover:bg-slate-50 px-2 py-1 rounded-lg transition"
+          title="Tezkor tugmalar (Press ?)"
         >
-          <HelpCircle className="w-4 h-4 text-slate-500" />
-          <div>
-            <p className="text-xs font-bold text-slate-800 leading-none">Keyboard Shortcuts</p>
-            <p className="text-[10.5px] text-slate-400 mt-0.5">Press ? for help</p>
-          </div>
+          <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+          <span className="text-xs font-bold text-slate-700 hidden sm:inline">Shortcuts (?)</span>
         </button>
 
         {/* Center: Previous | Page X / N | Next */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage <= 1}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1 disabled:opacity-40"
+            className="px-2.5 py-1 rounded-lg border border-slate-200/70 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1 disabled:opacity-40 transition shadow-xs"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Previous</span>
+            <span className="hidden sm:inline">Oldingi</span>
           </button>
 
           {isJumpOpen ? (
@@ -3238,7 +3152,7 @@ export function VisualPdfEditor({
                 autoFocus
                 min={1}
                 max={totalPagesCount}
-                className="w-16 px-2 py-1 rounded-xl border border-indigo-400 text-xs font-extrabold text-center"
+                className="w-14 px-1.5 py-0.5 rounded-lg border border-indigo-500 text-xs font-extrabold text-center outline-none"
               />
             </form>
           ) : (
@@ -3247,7 +3161,7 @@ export function VisualPdfEditor({
                 setJumpInput(String(currentPage));
                 setIsJumpOpen(true);
               }}
-              className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-indigo-50 text-xs font-extrabold text-slate-800"
+              className="px-3 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 border border-slate-200/60 text-xs font-extrabold text-slate-800 transition cursor-pointer shadow-xs"
               title="Sahifaga o'tish uchun bosing"
             >
               {(() => {
@@ -3257,7 +3171,7 @@ export function VisualPdfEditor({
                 }
                 return activeContentStartPdfPage > 1
                   ? `${disp.bookPage} / ${disp.contentTotalPages}-bet (PDF ${currentPage})`
-                  : `Page ${currentPage} / ${totalPagesCount}`;
+                  : `${currentPage} / ${totalPagesCount}-bet`;
               })()}
             </button>
           )}
@@ -3265,18 +3179,17 @@ export function VisualPdfEditor({
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPagesCount, p + 1))}
             disabled={currentPage >= totalPagesCount}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1 disabled:opacity-40"
+            className="px-2.5 py-1 rounded-lg border border-slate-200/70 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1 disabled:opacity-40 transition shadow-xs"
           >
-            <span>Next</span>
+            <span className="hidden sm:inline">Keyingi</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Right: View Mode Switcher & O'qituvchi kabineti */}
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500">View Mode:</span>
-            <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-0.5">
+        {/* Right: View Mode Switcher, Fullscreen Toggle & Cabinet Link */}
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1.5">
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5 border border-slate-200/60">
               {(
                 [
                   { id: 'MOBILE', icon: Smartphone, title: 'Mobile (410px)' },
@@ -3291,8 +3204,8 @@ export function VisualPdfEditor({
                     key={vm.id}
                     onClick={() => setViewMode(vm.id)}
                     title={vm.title}
-                    className={`p-1.5 rounded-lg transition ${
-                      active ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    className={`p-1 rounded-md transition ${
+                      active ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
@@ -3302,14 +3215,27 @@ export function VisualPdfEditor({
             </div>
           </div>
 
+          {/* Quick Fullscreen Button in Footer */}
+          <button
+            onClick={toggleFullscreen}
+            className={`p-1.5 rounded-lg border text-xs transition shadow-xs ${
+              isFullscreen
+                ? 'bg-indigo-600 border-indigo-600 text-white'
+                : 'border-slate-200/80 bg-white hover:bg-slate-50 text-slate-600'
+            }`}
+            title={isFullscreen ? 'Ekranni kichraytirish (F / Esc)' : 'To‘liq ekran (F / Esc)'}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+
           <a
             href="/cabinet"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3.5 py-1.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition"
+            className="px-3 py-1 rounded-lg bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
           >
-            <GraduationCap className="w-4 h-4" />
-            <span>O‘qituvchi kabineti</span>
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">O‘qituvchi kabineti</span>
           </a>
         </div>
       </div>
@@ -3443,6 +3369,7 @@ export function VisualPdfEditor({
                 ['Ctrl / Cmd + Z', 'Bekor qilish (Undo)'],
                 ['Delete / Backspace', 'Tanlangan hotspotni o‘chirish'],
                 ['← / →', 'Oldingi / Keyingi sahifa'],
+                ['F / Esc', 'To‘liq ekran rejimi (Fullscreen)'],
                 ['?', 'Ushbu oynani ochish / yopish'],
               ].map(([k, desc]) => (
                 <div key={k} className="flex items-center justify-between py-1 border-b border-slate-100">

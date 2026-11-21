@@ -23,12 +23,12 @@ export const NotificationHost: React.FC = () => {
       {toasts.map((toast) => {
         const styles =
           toast.type === 'success'
-            ? 'border-emerald-200 dark:border-emerald-500/30 bg-white/95 dark:bg-[#121A2D]/95 text-emerald-900 dark:text-emerald-200'
+            ? 'border-[#15803D]/30 dark:border-[#4ADE80]/30 bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 text-[#1F2933] dark:text-[#E6E8EC]'
             : toast.type === 'error'
-            ? 'border-red-200 dark:border-red-500/30 bg-white/95 dark:bg-[#121A2D]/95 text-red-900 dark:text-red-200'
+            ? 'border-[#B91C1C]/30 dark:border-[#F87171]/30 bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 text-[#B91C1C] dark:text-[#F87171]'
             : toast.type === 'warning'
-            ? 'border-amber-200 dark:border-amber-500/30 bg-white/95 dark:bg-[#121A2D]/95 text-amber-900 dark:text-amber-200'
-            : 'border-indigo-200 dark:border-indigo-500/30 bg-white/95 dark:bg-[#121A2D]/95 text-slate-900 dark:text-slate-100';
+            ? 'border-[#B45309]/30 dark:border-[#FBBF24]/30 bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 text-[#B45309] dark:text-[#FBBF24]'
+            : 'border-[#2A4FB8]/30 dark:border-[#5B93FA]/30 bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 text-[#1F2933] dark:text-[#E6E8EC]';
 
         const Icon =
           toast.type === 'success'
@@ -41,12 +41,12 @@ export const NotificationHost: React.FC = () => {
 
         const iconColor =
           toast.type === 'success'
-            ? 'text-emerald-600 dark:text-emerald-400'
+            ? 'text-[#15803D] dark:text-[#4ADE80]'
             : toast.type === 'error'
-            ? 'text-red-600 dark:text-red-400'
+            ? 'text-[#B91C1C] dark:text-[#F87171]'
             : toast.type === 'warning'
-            ? 'text-amber-600 dark:text-amber-400'
-            : 'text-indigo-600 dark:text-indigo-400';
+            ? 'text-[#B45309] dark:text-[#FBBF24]'
+            : 'text-[#2A4FB8] dark:text-[#5B93FA]';
 
         return (
           <div

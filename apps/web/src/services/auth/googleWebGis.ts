@@ -153,6 +153,7 @@ export async function mountGoogleGisButton(params: {
     });
 
     params.container.innerHTML = '';
+    const safeWidth = params.width ? Math.min(400, Math.max(200, Math.floor(params.width))) : 320;
     window.google.accounts.id.renderButton(params.container, {
       theme: 'outline',
       size: 'large',
@@ -160,7 +161,7 @@ export async function mountGoogleGisButton(params: {
       shape: 'rectangular',
       text: 'signin_with',
       logo_alignment: 'left',
-      width: params.width || 340,
+      width: safeWidth,
       locale: params.locale || 'uz',
     });
 
