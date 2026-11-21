@@ -11,13 +11,16 @@ import {
   Platform,
   BackHandler,
   RefreshControl,
+  Switch,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { DS } from '../theme/designSystem';
 import { useTheme } from '../theme/ThemeContext';
 import { useI18n } from '../i18n/I18nContext';
 import type { AppLanguage } from '../services/storage/appPreferences';
 import { UserAvatar } from '../components/common/UserAvatar';
+import { BookCardSkeleton } from '../components/common/Skeleton';
 import { mobileApi } from '../services/api/mobileApi';
 import { secureStorage } from '../services/storage/secureStorage';
 import { DownloadsManager, DownloadedItem } from '../services/storage/downloadsManager';
@@ -62,14 +65,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onLogout,
 }) => {
   const { themeMode, setThemeMode, colors, isDark } = useTheme();
-  const { language, setLanguage, strings, t, formatGrade } = useI18n();
+  const { language, setLanguage, strings, t, formatGrade, formatSubject } = useI18n();
 
   const [displayName, setDisplayName] = useState(userName || strings.common.userFallback);
   const [storageMb, setStorageMb] = useState<number>(0);
   const [downloads, setDownloads] = useState<DownloadedItem[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [loadingSubs, setLoadingSubs] = useState<boolean>(true);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricActive, setBiometricActive] = useState(true);
 
   // Modals
   const [editProfileOpen, setEditProfileOpen] = useState(false);
@@ -139,6 +147,35 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setEditNameInput(userName || '');
   }, [userName, strings.common.userFallback]);
 
+  useEffect(() => {
+    let active = true;
+    const checkBio = async () => {
+      const hasHw = await LocalAuthentication.hasHardwareAsync().catch(() => false);
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync().catch(() => false);
+      const enabled = await secureStorage.isBiometricEnabled().catch(() => true);
+      if (active) {
+        setBiometricSupported(hasHw && isEnrolled);
+        setBiometricActive(enabled);
+      }
+    };
+    checkBio();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleToggleBiometric = async (value: boolean) => {
+    if (value) {
+      const res = await LocalAuthentication.authenticateAsync({
+        promptMessage: strings.pin.biometricPrompt,
+      }).catch(() => null);
+      if (!res?.success) return;
+    }
+    setBiometricActive(value);
+    await secureStorage.setBiometricEnabled(value);
+    notify.success(strings.common.success, value ? strings.pin.biometricSuccess : strings.settings.profileSaved);
+  };
+
   const refreshLocalState = useCallback(async () => {
     await DownloadsManager.init().catch(() => {});
     setStorageMb(DownloadsManager.getTotalStorageUsedMb());
@@ -161,10 +198,41 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   }, [strings.common.noData, strings.common.warning]);
 
+  const loadSubscriptions = useCallback(async () => {
+    setLoadingSubs(true);
+    try {
+      const [subs, subList] = await Promise.all([
+        mobileApi.getMySubscriptions(),
+        mobileApi.getSubjects(),
+      ]);
+      setSubscriptions(subs || []);
+      setSubjects(subList || []);
+    } catch {
+      setSubscriptions([]);
+    } finally {
+      setLoadingSubs(false);
+    }
+  }, []);
+
+  const resolveSubjectTitle = useCallback(
+    (subjectId?: string | null) => {
+      if (!subjectId) return strings.common.allSubjects;
+      const found = subjects.find(
+        (s) =>
+          s.id === subjectId ||
+          s.code?.toLowerCase() === subjectId.toLowerCase() ||
+          subjectId.toLowerCase().includes(s.code?.toLowerCase()),
+      );
+      return formatSubject(found?.name, found?.id || subjectId);
+    },
+    [subjects, formatSubject, strings.common.allSubjects],
+  );
+
   useEffect(() => {
     refreshLocalState();
     loadDevices();
-  }, [refreshLocalState, loadDevices]);
+    loadSubscriptions();
+  }, [refreshLocalState, loadDevices, loadSubscriptions]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -173,6 +241,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         SubscriptionManager.syncFromBackend().catch(() => {}),
         refreshLocalState(),
         loadDevices(),
+        loadSubscriptions(),
         mobileApi
           .getProfile()
           .then((remote) => {
@@ -191,7 +260,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     } finally {
       setRefreshing(false);
     }
-  }, [refreshLocalState, loadDevices, onProfileUpdated]);
+  }, [refreshLocalState, loadDevices, loadSubscriptions, onProfileUpdated]);
 
   const handleSaveProfile = async () => {
     const trimmed = editNameInput.trim();
@@ -485,6 +554,124 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 );
               })}
             </View>
+          </View>
+        </View>
+
+        {/* Subscriptions & Tariffs Card */}
+        <View
+          style={[
+            styles.prefCard,
+            { backgroundColor: colors.cardBg, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.prefSection}>
+            <View style={styles.prefHeader}>
+              <View style={[styles.menuIconWrap, { backgroundColor: colors.primarySoft }]}>
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Rect x="2" y="5" width="20" height="14" rx="3" stroke={colors.primary} strokeWidth={2} />
+                  <Path d="M2 10h20" stroke={colors.primary} strokeWidth={2} />
+                </Svg>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>
+                  {strings.requests.activeSubscriptionsTitle || 'Faol obunalar'}
+                </Text>
+              </View>
+            </View>
+
+            {loadingSubs ? (
+              <View style={{ width: '100%', paddingVertical: 10 }}>
+                <BookCardSkeleton />
+                <BookCardSkeleton />
+              </View>
+            ) : subscriptions.filter((s) => s.isActive !== false && (isNaN(new Date(s.expiresAt).getTime()) || new Date(s.expiresAt).getTime() > Date.now())).length === 0 ? (
+              <View style={[styles.emptySubCard, { backgroundColor: colors.surfaceAlt }]}>
+                <Text style={{ fontSize: 24, marginBottom: 4 }}>🔒</Text>
+                <Text style={[styles.emptySubTitle, { color: colors.textPrimary }]}>
+                  {strings.requests.noActiveSubscriptions}
+                </Text>
+                <Text style={[styles.emptySubDesc, { color: colors.textSecondary }]}>
+                  {t('dashboard.noSubscriptionsDesc') || 'Darsliklarni to‘liq o‘qish uchun fan tarifiga obuna bo‘ling.'}
+                </Text>
+                {onOpenRequests && (
+                  <TouchableOpacity
+                    style={[styles.emptySubBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => onOpenRequests()}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.emptySubBtnText, { color: colors.onPrimary }]}>
+                      {t('dashboard.goToPlansBtn') || 'Tariflarga o‘tish'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <View style={styles.subsListWrap}>
+                {subscriptions
+                  .filter((s) => s.isActive !== false && (isNaN(new Date(s.expiresAt).getTime()) || new Date(s.expiresAt).getTime() > Date.now()))
+                  .map((sub, idx) => {
+                    const expTime = new Date(sub.expiresAt).getTime();
+                    const daysLeft = Math.ceil((expTime - Date.now()) / (1000 * 60 * 60 * 24));
+                    const isExpiringSoon = daysLeft <= 3 && daysLeft >= 0;
+                    const expDateStr = new Date(sub.expiresAt).toLocaleDateString();
+
+                    return (
+                      <View
+                        key={sub.id || idx}
+                        style={[
+                          styles.subItemCard,
+                          {
+                            backgroundColor: colors.surfaceAlt,
+                            borderColor: isExpiringSoon ? colors.warning : colors.border,
+                          },
+                        ]}
+                      >
+                        <View style={styles.subItemTopRow}>
+                          <View style={styles.subItemGradeBadge}>
+                            <Text style={[styles.subItemGradeText, { color: colors.primaryText }]}>
+                              {formatGrade(sub.gradeId)}
+                            </Text>
+                          </View>
+                          <Text style={[styles.subItemSubjectTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                            {resolveSubjectTitle(sub.subjectId)}
+                          </Text>
+                          {isExpiringSoon ? (
+                            <View style={styles.expiringBadge}>
+                              <Text style={styles.expiringBadgeText}>
+                                ⚠️ {daysLeft <= 0 ? t('dashboard.todayLastDay') : t('dashboard.daysRemaining', { n: daysLeft })}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={[styles.activePillSmall, { backgroundColor: colors.accent }]}>
+                              <Text style={styles.activePillSmallText}>{strings.common.active}</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <View style={styles.subItemExpiryRow}>
+                          <Text style={[styles.subItemExpiryText, { color: colors.textSecondary }]}>
+                            {strings.settings.expiresDate || 'Amal qilish muddati'}: {expDateStr} ({t('dashboard.daysRemaining', { n: daysLeft })})
+                          </Text>
+                        </View>
+
+                        {onOpenRequests && (
+                          <View style={styles.subItemActionRow}>
+                            <TouchableOpacity
+                              onPress={() => onOpenRequests(sub.gradeId, sub.subjectId || undefined)}
+                              style={[styles.renewActionBtn, { backgroundColor: colors.primarySoft }]}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={[styles.renewActionBtnText, { color: colors.primaryText }]}>
+                                {t('dashboard.extendSubscriptionBtn') || 'Obunani uzaytirish →'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+              </View>
+            )}
           </View>
         </View>
 
@@ -934,6 +1121,35 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </Text>
             </View>
 
+            {biometricSupported && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.border,
+                  marginVertical: 6,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 10 }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.textPrimary }}>
+                    {strings.settings.biometricTitle}
+                  </Text>
+                  <Text style={{ fontSize: 11.5, color: colors.textSecondary, marginTop: 2 }}>
+                    {strings.settings.biometricDesc}
+                  </Text>
+                </View>
+                <Switch
+                  value={biometricActive}
+                  onValueChange={handleToggleBiometric}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={Platform.OS === 'android' ? (biometricActive ? colors.onPrimary : '#f4f3f4') : undefined}
+                />
+              </View>
+            )}
+
             <Text style={[styles.modalSub, { marginTop: 12, marginBottom: 6, color: colors.textSecondary }]}>
               {strings.settings.pinChangeBtn}
             </Text>
@@ -1247,6 +1463,119 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  addSubjectPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  addSubjectPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptySubCard: {
+    borderRadius: 14,
+    padding: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+  emptySubTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  emptySubDesc: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 17,
+    maxWidth: 280,
+  },
+  emptySubBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  emptySubBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  subsListWrap: {
+    gap: 8,
+    marginTop: 4,
+  },
+  subItemCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+  },
+  subItemTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subItemGradeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+  },
+  subItemGradeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  subItemSubjectTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  activePillSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  activePillSmallText: {
+    color: '#FFFFFF',
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  expiringBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  expiringBadgeText: {
+    color: DS.colors.warning,
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  subItemExpiryRow: {
+    paddingVertical: 2,
+  },
+  subItemExpiryText: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  subItemActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+  },
+  renewActionBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  renewActionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   segmentedTrack: {
     flexDirection: 'row',

@@ -27,6 +27,11 @@ import { DS } from '../theme/designSystem';
 import { useTheme } from '../theme/ThemeContext';
 import { useI18n } from '../i18n/I18nContext';
 import { matchesBookSearch } from '../utils/searchMatch';
+import {
+  HeroBannerSkeleton,
+  GradesRowSkeleton,
+  BookCardSkeleton,
+} from '../components/common/Skeleton';
 
 interface GradeDetailScreenProps {
   grade: number;
@@ -85,7 +90,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
   const [offlineCovers, setOfflineCovers] = useState<Record<string, string>>({});
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [expiredModalVisible, setExpiredModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -572,7 +577,11 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
         {viewMode === 'CATALOG' ? (
           <View style={styles.booksListWrap}>
             {loading && liveBooks.length === 0 ? (
-              <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
+              <View style={{ width: '100%', marginTop: 8 }}>
+                <BookCardSkeleton />
+                <BookCardSkeleton />
+                <BookCardSkeleton />
+              </View>
             ) : filteredBooks.length === 0 ? (
               searchQuery.trim().length > 0 ? (
                 <View
@@ -737,12 +746,12 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
               })
             )}
 
-            {!isGradeActive && (
+            {!loading && !isGradeActive && (
               <TouchableOpacity
                 style={[
                   styles.bannerUnlock,
                   {
-                    backgroundColor: isDark ? '#17224B' : DS.colors.navyDeep,
+                    backgroundColor: isDark ? '#1E222A' : DS.colors.navyDeep,
                     borderWidth: isDark ? 1 : 0,
                     borderColor: colors.borderStrong,
                   },
@@ -1168,7 +1177,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   bannerSub: {
-    color: '#CBD5E1',
+    color: '#9AA3B0',
     fontSize: 12,
     marginTop: 2,
   },

@@ -103,11 +103,11 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
 
             <View style={[styles.heroIconWrap, { backgroundColor: colors.primarySoft }]}>
               <Svg width={68} height={68} viewBox="0 0 64 64" fill="none">
-                <Rect x="10" y="14" width="44" height="28" rx="4" fill="#93C5FD" stroke="#2563EB" strokeWidth="2.5" />
-                <Path d="M4 44H60L56 50H8L4 44Z" fill="#60A5FA" stroke="#2563EB" strokeWidth="2" />
+                <Rect x="10" y="14" width="44" height="28" rx="4" fill="#BAD2FF" stroke="#2A4FB8" strokeWidth="2.5" />
+                <Path d="M4 44H60L56 50H8L4 44Z" fill="#8DB5FF" stroke="#2A4FB8" strokeWidth="2" />
                 <Path
                   d="M44 26C44 26 52 28.5 52 35C52 41 44 45 44 45C44 45 36 41 36 35C36 28.5 44 26 44 26Z"
-                  fill="#10B981"
+                  fill="#15803D"
                   stroke="#FFFFFF"
                   strokeWidth="2"
                 />
@@ -195,9 +195,9 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
 
             <View style={[styles.heroIconWrap, { backgroundColor: colors.primarySoft }]}>
               <Svg width={68} height={68} viewBox="0 0 64 64" fill="none">
-                <Rect x="12" y="14" width="40" height="28" rx="4" fill="#4F46E5" />
-                <Path d="M6 44H58L54 50H10L6 44Z" fill="#6366F1" />
-                <Circle cx="32" cy="28" r="8" fill="#E0E7FF" opacity="0.25" />
+                <Rect x="12" y="14" width="40" height="28" rx="4" fill="#2A4FB8" />
+                <Path d="M6 44H58L54 50H10L6 44Z" fill="#223F94" />
+                <Circle cx="32" cy="28" r="8" fill="#EEF4FF" opacity="0.25" />
                 <Path d="M27 23L37 33M37 23L27 33" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
               </Svg>
             </View>

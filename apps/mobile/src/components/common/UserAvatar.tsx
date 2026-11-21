@@ -43,14 +43,14 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       ? `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase()
       : (effectiveText.charAt(0) || 'O').toUpperCase();
 
-  // Pick energetic royal-indigo / brand color based on initial
+  // Pick brand palette colors based on initial
   const colors = [
-    '#4F46E5', // Indigo (Design System Primary)
-    '#3730A3', // Deep Indigo
-    '#2563EB', // Royal Blue
-    '#7C3AED', // Violet
-    '#059669', // Emerald
-    '#0284C7', // Sky
+    '#2A4FB8', // Ilm ko'k (Primary)
+    '#223F94', // Deep Ilm ko'k
+    '#0E7C70', // Zumrad-teal
+    '#6D3FD1', // Binafsha
+    '#C23B5A', // Rose
+    '#15803D', // Yashil
   ];
   const charCode = initial.charCodeAt(0) || 0;
   const bgColor = colors[charCode % colors.length];

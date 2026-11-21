@@ -20,10 +20,10 @@ const TONE_MAP: Record<
   NotificationType,
   { accent: string; softBg: string; border: string }
 > = {
-  success: { accent: '#10B981', softBg: '#ECFDF5', border: '#A7F3D0' },
-  error: { accent: '#EF4444', softBg: '#FEF2F2', border: '#FECACA' },
-  warning: { accent: '#F59E0B', softBg: '#FFFBEB', border: '#FDE68A' },
-  info: { accent: '#2563EB', softBg: '#EFF6FF', border: '#BFDBFE' },
+  success: { accent: '#15803D', softBg: '#EDF9F1', border: 'rgba(21, 128, 61, 0.25)' },
+  error: { accent: '#B91C1C', softBg: '#FEF2F2', border: 'rgba(185, 28, 28, 0.25)' },
+  warning: { accent: '#B45309', softBg: '#FFFBEB', border: 'rgba(180, 83, 9, 0.25)' },
+  info: { accent: '#2A4FB8', softBg: '#EEF4FF', border: 'rgba(42, 79, 184, 0.25)' },
 };
 
 const NotificationGlyph: React.FC<{ type: NotificationType; color: string }> = ({
@@ -112,7 +112,7 @@ export const NotificationBanner: React.FC = () => {
             ? colors.warning
             : isDark
             ? colors.primaryText
-            : '#4F46E5';
+            : '#2A4FB8';
         return (
           <View
             key={item.id}

@@ -33,6 +33,12 @@ import { DS } from '../theme/designSystem';
 import { useTheme } from '../theme/ThemeContext';
 import { useI18n } from '../i18n/I18nContext';
 import { matchesBookSearch, matchesGradeSearch } from '../utils/searchMatch';
+import {
+  HeroBannerSkeleton,
+  ContinueReadingSkeleton,
+  GradesRowSkeleton,
+  BookCardSkeleton,
+} from '../components/common/Skeleton';
 
 interface HomeScreenProps {
   userEmail: string;
@@ -68,6 +74,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const { strings, t, formatGrade, formatSubject, formatBookType } = useI18n();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [allAccess, setAllAccess] = useState<GradeAccessInfo[]>([]);
@@ -108,6 +115,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const loadHomeData = useCallback(async () => {
     try {
+      setLoading((prev) => (allAccess.length === 0 && availableGrades.length === 0 ? true : prev));
       const localProgress = await readingProgressStore.getAllProgress(userEmail).catch(() => []);
       if (localProgress.length > 0) {
         setProgressList((prev) => (prev.length > 0 ? prev : localProgress));
@@ -181,6 +189,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       offlineCatalogCache.saveProgress(mergedOnlineProgress);
     } catch (err: any) {
       notify.warning(strings.common.error, err?.message || strings.common.unknownError);
+    } finally {
+      setLoading(false);
     }
   }, [userEmail, strings.common.offlineMode, strings.modals.offlineTitle, strings.modals.offlineDesc, strings.common.error, strings.common.unknownError, t]);
 
@@ -196,6 +206,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const activeSubs = allAccess.filter((a) => SubscriptionManager.isAccessValid(a));
   const primarySub = activeSubs[0] || null;
+  const expiringSub = activeSubs.find(
+    (s) => typeof s.daysRemaining === 'number' && s.daysRemaining <= 3 && s.daysRemaining >= 0,
+  );
   const resolvedUserName = (userName || strings.common.userFallback).trim();
   const firstName = resolvedUserName.split(' ')[0];
 
@@ -620,8 +633,60 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         )}
 
+        {/* EXPIRING SUBSCRIPTION BANNER (<= 3 days remaining) */}
+        {expiringSub && (
+          <View
+            style={[
+              styles.expiringBanner,
+              {
+                backgroundColor: isDark ? 'rgba(180, 83, 9, 0.22)' : '#FFFBEB',
+                borderColor: isDark ? 'rgba(180, 83, 9, 0.40)' : 'rgba(180, 83, 9, 0.25)',
+              },
+            ]}
+          >
+            <View style={styles.expiringBannerLeft}>
+              <Text style={styles.expiringAlertIcon}>⚠️</Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.expiringBannerTitle,
+                    { color: isDark ? '#FBBF24' : '#B45309' },
+                  ]}
+                >
+                  {t('dashboard.expiringWarning')}
+                </Text>
+                <Text
+                  style={[
+                    styles.expiringBannerDesc,
+                    { color: isDark ? '#FBBF24' : '#92400E' },
+                  ]}
+                >
+                  {t('dashboard.expiringDesc', {
+                    grade: formatGrade(expiringSub.gradeId),
+                    days:
+                      expiringSub.daysRemaining <= 0
+                        ? t('dashboard.todayLastDay')
+                        : t('dashboard.daysRemaining', { n: expiringSub.daysRemaining }),
+                  })}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.expiringBannerBtn, { backgroundColor: isDark ? '#FBBF24' : '#B45309' }]}
+              onPress={() => onOpenRequests(expiringSub.gradeId, expiringSub.subjectId || undefined)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.expiringBannerBtnText}>
+                {t('dashboard.extendSubscriptionBtn') || 'Uzaytirish'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* HERO CARD */}
-        {primarySub ? (
+        {loading ? (
+          <HeroBannerSkeleton />
+        ) : primarySub ? (
           <TouchableOpacity
             style={[
               styles.heroActiveCard,
@@ -664,7 +729,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
               <Svg width={44} height={44} viewBox="0 0 48 48" fill="none">
                 <Rect x="6" y="14" width="22" height="28" rx="4" fill="rgba(255,255,255,0.28)" />
-                <Rect x="16" y="8" width="24" height="32" rx="4" fill="#E0E7FF" />
+                <Rect x="16" y="8" width="24" height="32" rx="4" fill="#EEF4FF" />
                 <Rect x="20" y="14" width="16" height="4" rx="2" fill={colors.primaryDark} />
               </Svg>
             </View>
@@ -674,7 +739,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             style={[
               styles.heroInactiveCard,
               {
-                backgroundColor: isDark ? '#17224B' : DS.colors.navyMid,
+                backgroundColor: isDark ? '#1E222A' : DS.colors.navyMid,
                 borderWidth: isDark ? 1 : 0,
                 borderColor: colors.borderStrong,
               },
@@ -716,7 +781,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
         </View>
 
-        {continueItem ? (
+        {loading ? (
+          <ContinueReadingSkeleton />
+        ) : continueItem ? (
           <TouchableOpacity
             style={[
               styles.continueCard,
@@ -826,7 +893,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {displayedGrades.length === 0 ? (
+        {loading ? (
+          <View style={{ marginTop: 8 }}>
+            <GradesRowSkeleton count={5} />
+            <View style={{ height: 12 }} />
+            <BookCardSkeleton />
+            <BookCardSkeleton />
+          </View>
+        ) : displayedGrades.length === 0 ? (
           <TouchableOpacity
             style={[
               styles.emptyCard,
@@ -1019,6 +1093,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  expiringBanner: {
+    borderRadius: DS.radius.lg,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    flexDirection: 'column',
+    gap: 10,
+  },
+  expiringBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  expiringAlertIcon: {
+    fontSize: 22,
+  },
+  expiringBannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  expiringBannerDesc: {
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  expiringBannerBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: DS.radius.pill,
+  },
+  expiringBannerBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   heroActiveCard: {
     borderRadius: DS.radius.xl,
     padding: 20,
@@ -1046,7 +1156,7 @@ const styles = StyleSheet.create({
   heroOverline: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#C7D2FE',
+    color: '#BAD2FF',
     marginBottom: 4,
   },
   heroMainTitle: {
@@ -1056,7 +1166,7 @@ const styles = StyleSheet.create({
   },
   heroSubDesc: {
     fontSize: 12,
-    color: '#CBD5E1',
+    color: '#9AA3B0',
     marginTop: 6,
     lineHeight: 17,
   },
@@ -1101,7 +1211,7 @@ const styles = StyleSheet.create({
   heroDaysLeft: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#E0E7FF',
+    color: '#EEF4FF',
   },
   sectionHeaderRow: {
     flexDirection: 'row',

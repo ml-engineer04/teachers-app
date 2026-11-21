@@ -101,7 +101,7 @@ export const SideMenuDrawer: React.FC<SideMenuDrawerProps> = ({
             <View
               style={[
                 styles.profileHeader,
-                { backgroundColor: isDark ? '#17224B' : '#1E293B' },
+                { backgroundColor: isDark ? '#1E222A' : '#142452' },
               ]}
             >
               <View style={styles.headerTopRow}>
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: 12,
-    color: '#CBD5E1',
+    color: '#9AA3B0',
     marginTop: 2,
     marginBottom: 12,
   },
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+    backgroundColor: 'rgba(21, 128, 61, 0.16)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 99,
@@ -317,11 +317,11 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#10B981',
+    backgroundColor: '#15803D',
     marginRight: 6,
   },
   statusText: {
-    color: '#6EE7B7',
+    color: '#4ADE80',
     fontSize: 11,
     fontWeight: '700',
   },
