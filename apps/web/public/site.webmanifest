@@ -1,7 +1,7 @@
 {
   "name": "ilmçi — Raqamli darsliklar va SmartBoard platformasi",
   "short_name": "ilmçi",
-  "description": "Maktab o‘qituvchilari uchun 1–11-sinf interaktiv raqamli darsliklari va SmartBoard marker studiyasi",
+  "description": "Maktab öqituvçilari uçun 1–11-sinf interaktiv raqamli darsliklari va SmartBoard marker studiyasi",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#090D18",
