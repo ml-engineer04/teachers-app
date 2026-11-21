@@ -12,13 +12,13 @@ if [ ! -d "apps/mobile/android" ]; then
 fi
 
 # 2. Docker imijini yaratish
-echo "🐳 Docker builder imiji tayyorlanmoqda..."
-docker build -t ilmchi-android-builder -f apps/mobile/Dockerfile.android .
+echo "🐳 Docker builder imiji tayyorlanmoqda (linux/amd64)..."
+docker build --platform linux/amd64 -t ilmchi-android-builder -f apps/mobile/Dockerfile.android .
 
 # 3. APK ni yig'ish va dist-apk papkasiga chiqarish
 mkdir -p dist-apk
 echo "⚙️  Gradle assembleRelease ishga tushmoqda..."
-docker run --rm \
+docker run --platform linux/amd64 --rm \
   -v "$(pwd)":/workspace \
   -v "${HOME}/.gradle":/root/.gradle \
   ilmchi-android-builder

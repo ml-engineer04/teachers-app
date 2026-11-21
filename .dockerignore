@@ -1,0 +1,12 @@
+node_modules
+.pnpm-store
+.git
+.data
+dist
+dist-apk
+build
+apps/*/dist
+apps/*/build
+apps/mobile/android/.gradle
+apps/mobile/android/app/build
+apps/mobile/.expo

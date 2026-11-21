@@ -1,5 +1,5 @@
 # Dockerfile for building Ilmchi Android APK
-FROM eclipse-temurin:17-jdk-jammy
+FROM --platform=linux/amd64 eclipse-temurin:17-jdk-jammy
 
 # Set environment variables
 ENV ANDROID_HOME=/opt/android-sdk
@@ -33,5 +33,5 @@ RUN yes | sdkmanager --licenses > /dev/null \
 
 WORKDIR /workspace
 
-# Default command to build the release APK
-CMD ["/bin/bash", "-c", "cd apps/mobile/android && ./gradlew assembleRelease --no-daemon && mkdir -p /workspace/dist-apk && cp app/build/outputs/apk/release/*.apk /workspace/dist-apk/ && echo '✅ APK tayyor: dist-apk/ papkasida! '"]
+# Default command to build release APK
+CMD ["/bin/bash", "-c", "cd apps/mobile/android && chmod +x ./gradlew && ./gradlew assembleRelease --no-daemon && mkdir -p /workspace/dist-apk && cp app/build/outputs/apk/release/*.apk /workspace/dist-apk/ && chmod -R 777 /workspace/dist-apk && echo '✅ APK tayyor: dist-apk/ papkasida!'"]
