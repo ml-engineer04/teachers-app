@@ -27,9 +27,9 @@ RUN mkdir -p ${ANDROID_HOME}/cmdline-tools \
     && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest \
     && rm /tmp/cmdline-tools.zip
 
-# Accept SDK licenses & install required platforms
+# Accept SDK licenses & install required platforms and NDK
 RUN yes | sdkmanager --licenses > /dev/null \
-    && sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" > /dev/null
+    && sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" "ndk;26.1.10909125" > /dev/null
 
 WORKDIR /workspace
 
