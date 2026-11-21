@@ -38,7 +38,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         loading="eager"
       />
       {subtitle && (
-        <span className="text-[9px] font-black tracking-widest uppercase text-indigo-500 dark:text-indigo-400 mt-1 pl-1 leading-none">
+        <span className="text-[9px] font-black tracking-widest uppercase text-[#2A4FB8] dark:text-[#5B93FA] mt-1 pl-1 leading-none">
           {subtitle}
         </span>
       )}

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, View, StyleSheet, Text } from 'react-native';
+import { Image, View, StyleSheet } from 'react-native';
+import { useTheme } from '../../theme/ThemeContext';
 
 const logoDark = require('../../../assets/brand/logo-dark.png');
 const logoLight = require('../../../assets/brand/logo-light.png');
@@ -13,9 +14,11 @@ interface BrandLogoProps {
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 40,
-  darkSurface = false,
+  darkSurface,
 }) => {
-  const currentSrc = darkSurface ? logoDark : logoLight;
+  const { isDark } = useTheme();
+  const isLightText = darkSurface !== undefined ? darkSurface : isDark;
+  const currentSrc = isLightText ? logoDark : logoLight;
   const height = size;
   const width = Math.round(size * (624 / 219));
 

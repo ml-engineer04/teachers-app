@@ -40,76 +40,100 @@ export interface ThemePalette {
   overlay: string;
   onPrimary: string;
   shadowColor: string;
+  audio: string;
+  audioSoft: string;
+  video: string;
+  videoSoft: string;
+  answer: string;
+  answerSoft: string;
+  gold: string;
+  goldSoft: string;
 }
 
 export const LIGHT_THEME: ThemePalette = {
   mode: 'light',
   isDark: false,
   statusBarStyle: 'dark-content',
-  background: '#F6F8FC',
-  backgroundSecondary: '#EDF1FA',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F3F6FB',
+  background: '#F4F5F2', // Canvas light
+  backgroundSecondary: '#ECEEEA', // Surface muted light
+  surface: '#FBFBF9', // Surface card light
+  surfaceAlt: '#ECEEEA',
   surfaceElevated: '#FFFFFF',
-  cardBg: '#FFFFFF',
-  inputBg: '#F3F6FB',
-  textPrimary: '#0F172A',
-  textSecondary: '#475569',
-  textMuted: '#8B9BB4',
-  placeholder: '#94A3B8',
-  border: '#E3E8F2',
-  borderStrong: '#CBD5E1',
-  primary: '#4F46E5',
-  primaryDark: '#4338CA',
-  primaryText: '#4F46E5',
-  primarySoft: '#EEF2FF',
-  accent: '#059669',
-  accentSoft: '#ECFDF5',
-  warning: '#D97706',
-  warningSoft: '#FEF3C7',
-  danger: '#DC2626',
+  cardBg: '#FBFBF9',
+  inputBg: '#ECEEEA',
+  textPrimary: '#1F2933', // Text ink light
+  textSecondary: '#5B6672', // Text muted light
+  textMuted: '#9AA3B0',
+  placeholder: '#9AA3B0',
+  border: '#D9DCD5', // Line light
+  borderStrong: '#BAD2FF',
+  primary: '#2A4FB8', // Ilm ko'k (brand 600)
+  primaryDark: '#223F94', // brand 700
+  primaryText: '#2A4FB8',
+  primarySoft: '#EEF4FF', // brand 50
+  accent: '#0E7C70', // Zumrad-teal
+  accentSoft: '#E6F6F4',
+  warning: '#B45309', // Kehrabo
+  warningSoft: '#FFFBEB',
+  danger: '#B91C1C', // Qizil
   dangerSoft: '#FEF2F2',
-  readerBg: '#EDF1FA',
-  readerChrome: 'rgba(255,255,255,0.97)',
-  dockBg: 'rgba(255,255,255,0.97)',
-  overlay: 'rgba(15, 23, 42, 0.52)',
+  readerBg: '#F4F5F2', // Canvas light
+  readerChrome: 'rgba(251, 251, 249, 0.98)',
+  dockBg: 'rgba(251, 251, 249, 0.98)',
+  overlay: 'rgba(31, 41, 51, 0.55)',
   onPrimary: '#FFFFFF',
-  shadowColor: '#0F172A',
+  shadowColor: '#142452',
+  audio: '#0E7C70',
+  audioSoft: '#E6F6F4',
+  video: '#C23B5A',
+  videoSoft: '#FDF1F4',
+  answer: '#6D3FD1',
+  answerSoft: '#F4F0FD',
+  gold: '#F5B82E',
+  goldSoft: '#FFFBEB',
 };
 
 export const DARK_THEME: ThemePalette = {
   mode: 'dark',
   isDark: true,
   statusBarStyle: 'light-content',
-  background: '#090D18',
-  backgroundSecondary: '#101728',
-  surface: '#121A2D',
-  surfaceAlt: '#1A243E',
-  surfaceElevated: '#1E2B48',
-  cardBg: '#141E34',
-  inputBg: '#19233C',
-  textPrimary: '#F1F5F9',
-  textSecondary: '#B8C4DA',
-  textMuted: '#8292AE',
-  placeholder: '#667794',
-  border: '#23304E',
-  borderStrong: '#334368',
-  primary: '#5558EC',
-  primaryDark: '#4338CA',
-  primaryText: '#A5B4FC',
-  primarySoft: 'rgba(99, 102, 241, 0.18)',
-  accent: '#10B981',
-  accentSoft: 'rgba(16, 185, 129, 0.16)',
-  warning: '#FBBF24',
-  warningSoft: 'rgba(251, 191, 36, 0.16)',
-  danger: '#F87171',
-  dangerSoft: 'rgba(248, 113, 113, 0.16)',
-  readerBg: '#070B14',
-  readerChrome: 'rgba(18, 26, 45, 0.97)',
-  dockBg: 'rgba(18, 26, 45, 0.97)',
-  overlay: 'rgba(2, 6, 23, 0.78)',
+  background: '#15181E', // Canvas dark
+  backgroundSecondary: '#1E222A', // Surface dark
+  surface: '#1E222A', // Surface card dark
+  surfaceAlt: '#272C36', // Surface muted dark
+  surfaceElevated: '#272C36',
+  cardBg: '#1E222A',
+  inputBg: '#272C36',
+  textPrimary: '#E6E8EC', // Text ink dark
+  textSecondary: '#9AA3B0', // Text muted dark
+  textMuted: '#5B6672',
+  placeholder: '#5B6672',
+  border: '#353B47', // Line dark
+  borderStrong: '#485265',
+  primary: '#5B93FA', // Ilm ko'k (brand 400 dark)
+  primaryDark: '#2A4FB8',
+  primaryText: '#8DB5FF',
+  primarySoft: 'rgba(42, 79, 184, 0.22)',
+  accent: '#5ED3C4', // Teal dark
+  accentSoft: 'rgba(14, 124, 112, 0.20)',
+  warning: '#FBBF24', // Warning dark
+  warningSoft: 'rgba(180, 83, 9, 0.22)',
+  danger: '#F87171', // Qizil dark
+  dangerSoft: 'rgba(185, 28, 28, 0.22)',
+  readerBg: '#15181E',
+  readerChrome: 'rgba(30, 34, 42, 0.98)',
+  dockBg: 'rgba(30, 34, 42, 0.98)',
+  overlay: 'rgba(0, 0, 0, 0.78)',
   onPrimary: '#FFFFFF',
   shadowColor: '#000000',
+  audio: '#5ED3C4',
+  audioSoft: 'rgba(14, 124, 112, 0.20)',
+  video: '#FF8FA6',
+  videoSoft: 'rgba(194, 59, 90, 0.20)',
+  answer: '#B69CFF',
+  answerSoft: 'rgba(109, 63, 209, 0.20)',
+  gold: '#F5B82E',
+  goldSoft: 'rgba(245, 184, 46, 0.20)',
 };
 
 interface ThemeContextValue {

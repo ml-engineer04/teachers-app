@@ -5,6 +5,40 @@
 @layer base {
   :root {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --ilmchi-purple: #2A4FB8;
+    --ilmchi-purple-dark: #223F94;
+    --ilmchi-secondary-purple: #3461D6;
+    --ilmchi-blue: #0369A1;
+    --ilmchi-teal: #0E7C70;
+    --ilmchi-navy: #142452;
+    --ilmchi-text-primary: #1F2933;
+    --ilmchi-text-secondary: #5B6672;
+    --ilmchi-text-muted: #8DB5FF;
+    --ilmchi-bg: #F4F5F2;
+    --ilmchi-card: #FBFBF9;
+    --ilmchi-border: #D9DCD5;
+    --ilmchi-light-purple: #EEF4FF;
+    --ilmchi-light-blue: #EEF8FD;
+    --ilmchi-light-teal: #E6F6F4;
+    --gradient-primary: linear-gradient(135deg, #2A4FB8 0%, #223F94 100%);
+    --gradient-purple-blue: linear-gradient(135deg, #3461D6 0%, #0369A1 100%);
+    --gradient-blue-teal: linear-gradient(135deg, #0369A1 0%, #0E7C70 100%);
+    --gradient-premium-dark: linear-gradient(135deg, #2A4FB8 0%, #1C3375 55%, #142452 100%);
+    --gradient-bg: linear-gradient(135deg, #EEF4FF 0%, #F4F5F2 50%, #E6F6F4 100%);
+    --shadow-purple: 0 8px 24px -4px rgba(42, 79, 184, 0.15);
+    --shadow-blue: 0 8px 24px -4px rgba(3, 105, 161, 0.15);
+    --shadow-teal: 0 8px 24px -4px rgba(14, 124, 112, 0.15);
+  }
+
+  html.dark {
+    --ilmchi-bg: #15181E;
+    --ilmchi-card: #1E222A;
+    --ilmchi-card-elevated: #272C36;
+    --ilmchi-text-primary: #E6E8EC;
+    --ilmchi-text-secondary: #9AA3B0;
+    --ilmchi-border: #353B47;
+    --ilmchi-primary: #5B93FA;
+    --ilmchi-teal: #5ED3C4;
   }
 
   html {
@@ -93,4 +127,106 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 .pill-button-accent:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 25px -4px rgba(245, 158, 11, 0.6);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Hero Section 2026 EdTech Animations                                        */
+/* -------------------------------------------------------------------------- */
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(-12deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-10deg);
+  }
+}
+
+@keyframes floatCap {
+  0%, 100% {
+    transform: translateY(0px) rotate(8deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(11deg);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 5s ease-in-out infinite;
+}
+
+.animate-float-cap {
+  animation: floatCap 6s ease-in-out infinite 0.6s;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 7s ease-in-out infinite;
+}
+
+@keyframes floatCard {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-float-card {
+  animation: floatCard 6s ease-in-out infinite;
+}
+
+@keyframes eqBarPulse {
+  0%, 100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-eq-pulse {
+  animation: eqBarPulse 1.2s ease-in-out infinite alternate;
+  transform-origin: bottom;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mobile Navigation Dropdown Animation                                       */
+/* -------------------------------------------------------------------------- */
+@keyframes menuSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-menu-slide-down {
+  animation: menuSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-backdrop-fade {
+  animation: backdropFadeIn 0.2s ease-out forwards;
 }
