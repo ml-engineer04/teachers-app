@@ -1031,8 +1031,8 @@ export class ContentService implements OnModuleInit {
         answerHotspotsCount: pageHs.filter((h) => h.type === 'ANSWER_LINK').length,
         hasHotspots: pageHs.length > 0,
         titleSnippet: `Page ${pageNum}`,
-        imageHighUrl: `/api/content/books/${book.id}/pages/${pageNum}/image`,
-        imageNormalUrl: `/api/content/books/${book.id}/pages/${pageNum}/image`,
+        imageHighUrl: `/api/v1/content/books/${book.id}/pages/${pageNum}/image`,
+        imageNormalUrl: `/api/v1/content/books/${book.id}/pages/${pageNum}/image`,
       };
     });
 
