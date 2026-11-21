@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   watermarkText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F2942',
+    color: '#142452',
     letterSpacing: 2,
     textTransform: 'uppercase',
   },

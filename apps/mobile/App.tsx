@@ -31,7 +31,7 @@ export type ScreenState =
   | 'REQUESTS'
   | 'SETTINGS';
 
-const AUTO_LOCK_MS = 60 * 1000;
+const AUTO_LOCK_MS = 3 * 60 * 1000; // 3 minutes
 
 function isUnlockedAppScreen(screen: ScreenState): boolean {
   return (
@@ -308,7 +308,7 @@ function AppShell() {
             photoUrl: resolvedPhoto,
           });
           const elapsedSinceExit = lastActiveAt ? Date.now() - lastActiveAt : 0;
-          const shouldLockOnBoot = hasPin || (lastActiveAt !== null && elapsedSinceExit >= AUTO_LOCK_MS);
+          const shouldLockOnBoot = Boolean(hasPin && (!lastActiveAt || elapsedSinceExit >= AUTO_LOCK_MS));
           if (!shouldLockOnBoot) {
             const now = Date.now();
             lastActivityAtRef.current = now;

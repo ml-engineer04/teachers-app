@@ -213,7 +213,7 @@ export const PageCurlEngine: React.FC<PageCurlEngineProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EAF3FF',
+    backgroundColor: 'transparent',
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',

@@ -44,6 +44,7 @@ interface AnswerKeySheetProps {
   imageUrl?: string;
   items?: AnswerItem[];
   selectedHotspotId?: string | null;
+  initialTab?: 'ANSWERS' | 'TRANSCRIPT';
   onSwitchToTeachersBook?: (teacherPage: number) => void;
 }
 
@@ -60,13 +61,20 @@ export const AnswerKeySheet: React.FC<AnswerKeySheetProps> = ({
   imageUrl,
   items = [],
   selectedHotspotId,
+  initialTab = 'ANSWERS',
   onSwitchToTeachersBook,
 }) => {
   const { colors } = useTheme();
   const { strings, t } = useI18n();
 
   // Active Tab: Answers vs Listening Transcript
-  const [activeTab, setActiveTab] = useState<'ANSWERS' | 'TRANSCRIPT'>('ANSWERS');
+  const [activeTab, setActiveTab] = useState<'ANSWERS' | 'TRANSCRIPT'>(initialTab);
+
+  useEffect(() => {
+    if (visible && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [visible, initialTab]);
   const [selectedIndex, setSelectedIndex] = useState<number>(() => {
     if (selectedHotspotId && items.length > 0) {
       const idx = items.findIndex((it) => it.id === selectedHotspotId);
@@ -677,7 +685,7 @@ const styles = StyleSheet.create({
   thumbLineBold: {
     height: 5,
     borderRadius: 2,
-    backgroundColor: '#93C5FD',
+    backgroundColor: '#BAD2FF',
     width: '90%',
   },
   thumbLine: {

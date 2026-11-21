@@ -136,27 +136,25 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
                         styles.mediaIconBox,
                         {
                           backgroundColor: isVideo
-                            ? isDark
-                              ? 'rgba(56, 189, 248, 0.18)'
-                              : '#E0F2FE'
-                            : colors.primarySoft,
+                            ? colors.videoSoft
+                            : colors.audioSoft,
                         },
                       ]}
                     >
                       {isVideo ? (
                         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                          <Path d="M8 5l11 7-11 7V5z" fill={colors.primaryText} />
+                          <Path d="M8 5l11 7-11 7V5z" fill={colors.video} />
                         </Svg>
                       ) : (
                         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                           <Path
                             d="M9 18V5l12-2v13"
-                            stroke={colors.primaryText}
+                            stroke={colors.audio}
                             strokeWidth={2}
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           />
-                          <Circle cx={6} cy={18} r={2.5} fill={colors.primaryText} />
+                          <Circle cx={6} cy={18} r={2.5} fill={colors.audio} />
                         </Svg>
                       )}
                     </View>

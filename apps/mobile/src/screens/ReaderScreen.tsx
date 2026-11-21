@@ -48,6 +48,7 @@ import { HotspotLayer } from '../components/reader/HotspotLayer';
 import { AudioPlayerModal } from '../components/reader/AudioPlayerModal';
 import { VideoPlayerModal } from '../components/reader/VideoPlayerModal';
 import { AnswerKeySheet, AnswerItem } from '../components/reader/AnswerKeySheet';
+import { FloatingImagePopup } from '../components/reader/FloatingImagePopup';
 import { TocSearchDrawer, TocEntry } from '../components/reader/TocSearchDrawer';
 import {
   BookmarksNotesDrawer,
@@ -69,6 +70,7 @@ import {
   PEN_COLORS,
   MarkerStudioToolbar,
 } from '../components/reader/DrawingHighlighterLayer';
+import { ReaderPageSkeleton } from '../components/common/Skeleton';
 
 export interface ReaderBookParam {
   id: string;
@@ -287,6 +289,18 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     height: 580,
   });
 
+  const [loadedPages, setLoadedPages] = useState<Set<number>>(
+    () => new Set([initialRestoredPage, 1]),
+  );
+  const markPageLoaded = useCallback((pageNum: number) => {
+    setLoadedPages((prev) => {
+      if (prev.has(pageNum)) return prev;
+      const next = new Set(prev);
+      next.add(pageNum);
+      return next;
+    });
+  }, []);
+
   const handleImageDimensionLoaded = useCallback((pageNum: number, e: any) => {
     const src = e?.nativeEvent?.source || e?.nativeEvent?.target;
     const w = Number(src?.width || src?.naturalWidth || 0);
@@ -342,7 +356,23 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     title: string;
     subtitle?: string;
     url?: string;
+    transcriptImageUrl?: string;
   }>({ visible: false, title: book.title });
+
+  // Floating Zero-Overlay Image Popups (matching Web)
+  const [floatingAnswerImage, setFloatingAnswerImage] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    imageUrl?: string | null;
+  } | null>(null);
+
+  const [floatingTranscriptImage, setFloatingTranscriptImage] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    imageUrl?: string | null;
+  } | null>(null);
 
   const [videoModal, setVideoModal] = useState<{
     visible: boolean;
@@ -353,6 +383,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   }>({ visible: false, title: book.title });
 
   const [answerModalVisible, setAnswerModalVisible] = useState(false);
+  const [answerTab, setAnswerTab] = useState<'ANSWERS' | 'TRANSCRIPT'>('ANSWERS');
   const [activeAnswerPage, setActiveAnswerPage] = useState<number>(initialRestoredPage);
   const [selectedAnswerHotspotId, setSelectedAnswerHotspotId] = useState<string | null>(null);
   const [tocModalVisible, setTocModalVisible] = useState(false);
@@ -1060,6 +1091,24 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     [offlineAssetUrlMap],
   );
 
+  // Aggressively prefetch surrounding pages into native memory/disk cache for instant, zero-lag scrolling
+  useEffect(() => {
+    if (!book?.id || totalPages <= 0) return;
+    const start = Math.max(1, currentPage - 3);
+    const end = Math.min(totalPages, currentPage + 8);
+    for (let p = start; p <= end; p++) {
+      const pgObj = pages.find((pg) => Number(pg.pageNumber) === p);
+      const rawUrl =
+        pgObj?.imageHighUrl ||
+        pgObj?.imageNormalUrl ||
+        `/content/books/${book.id}/pages/${p}/image`;
+      const resolved = resolveMediaOrImageUrl(rawUrl);
+      if (resolved && (resolved.startsWith('http://') || resolved.startsWith('https://'))) {
+        Image.prefetch(resolved).catch(() => {});
+      }
+    }
+  }, [currentPage, book.id, totalPages, pages, resolveMediaOrImageUrl]);
+
   const activeUnitTitle = useMemo(() => {
     const customToc = [...tocItems]
       .filter((t) => !/^Darslik\s*[—–\-]/i.test(t.title || ''))
@@ -1174,27 +1223,45 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
       pendingVerticalScrollPageRef.current = null;
       currentPageRef.current = clamped;
       setCurrentPage(clamped);
+      markPageLoaded(clamped);
       scrollVerticalToPage(clamped, true);
     },
-    [totalPages, scrollVerticalToPage],
+    [totalPages, scrollVerticalToPage, markPageLoaded],
   );
 
-  // Scroll Vertical reader directly to restored page after book metadata & PDF layout are ready
+  // Keyboard navigation for external keyboards / tablet / web
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
+        e.preventDefault();
+        goToPage(currentPageRef.current + 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        goToPage(currentPageRef.current - 1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [goToPage]);
+
+  // Scroll Vertical reader directly to restored page after book metadata & layout are ready
   useEffect(() => {
     const targetPage = pendingVerticalScrollPageRef.current;
     if (loadingBook || targetPage === null || !verticalScrollRef.current) {
       return;
     }
-    if (Platform.OS === 'web' && hasPdf && !pdfReady) return;
 
     programmaticScrollRef.current = true;
     const timer = setTimeout(() => {
       pendingVerticalScrollPageRef.current = null;
       scrollVerticalToPage(targetPage, false);
+      programmaticScrollRef.current = false;
     }, 60);
 
     return () => clearTimeout(timer);
-  }, [loadingBook, hasPdf, pdfReady, scrollVerticalToPage]);
+  }, [loadingBook, scrollVerticalToPage]);
 
   const handleToggleBookmark = async (pageNum: number) => {
     const exists = bookmarks.some((b) => b.pageNumber === pageNum);
@@ -1349,11 +1416,19 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
       if (!resolvedUrl) {
         notify.warning(strings.common.warning, strings.reader.mediaLoadFailed);
       }
+      const rawTranscript =
+        (hotspot as any).transcriptImageUrl ||
+        (hotspot as any).transcriptImages?.[0] ||
+        (linkedMedia as any)?.transcriptImageUrl ||
+        (linkedMedia as any)?.transcriptImages?.[0];
+      const transcriptUrl = rawTranscript ? resolveMediaOrImageUrl(rawTranscript) || rawTranscript : undefined;
+
       setAudioModal({
         visible: true,
         title: linkedMedia?.title || (hotspot as any).label || hotspot.exerciseLabel || activeUnitTitle,
         subtitle: `${strings.common.page} ${hsPageLabel} • ${strings.reader.playAudio}`,
         url: resolvedUrl,
+        transcriptImageUrl: transcriptUrl,
       });
     } else if (hotspot.type === HotspotType.VIDEO) {
       if (!resolvedUrl) {
@@ -1367,9 +1442,30 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         notes: hotspot.methodologyNotes || (hotspot as any).description || undefined,
       });
     } else if (hotspot.type === HotspotType.ANSWER_LINK) {
+      const matchingAnswer = answerKeys.find(
+        (a) =>
+          a.id === hotspot.id ||
+          (Number(a.studentPageNumber) === hsPage && a.studentExerciseLabel === hotspot.exerciseLabel) ||
+          Number(a.studentPageNumber) === hsPage,
+      );
+      const rawImg =
+        (hotspot as any).imageUrl ||
+        (hotspot as any).answerImages?.[0] ||
+        matchingAnswer?.imageUrl ||
+        matchingAnswer?.answerImages?.[0];
+      const answerImgUrl = rawImg ? resolveMediaOrImageUrl(rawImg) || rawImg : null;
+
+      // Zero-overlay floating draggable popup matching Web
+      setFloatingAnswerImage({
+        isOpen: true,
+        title: hotspot.exerciseLabel || (hotspot as any).label || `${strings.reader.answerKeysTitle} • ${hsPageLabel}`,
+        subtitle: `${book.title} • ${strings.common.page} ${hsPageLabel}`,
+        imageUrl: answerImgUrl,
+      });
+
+      setAnswerTab('ANSWERS');
       setActiveAnswerPage(hsPage);
       setSelectedAnswerHotspotId(hotspot.id);
-      setAnswerModalVisible(true);
     } else if (hotspot.type === HotspotType.INTERNAL_PAGE && hotspot.targetPageNumber) {
       goToPage(hotspot.targetPageNumber);
     } else {
@@ -1460,12 +1556,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     }
   };
 
-  const safeTopPad =
-    Platform.OS === 'web'
-      ? 6
-      : Platform.OS === 'android'
-      ? Math.max((StatusBar.currentHeight || 24) + 4, 28)
-      : 4;
+  const safeTopPad = Platform.OS === 'web' ? 4 : 0;
 
   const firstAnswer: AnswerItem = activeAnswers[0] || {
     exerciseLabel: strings.reader.answerKeysTitle,
@@ -1479,9 +1570,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     const baseImgUrl =
       pgObj?.imageHighUrl ||
       pgObj?.imageNormalUrl ||
-      (hasPdf && Platform.OS !== 'web'
-        ? `/api/v1/content/books/${book.id}/pages/${pageNum}/image`
-        : undefined);
+      `/content/books/${book.id}/pages/${pageNum}/image`;
     const offlineLocalImg = resolveMediaOrImageUrl(baseImgUrl);
     const isLocalImg = Boolean(
       offlineLocalImg &&
@@ -1505,7 +1594,11 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
 
     return (
       <View
-        style={[styles.canvasWrap, isDocumentVisual && styles.canvasWrapCentered]}
+        style={[
+          styles.canvasWrap,
+          isDocumentVisual && styles.canvasWrapCentered,
+          { backgroundColor: colors.readerBg },
+        ]}
         onLayout={(e) => {
           if (explicitSize) return;
           const { width, height } = e.nativeEvent.layout;
@@ -1515,14 +1608,11 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         }}
       >
         {loadingBook ? (
-          <View style={styles.centerState}>
-            <ActivityIndicator size="large" color={DS.colors.primary} />
-            <Text style={[styles.centerStateText, { color: colors.textSecondary }]}>
-              {strings.reader.loadingBook}
-            </Text>
+          <View style={[styles.centerState, { width: '100%', alignItems: 'center', backgroundColor: colors.readerBg }]}>
+            <ReaderPageSkeleton style={{ width: Math.min(layerWidth, 420), height: Math.min(layerHeight, 600) }} />
           </View>
         ) : offlineMissing ? (
-          <View style={styles.centerState}>
+          <View style={[styles.centerState, { backgroundColor: colors.readerBg }]}>
             <Text style={{ fontSize: 38, marginBottom: 10 }}>📡</Text>
             <Text style={[styles.centerStateText, { fontWeight: '800', color: colors.textPrimary }]}>
               {strings.modals.offlineTitle}
@@ -1557,6 +1647,8 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
               {
                 width: fittedPage.width,
                 height: fittedPage.height,
+                backgroundColor: isDark ? colors.surface : '#FFFFFF',
+                borderColor: colors.border,
               },
             ]}
           >
@@ -1574,6 +1666,8 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                 source={{ uri: pageImgUrl }}
                 style={styles.pageImageFull}
                 resizeMode="contain"
+                fadeDuration={0}
+                progressiveRenderingEnabled={true}
                 onLoad={(e) => handleImageDimensionLoaded(pageNum, e)}
               />
             )}
@@ -1603,6 +1697,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             scrollEnabled={activeDrawTool === null}
             style={[
               styles.textbookBg,
+              { backgroundColor: isDark ? colors.background : '#F4F5F2' },
               Platform.OS === 'web'
                 ? ({
                     overflowY: activeDrawTool ? 'hidden' : 'auto',
@@ -1614,59 +1709,59 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             showsVerticalScrollIndicator={false}
           >
             {/* Subtle decorative sky wave arcs */}
-            <View style={styles.skyOrbTopRight} />
-            <View style={styles.skyOrbBottomLeft} />
+            <View style={[styles.skyOrbTopRight, { backgroundColor: isDark ? 'rgba(91, 147, 250, 0.05)' : 'rgba(255,255,255,0.45)' }]} />
+            <View style={[styles.skyOrbBottomLeft, { backgroundColor: isDark ? 'rgba(91, 147, 250, 0.04)' : 'rgba(255,255,255,0.4)' }]} />
 
             {/* Skills Banner Row */}
-            <View style={styles.skillsRow}>
+            <View style={[styles.skillsRow, { backgroundColor: isDark ? colors.surfaceAlt : colors.primarySoft }]}>
               <Text style={styles.skillsText}>
-                <Text style={styles.skillsBold}>Skills: </Text>
-                <Text style={styles.skillsItalic}>Listening and speaking</Text>
+                <Text style={[styles.skillsBold, { color: colors.textPrimary }]}>Skills: </Text>
+                <Text style={[styles.skillsItalic, { color: colors.primary }]}>Listening and speaking</Text>
               </Text>
               <TouchableOpacity
-                style={styles.skillsAudioPill}
+                style={[styles.skillsAudioPill, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => handleQuickAudioBar('Listening & Speaking')}
                 activeOpacity={0.8}
               >
                 <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M3 18v-6a9 9 0 0118 0v6"
-                    stroke="#1E3A8A"
+                    stroke={colors.audio}
                     strokeWidth={2.2}
                     strokeLinecap="round"
                   />
                   <Path
                     d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"
-                    fill="#1E3A8A"
+                    fill={colors.audio}
                   />
                 </Svg>
                 <View style={styles.miniWaveBars}>
-                  <View style={[styles.miniBar, { height: 7 }]} />
-                  <View style={[styles.miniBar, { height: 13 }]} />
-                  <View style={[styles.miniBar, { height: 9 }]} />
+                  <View style={[styles.miniBar, { height: 7, backgroundColor: colors.audio }]} />
+                  <View style={[styles.miniBar, { height: 13, backgroundColor: colors.audio }]} />
+                  <View style={[styles.miniBar, { height: 9, backgroundColor: colors.audio }]} />
                 </View>
               </TouchableOpacity>
             </View>
 
             {/* "Let's start!" Prompt Row */}
             <View style={styles.letsStartRow}>
-              <View style={styles.letsStartPill}>
-                <View style={styles.letsStartTag}>
-                  <Text style={styles.letsStartTagText}>Let’s start!</Text>
+              <View style={[styles.letsStartPill, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadowColor }]}>
+                <View style={[styles.letsStartTag, { backgroundColor: colors.warningSoft, borderColor: colors.border }]}>
+                  <Text style={[styles.letsStartTagText, { color: colors.warning }]}>Let’s start!</Text>
                 </View>
-                <Text style={styles.letsStartQuestion} numberOfLines={2}>
+                <Text style={[styles.letsStartQuestion, { color: colors.textPrimary }]} numberOfLines={2}>
                   {currentPageObj?.title || 'What can you see at an aquarium?'}
                 </Text>
               </View>
               <TouchableOpacity
-                style={styles.speakerCircleWhite}
+                style={[styles.speakerCircleWhite, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadowColor }]}
                 onPress={() => handleQuickAudioBar("Let's start • Warm-up Audio")}
               >
                 <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                  <Path d="M11 5L6 9H2v6h4l5 4V5z" fill="#2563EB" />
+                  <Path d="M11 5L6 9H2v6h4l5 4V5z" fill={colors.audio} />
                   <Path
                     d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"
-                    stroke="#2563EB"
+                    stroke={colors.audio}
                     strokeWidth={2}
                     strokeLinecap="round"
                   />
@@ -1683,7 +1778,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                 <Text style={styles.cdTopText}>CD2</Text>
                 <Text style={styles.cdBotText}>12</Text>
               </View>
-              <Text style={styles.exHeaderTitle}>
+              <Text style={[styles.exHeaderTitle, { color: colors.textPrimary }]}>
                 Which animals do they see? Listen and say the letters.
               </Text>
             </View>
@@ -1726,36 +1821,36 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                       : handleQuickAudioBar(card.label)
                   }
                 >
-                  <View style={styles.photoFrame}>
+                  <View style={[styles.photoFrame, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <SceneArtwork variant={card.variant} />
                     <View style={styles.letterBadge}>
                       <Text style={styles.letterBadgeText}>{card.letter}</Text>
                     </View>
                     {card.mode === 'VIDEO' && (
-                      <View style={styles.photoPlayBadge}>
+                      <View style={[styles.photoPlayBadge, { backgroundColor: isDark ? 'rgba(30, 34, 42, 0.9)' : 'rgba(255,255,255,0.9)' }]}>
                         <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-                          <Path d="M8 5l11 7-11 7V5z" fill="#0F172A" />
+                          <Path d="M8 5l11 7-11 7V5z" fill={colors.textPrimary} />
                         </Svg>
                       </View>
                     )}
                   </View>
-                  <View style={styles.photoCaptionPill}>
+                  <View style={[styles.photoCaptionPill, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadowColor }]}>
                     {card.mode === 'VIDEO' ? (
                       <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                        <Path d="M8 5l11 7-11 7V5z" fill="#2563EB" />
+                        <Path d="M8 5l11 7-11 7V5z" fill={colors.video} />
                       </Svg>
                     ) : (
                       <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                        <Path d="M11 5L6 9H2v6h4l5 4V5z" fill="#2563EB" />
+                        <Path d="M11 5L6 9H2v6h4l5 4V5z" fill={colors.audio} />
                         <Path
                           d="M15.5 8.5a5 5 0 010 7"
-                          stroke="#2563EB"
+                          stroke={colors.audio}
                           strokeWidth={2}
                           strokeLinecap="round"
                         />
                       </Svg>
                     )}
-                    <Text style={styles.photoCaptionText} numberOfLines={2}>
+                    <Text style={[styles.photoCaptionText, { color: colors.textPrimary }]} numberOfLines={2}>
                       {card.label}
                     </Text>
                   </View>
@@ -1772,15 +1867,15 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                 <Text style={styles.cdTopText}>CD2</Text>
                 <Text style={styles.cdBotText}>12</Text>
               </View>
-              <Text style={[styles.exHeaderTitle, { flex: 1 }]}>
+              <Text style={[styles.exHeaderTitle, { flex: 1, color: colors.textPrimary }]}>
                 Listen again and say the missing words.
               </Text>
               <TouchableOpacity
-                style={styles.inlineAnswerChip}
+                style={[styles.inlineAnswerChip, { backgroundColor: colors.answerSoft, borderColor: isDark ? colors.border : '#E6DCFA' }]}
                 onPress={() => setAnswerModalVisible(true)}
                 activeOpacity={0.82}
               >
-                <Text style={styles.inlineAnswerChipText}>💡 Javoblar</Text>
+                <Text style={[styles.inlineAnswerChipText, { color: colors.answer }]}>💡 Javoblar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.speakerCirclePurple}
@@ -1798,9 +1893,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            <View style={styles.whiteExerciseCard}>
+            <View style={[styles.whiteExerciseCard, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadowColor }]}>
               {currentPageObj?.textContent ? (
-                <Text style={[styles.exLineText, { fontSize: 14 }]}>
+                <Text style={[styles.exLineText, { fontSize: 14, color: colors.textPrimary }]}>
                   {currentPageObj.textContent}
                 </Text>
               ) : (
@@ -1812,10 +1907,10 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                   { n: 5, pre: 'They can feed the', post: 'at a quarter after three.' },
                 ].map((line) => (
                   <View key={line.n} style={styles.blankLineRow}>
-                    <Text style={styles.blankNum}>{line.n}</Text>
-                    <Text style={[styles.exLineText, { fontSize: 13 }]}>
+                    <Text style={[styles.blankNum, { color: colors.textPrimary }]}>{line.n}</Text>
+                    <Text style={[styles.exLineText, { fontSize: 13, color: colors.textPrimary }]}>
                       {line.pre}{' '}
-                      <Text style={styles.blankUnderline}>{'            '}</Text> {line.post}
+                      <Text style={[styles.blankUnderline, { color: colors.textMuted }]}>{'            '}</Text> {line.post}
                     </Text>
                   </View>
                 ))
@@ -1834,25 +1929,25 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
               <View style={styles.talkTimeBadge}>
                 <Text style={styles.talkTimeText}>Talk Time</Text>
               </View>
-              <Text style={styles.exHeaderTitle}>Plan a trip for this weekend.</Text>
+              <Text style={[styles.exHeaderTitle, { color: colors.textPrimary }]}>Plan a trip for this weekend.</Text>
             </View>
 
             <View style={styles.bubblesGrid}>
-              <View style={[styles.speechBubble, { backgroundColor: '#DBEAFE' }]}>
+              <View style={[styles.speechBubble, { backgroundColor: isDark ? 'rgba(42, 79, 184, 0.20)' : '#EEF4FF', borderColor: colors.border }]}>
                 <Text style={styles.bubbleIcon}>🧭</Text>
-                <Text style={styles.bubbleText}>Where would you like to go this weekend?</Text>
+                <Text style={[styles.bubbleText, { color: colors.textPrimary }]}>Where would you like to go this weekend?</Text>
               </View>
-              <View style={[styles.speechBubble, { backgroundColor: '#FFEDD5' }]}>
+              <View style={[styles.speechBubble, { backgroundColor: isDark ? 'rgba(194, 59, 90, 0.20)' : '#FDF1F4', borderColor: colors.border }]}>
                 <Text style={styles.bubbleIcon}>📍</Text>
-                <Text style={styles.bubbleText}>I’d like to go to ...</Text>
+                <Text style={[styles.bubbleText, { color: colors.textPrimary }]}>I’d like to go to ...</Text>
               </View>
-              <View style={[styles.speechBubble, { backgroundColor: '#FEF3C7' }]}>
+              <View style={[styles.speechBubble, { backgroundColor: isDark ? 'rgba(180, 83, 9, 0.20)' : '#FFFBEB', borderColor: colors.border }]}>
                 <Text style={styles.bubbleIcon}>❓</Text>
-                <Text style={styles.bubbleText}>How can you get there?</Text>
+                <Text style={[styles.bubbleText, { color: colors.textPrimary }]}>How can you get there?</Text>
               </View>
-              <View style={[styles.speechBubble, { backgroundColor: '#E0F2FE' }]}>
+              <View style={[styles.speechBubble, { backgroundColor: isDark ? 'rgba(14, 124, 112, 0.20)' : '#E6F6F4', borderColor: colors.border }]}>
                 <Text style={styles.bubbleIcon}>🚗</Text>
-                <Text style={styles.bubbleText}>You can go by ...</Text>
+                <Text style={[styles.bubbleText, { color: colors.textPrimary }]}>You can go by ...</Text>
               </View>
             </View>
           </ScrollView>
@@ -1884,7 +1979,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={[styles.root, { paddingTop: safeTopPad, backgroundColor: colors.readerBg }]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.readerBg }]}>
       <View
         style={[
           styles.topHeader,
@@ -2070,25 +2165,13 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             >
               {Array.from({ length: totalPages }, (_, idx) => {
                 const pg = idx + 1;
-                const inWindow = Math.abs(pg - currentPage) <= 2;
+                const inWindow = Math.abs(pg - currentPage) <= 5 || loadedPages.has(pg);
                 const pgObj = pages.find((p) => Number(p.pageNumber) === pg);
                 const basePgImgUrl =
                   pgObj?.imageHighUrl ||
                   pgObj?.imageNormalUrl ||
-                  (hasPdf && Platform.OS !== 'web'
-                    ? `/api/v1/content/books/${book.id}/pages/${pg}/image`
-                    : undefined);
-                const offlinePgUri = resolveMediaOrImageUrl(basePgImgUrl);
-                const isOfflineUri = Boolean(
-                  offlinePgUri &&
-                    (offlinePgUri.startsWith('file://') ||
-                      offlinePgUri.startsWith('blob:') ||
-                      offlinePgUri.startsWith('data:')),
-                );
-                const pgImgUrl =
-                  offlinePgUri && reloadTick > 0 && !isOfflineUri
-                    ? `${offlinePgUri}${offlinePgUri.includes('?') ? '&' : '?'}r=${reloadTick}`
-                    : offlinePgUri;
+                  `/content/books/${book.id}/pages/${pg}/image`;
+                const pgImgUrl = resolveMediaOrImageUrl(basePgImgUrl);
                 const hsList = getHotspotsForPage(pg);
                 const pgRatio = resolvePageAspectRatio(pgObj, pageImageRatios[pg], pdfAspectRatio);
                 const cardHeight = Math.max(180, Math.round(vPageWidth * pgRatio));
@@ -2103,36 +2186,51 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                         width: vPageWidth,
                         height: cardHeight,
                         marginBottom: VERTICAL_GAP,
+                        borderColor: colors.border,
+                        backgroundColor: isDark ? colors.surface : '#FFFFFF',
                       },
                     ]}
                   >
                     {inWindow ? (
-                      hasPdf && Platform.OS === 'web' && pdfDocRef.current ? (
-                        <PdfVerticalPageCanvas
-                          pdfDoc={pdfDocRef.current}
-                          pageNumber={pg}
-                          width={vPageWidth}
-                          height={cardHeight}
-                        />
-                      ) : pgImgUrl ? (
-                        <Image
-                          source={{ uri: pgImgUrl }}
-                          style={styles.pageImageFull}
-                          resizeMode="contain"
-                          onLoad={(e) => handleImageDimensionLoaded(pg, e)}
-                        />
-                      ) : (
-                        renderPageContent(pg, { width: vPageWidth, height: cardHeight })
-                      )
+                      <View style={{ width: vPageWidth, height: cardHeight, position: 'relative' }}>
+                        {!loadedPages.has(pg) && (
+                          <View style={[StyleSheet.absoluteFill, { zIndex: 1 }]}>
+                            <ReaderPageSkeleton style={{ width: '100%', height: '100%', marginTop: 0 }} />
+                          </View>
+                        )}
+                        {pgImgUrl ? (
+                          <Image
+                            source={{ uri: pgImgUrl }}
+                            style={styles.pageImageFull}
+                            resizeMode="contain"
+                            fadeDuration={0}
+                            progressiveRenderingEnabled={true}
+                            onLoad={(e) => {
+                              markPageLoaded(pg);
+                              handleImageDimensionLoaded(pg, e);
+                            }}
+                            onError={() => {
+                              markPageLoaded(pg);
+                            }}
+                          />
+                        ) : hasPdf && Platform.OS === 'web' && pdfDocRef.current ? (
+                          <PdfVerticalPageCanvas
+                            pdfDoc={pdfDocRef.current}
+                            pageNumber={pg}
+                            width={vPageWidth}
+                            height={cardHeight}
+                          />
+                        ) : (
+                          renderPageContent(pg, { width: vPageWidth, height: cardHeight })
+                        )}
+                      </View>
                     ) : (
-                      <View style={[styles.verticalPlaceholder, { backgroundColor: colors.surfaceAlt }]}>
-                        <Text style={[styles.verticalPlaceholderNum, { color: colors.textMuted }]}>
-                          {pageBadgeText} / {contentTotalPages}
-                        </Text>
+                      <View style={[styles.verticalPlaceholder, { backgroundColor: isDark ? colors.surfaceAlt : colors.backgroundSecondary }]}>
+                        <ReaderPageSkeleton style={{ width: '100%', height: '100%', marginTop: 0 }} />
                       </View>
                     )}
 
-                    {inWindow && (hasPdf || pgImgUrl) && (
+                    {inWindow && (
                       <>
                         <HotspotLayer
                           hotspots={hsList}
@@ -2366,7 +2464,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             style={[
               styles.topPopoverCard,
               {
-                top: safeTopPad + 56,
+                top: Platform.OS === 'ios' ? 96 : 52,
                 backgroundColor: colors.surface,
                 borderColor: colors.border,
                 shadowColor: colors.shadowColor,
@@ -2487,7 +2585,43 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         trackTitle={audioModal.title}
         trackSubtitle={audioModal.subtitle}
         trackUrl={audioModal.url}
+        hasTranscript={Boolean(audioModal.transcriptImageUrl)}
+        onOpenTranscript={() => {
+          setFloatingTranscriptImage({
+            isOpen: true,
+            title: `Transkript • ${audioModal.title}`,
+            subtitle: `${book.title} • ${strings.common.page} ${currentPage}`,
+            imageUrl: audioModal.transcriptImageUrl,
+          });
+        }}
       />
+
+      {/* Floating Zero-Overlay Draggable Answer Key Popup */}
+      {floatingAnswerImage?.isOpen && (
+        <FloatingImagePopup
+          isOpen={true}
+          onClose={() => setFloatingAnswerImage(null)}
+          title={floatingAnswerImage.title}
+          subtitle={floatingAnswerImage.subtitle}
+          badge={strings.reader.answerKeysTitle}
+          type="ANSWER"
+          imageUrl={floatingAnswerImage.imageUrl}
+          initialOffset={{ x: 10, y: 12 }}
+        />
+      )}
+
+      {/* Floating Zero-Overlay Draggable Audio Transcript Popup */}
+      {floatingTranscriptImage?.isOpen && (
+        <FloatingImagePopup
+          isOpen={true}
+          onClose={() => setFloatingTranscriptImage(null)}
+          title={floatingTranscriptImage.title}
+          subtitle={floatingTranscriptImage.subtitle}
+          type="TRANSCRIPT"
+          imageUrl={floatingTranscriptImage.imageUrl}
+          initialOffset={{ x: 12, y: 40 }}
+        />
+      )}
 
       <VideoPlayerModal
         visible={videoModal.visible}
@@ -2512,6 +2646,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         solutionText={firstAnswer.solutionText}
         methodologyNotes={firstAnswer.methodologyNotes}
         imageUrl={resolveMediaOrImageUrl(firstAnswer.imageUrl)}
+        initialTab={answerTab}
         items={activeAnswers.map((a: any) => ({
           ...a,
           imageUrl: resolveMediaOrImageUrl(a.imageUrl),
@@ -2591,31 +2726,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F4F8FF',
   },
-  // 1-to-1 Frosted Light Header (Image 1)
+  // 1-to-1 Refined Light Header (Image 1)
   topHeader: {
     backgroundColor: 'rgba(248, 251, 255, 0.96)',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
+    gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(226, 232, 240, 0.7)',
   },
   circleBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   titleBlock: {
     flex: 1,
@@ -2632,42 +2767,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   modeToggleBtnActive: {
     backgroundColor: '#EFF6FF',
     borderColor: '#93C5FD',
   },
   headerTitle: {
-    fontSize: 15.5,
-    fontWeight: '800',
+    fontSize: 14.5,
+    fontWeight: '700',
     color: '#0F172A',
   },
   headerSub: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '500',
     color: '#64748B',
-    marginTop: 1,
+    marginTop: 0.5,
   },
   pageCountPill: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 18,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   pageCountPillText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 11.5,
+    fontWeight: '700',
     color: '#0F172A',
   },
   canvasArea: {
@@ -2681,13 +2816,11 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   canvasWrapCentered: {
-    backgroundColor: '#E5ECF7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   fittedPageStage: {
     position: 'relative',
-    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     overflow: 'hidden',
     shadowColor: '#0F172A',
@@ -2701,7 +2834,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: '#EAF3FF',
   },
   centerStateText: {
     fontSize: 13,
@@ -2780,12 +2912,12 @@ const styles = StyleSheet.create({
   },
   skillsBold: {
     fontWeight: '900',
-    color: '#1E3A8A',
+    color: '#142452',
   },
   skillsItalic: {
     fontStyle: 'italic',
     fontWeight: '600',
-    color: '#1E3A8A',
+    color: '#2A4FB8',
   },
   skillsAudioPill: {
     flexDirection: 'row',
@@ -2796,7 +2928,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 99,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#BAD2FF',
   },
   miniWaveBars: {
     flexDirection: 'row',
@@ -2806,7 +2938,7 @@ const styles = StyleSheet.create({
   miniBar: {
     width: 2.5,
     borderRadius: 2,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#0E7C70',
   },
   letsStartRow: {
     flexDirection: 'row',
@@ -2832,17 +2964,17 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   letsStartTag: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFFBEB',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#BAD2FF',
   },
   letsStartTagText: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: '#EA580C',
+    color: '#B45309',
   },
   letsStartQuestion: {
     flex: 1,
@@ -2858,7 +2990,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: '#BAD2FF',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -2883,7 +3015,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#16A34A',
+    backgroundColor: '#15803D',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2953,7 +3085,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 7,
-    backgroundColor: '#1D4ED8',
+    backgroundColor: '#2A4FB8',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -3005,10 +3137,10 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#0E7C70',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#4F46E5',
+    shadowColor: '#0E7C70',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.28,
     shadowRadius: 6,
@@ -3049,9 +3181,9 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   inlineAnswerChip: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#F4F0FD',
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: '#E6DCFA',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
@@ -3059,7 +3191,7 @@ const styles = StyleSheet.create({
   inlineAnswerChipText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#4F46E5',
+    color: '#6D3FD1',
   },
   talkTimeBadge: {
     backgroundColor: '#DCFCE7',
@@ -3100,55 +3232,55 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     lineHeight: 15,
   },
-  // Bottom Floating 7-Action Pill Bar + Bottom Pagination Strip (Image 1 & Image 2)
+  // Bottom Floating Action Pill Bar + Bottom Pagination Strip
   floatingDockContainer: {
     position: 'absolute',
-    left: 10,
-    right: 10,
-    bottom: 8,
+    left: 14,
+    right: 14,
+    bottom: 6,
     zIndex: 20,
   },
   floatingPillDock: {
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(226, 232, 240, 0.8)',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   dockItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: 2,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   dockItemActive: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#EEF4FF',
   },
   dockLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontSize: 9.5,
+    fontWeight: '600',
+    color: '#5B6672',
   },
   dockLabelActive: {
-    color: '#2563EB',
+    color: '#2A4FB8',
   },
   paginationFooter: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -3158,28 +3290,28 @@ const styles = StyleSheet.create({
   pageNavBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
   },
   pageNavDisabled: {
     opacity: 0.35,
   },
   pageNavText: {
-    fontSize: 13.5,
-    fontWeight: '700',
+    fontSize: 12.5,
+    fontWeight: '600',
     color: '#0F172A',
   },
   centerPagePill: {
-    backgroundColor: '#F1F5FF',
-    paddingHorizontal: 18,
-    paddingVertical: 6,
+    backgroundColor: '#EEF4FF',
+    paddingHorizontal: 14,
+    paddingVertical: 4,
     borderRadius: 14,
   },
   centerPagePillText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2A4FB8',
   },
   // Top-Right Dropdown Popover (Image 2)
   popoverOverlay: {
@@ -3223,7 +3355,7 @@ const styles = StyleSheet.create({
   popTextBold: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#4F46E5',
+    color: '#2A4FB8',
   },
   popDivider: {
     height: 1,
@@ -3234,38 +3366,41 @@ const styles = StyleSheet.create({
   // Vertical Scrolling Reading Mode
   verticalScroll: {
     flex: 1,
-    backgroundColor: '#E5ECF7',
   },
   verticalContent: {
     alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 94,
+    paddingTop: 12,
+    paddingBottom: 80,
   },
   verticalPageCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.7)',
   },
   verticalPageBadge: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.72)',
-    paddingHorizontal: 8,
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    paddingHorizontal: 9,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     zIndex: 25,
   },
   verticalPageBadgeText: {
     color: '#FFFFFF',
     fontSize: 10.5,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   verticalPlaceholder: {
     flex: 1,
@@ -3274,8 +3409,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   verticalPlaceholderNum: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#94A3B8',
+    marginTop: 6,
   },
 });

@@ -50,12 +50,12 @@ export const HotspotLayer: React.FC<HotspotLayerProps> = ({
         const isSolid = h.appearanceStyle !== 'OUTLINE';
 
         const accentColor = isAudio
-          ? '#4F46E5'
+          ? '#0E7C70'
           : isVideo
-          ? '#2563EB'
+          ? '#C23B5A'
           : isAnswer
-          ? '#D97706'
-          : '#059669';
+          ? '#6D3FD1'
+          : '#15803D';
 
         return (
           <TouchableOpacity

@@ -24,19 +24,19 @@ export type DrawStrokeSize = 'SM' | 'MD' | 'LG';
 export type DrawStroke = DrawStrokeRecord;
 
 export const HIGHLIGHTER_COLORS = [
-  { id: 'yellow', hex: '#FDE047', label: 'Sariq marker' },
-  { id: 'green', hex: '#4ADE80', label: 'Yashil marker' },
-  { id: 'blue', hex: '#38BDF8', label: 'Moviy marker' },
-  { id: 'pink', hex: '#F472B6', label: 'Pushti marker' },
-  { id: 'orange', hex: '#FB923C', label: 'Apelsin marker' },
+  { id: 'yellow', hex: '#FACC15', label: 'Sariq marker' },
+  { id: 'green', hex: '#16A34A', label: 'Yashil marker' },
+  { id: 'blue', hex: '#1D4ED8', label: 'Ko‘k marker' },
+  { id: 'pink', hex: '#C23B5A', label: 'Pushti marker' },
+  { id: 'purple', hex: '#6D3FD1', label: 'Binafsha marker' },
 ];
 
 export const PEN_COLORS = [
-  { id: 'red', hex: '#EF4444', label: 'Qizil qalam' },
-  { id: 'blue', hex: '#2563EB', label: 'Ko‘k qalam' },
   { id: 'ink', hex: '#0F172A', label: 'Qora qalam' },
+  { id: 'blue', hex: '#1D4ED8', label: 'Ko‘k qalam' },
+  { id: 'red', hex: '#DC2626', label: 'Qizil qalam' },
   { id: 'emerald', hex: '#16A34A', label: 'Yashil qalam' },
-  { id: 'purple', hex: '#9333EA', label: 'Binafsha qalam' },
+  { id: 'purple', hex: '#6D3FD1', label: 'Binafsha qalam' },
 ];
 
 const EMPTY_STROKES: DrawStroke[] = [];
@@ -482,7 +482,12 @@ export const MarkerStudioToolbar: React.FC<MarkerStudioToolbarProps> = ({
   const { strings } = useI18n();
   if (!activeTool) return null;
 
-  const palette = activeTool === 'PEN' ? PEN_COLORS : HIGHLIGHTER_COLORS;
+  const palette =
+    activeTool === 'PEN'
+      ? isDark
+        ? [{ id: 'white', hex: '#F1F5F9', label: 'Oq qalam' }, ...PEN_COLORS.slice(1)]
+        : PEN_COLORS
+      : HIGHLIGHTER_COLORS;
 
   return (
     <View style={styles.toolbarWrap} pointerEvents="box-none">
@@ -512,7 +517,7 @@ export const MarkerStudioToolbar: React.FC<MarkerStudioToolbarProps> = ({
               <Text
                 style={[
                   styles.toolPillText,
-                  { color: activeTool === 'HIGHLIGHTER' ? '#854D0E' : colors.textSecondary },
+                  { color: activeTool === 'HIGHLIGHTER' ? '#B45309' : colors.textSecondary },
                   activeTool === 'HIGHLIGHTER' && styles.toolPillTextActiveDark,
                 ]}
               >
@@ -533,7 +538,7 @@ export const MarkerStudioToolbar: React.FC<MarkerStudioToolbarProps> = ({
               <Text
                 style={[
                   styles.toolPillText,
-                  { color: activeTool === 'PEN' ? '#1D4ED8' : colors.textSecondary },
+                  { color: activeTool === 'PEN' ? '#2A4FB8' : colors.textSecondary },
                   activeTool === 'PEN' && styles.toolPillTextActiveBlue,
                 ]}
               >
@@ -629,7 +634,7 @@ export const MarkerStudioToolbar: React.FC<MarkerStudioToolbarProps> = ({
                         width: dotPx,
                         height: dotPx,
                         borderRadius: 99,
-                        backgroundColor: active ? '#1D4ED8' : colors.textSecondary,
+                        backgroundColor: active ? '#2A4FB8' : colors.textSecondary,
                       }}
                     />
                   </TouchableOpacity>
@@ -736,16 +741,16 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   toolPillActiveHighlighter: {
-    backgroundColor: '#FEF08A',
-    borderColor: '#EAB308',
+    backgroundColor: '#FFFBEB',
+    borderColor: '#F5B82E',
   },
   toolPillActiveBlue: {
-    backgroundColor: '#DBEAFE',
-    borderColor: '#3B82F6',
+    backgroundColor: '#EEF4FF',
+    borderColor: '#2A4FB8',
   },
   toolPillActiveRed: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#B91C1C',
   },
   toolEmoji: {
     fontSize: 13,
@@ -756,11 +761,11 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   toolPillTextActiveDark: {
-    color: '#854D0E',
+    color: '#B45309',
     fontWeight: '800',
   },
   toolPillTextActiveBlue: {
-    color: '#1D4ED8',
+    color: '#2A4FB8',
     fontWeight: '800',
   },
   toolPillTextActiveRed: {
@@ -840,8 +845,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   sizeBtnActive: {
-    backgroundColor: '#DBEAFE',
-    borderColor: '#3B82F6',
+    backgroundColor: '#EEF4FF',
+    borderColor: '#2A4FB8',
   },
   eraserHint: {
     flex: 1,
@@ -872,7 +877,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   doneBtn: {
-    backgroundColor: '#1D4ED8',
+    backgroundColor: '#2A4FB8',
     paddingHorizontal: 11,
     height: 28,
     borderRadius: 9,

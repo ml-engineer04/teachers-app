@@ -2,17 +2,20 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  Modal,
   TouchableOpacity,
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Platform,
+  Dimensions,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { notify } from '../../services/notifications/notificationService';
-import { useTheme } from '../../theme/ThemeContext';
 import { useI18n } from '../../i18n/I18nContext';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface AudioPlayerModalProps {
   visible: boolean;
@@ -20,37 +23,38 @@ interface AudioPlayerModalProps {
   trackTitle: string;
   trackSubtitle?: string;
   trackUrl?: string;
+  onOpenTranscript?: () => void;
+  hasTranscript?: boolean;
 }
 
-const SPEEDS = [0.8, 1.0, 1.2, 1.5];
+const SPEEDS = [1.0, 1.25, 1.5, 0.8];
 
-/**
- * 1-to-1 Floating White Card matching Image 2 (Audio):
- * - Header: Headphones icon + "Audio" + close "×"
- * - Track row: Circular lavender waveform icon + Unit title + subtitle
- * - Scrubber bar + "00:45" / "02:30"
- * - Controls: -10s circle | Big Indigo Play/Pause | +10s circle | "Tezlik: 1.0x ⌄"
- * - Footer: "🔒 AES-256 Encrypted"
- */
 export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
   visible,
   onClose,
   trackTitle,
-  trackSubtitle = 'Track 1 • Listening',
+  trackSubtitle,
   trackUrl,
+  onOpenTranscript,
+  hasTranscript = true,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(false);
-  const [positionSec, setPositionSec] = useState(45);
-  const [durationSec, setDurationSec] = useState(150);
-  const [speed, setSpeed] = useState(1.0);
-  const [trackBarWidth, setTrackBarWidth] = useState(260);
+  const [positionSec, setPositionSec] = useState(0);
+  const [durationSec, setDurationSec] = useState(120);
+  const [speedIndex, setSpeedIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [trackBarWidth, setTrackBarWidth] = useState(110);
   const [usingRealAudio, setUsingRealAudio] = useState(false);
 
   const soundRef = useRef<Audio.Sound | null>(null);
-  const { colors } = useTheme();
-  const { strings, language } = useI18n();
-  const speedText = language === 'ru' ? 'Скорость:' : language === 'en' ? 'Speed:' : 'Tezlik:';
+  const { language } = useI18n();
+  const { colors, isDark } = useTheme();
+  const screen = Dimensions.get('window');
+
+  // Smooth vertical/horizontal glide responder if teacher wants to reposition the pill
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const lastOffsetRef = useRef({ x: 0, y: 0 });
 
   const unloadSound = useCallback(async () => {
     if (soundRef.current) {
@@ -61,6 +65,8 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
     }
     setUsingRealAudio(false);
   }, []);
+
+  const currentSpeed = SPEEDS[speedIndex] || 1.0;
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +80,7 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
 
       if (!trackUrl) {
         setPositionSec(0);
-        setDurationSec(150);
+        setDurationSec(120);
         setIsPlaying(true);
         return;
       }
@@ -89,7 +95,7 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
 
         const { sound } = await Audio.Sound.createAsync(
           { uri: trackUrl },
-          { shouldPlay: true, rate: speed, shouldCorrectPitch: true },
+          { shouldPlay: true, rate: currentSpeed, shouldCorrectPitch: true, isMuted },
           (status: AVPlaybackStatus) => {
             if (!status.isLoaded) return;
             setPositionSec(Math.floor((status.positionMillis || 0) / 1000));
@@ -114,10 +120,6 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
         if (!cancelled) {
           setUsingRealAudio(false);
           setIsPlaying(true);
-          notify.warning(
-            strings.common.warning,
-            strings.reader.mediaLoadFailed,
-          );
         }
       } finally {
         if (!cancelled) setLoadingAudio(false);
@@ -131,13 +133,14 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
     };
   }, [visible, trackUrl, unloadSound]);
 
+  // Simulation timer if real audio fails or is mock
   useEffect(() => {
     if (!visible || usingRealAudio || !isPlaying) return;
     const interval = setInterval(() => {
       setPositionSec((prev) => (prev + 1 >= durationSec ? 0 : prev + 1));
-    }, 1000 / speed);
+    }, 1000 / currentSpeed);
     return () => clearInterval(interval);
-  }, [visible, usingRealAudio, isPlaying, speed, durationSec]);
+  }, [visible, usingRealAudio, isPlaying, currentSpeed, durationSec]);
 
   const togglePlay = async () => {
     if (soundRef.current && usingRealAudio) {
@@ -175,12 +178,22 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
   };
 
   const cycleSpeed = async () => {
-    const idx = SPEEDS.indexOf(speed);
-    const nextSpeed = SPEEDS[(idx + 1) % SPEEDS.length];
-    setSpeed(nextSpeed);
+    const nextIdx = (speedIndex + 1) % SPEEDS.length;
+    setSpeedIndex(nextIdx);
+    const nextSpeed = SPEEDS[nextIdx];
     if (soundRef.current && usingRealAudio) {
       try {
         await soundRef.current.setRateAsync(nextSpeed, true);
+      } catch {}
+    }
+  };
+
+  const toggleMute = async () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    if (soundRef.current && usingRealAudio) {
+      try {
+        await soundRef.current.setIsMutedAsync(next);
       } catch {}
     }
   };
@@ -193,377 +206,369 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
 
   const progressPct = durationSec > 0 ? Math.min(100, (positionSec / durationSec) * 100) : 0;
 
-  const isLocalOffline =
-    Boolean(trackUrl) &&
-    (trackUrl!.startsWith('file:') || trackUrl!.startsWith('blob:'));
+  // Touch drag gesture responder so teacher can drag the capsule anywhere
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4,
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          x: lastOffsetRef.current.x,
+          y: lastOffsetRef.current.y,
+        });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: (_, gesture) => {
+        lastOffsetRef.current = {
+          x: Math.max(-screen.width * 0.4, Math.min(screen.width * 0.4, lastOffsetRef.current.x + gesture.dx)),
+          y: Math.max(-screen.height * 0.7, Math.min(0, lastOffsetRef.current.y + gesture.dy)),
+        };
+        pan.flattenOffset();
+        pan.setValue({ x: lastOffsetRef.current.x, y: lastOffsetRef.current.y });
+      },
+    }),
+  ).current;
+
+  if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              shadowColor: colors.shadowColor,
-            },
-          ]}
+    <Animated.View
+      style={[
+        styles.floatingContainer,
+        {
+          transform: [{ translateX: pan.x }, { translateY: pan.y }],
+        },
+      ]}
+      pointerEvents="box-none"
+    >
+      <View
+        style={[
+          styles.capsule,
+          {
+            backgroundColor: isDark ? 'rgba(30, 34, 42, 0.96)' : 'rgba(251, 251, 249, 0.98)',
+            borderColor: isDark ? 'rgba(53, 59, 71, 0.8)' : colors.border,
+            shadowColor: colors.shadowColor,
+          },
+        ]}
+        {...panResponder.panHandlers}
+      >
+        {/* Play / Pause circular button */}
+        <TouchableOpacity
+          style={styles.playPauseBtn}
+          onPress={togglePlay}
+          activeOpacity={0.82}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
-          {/* Header Row */}
-          <View style={styles.headerRow}>
-            <View style={styles.headerLeft}>
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M3 18v-6a9 9 0 0118 0v6"
-                  stroke={colors.primary}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                />
-                <Path
-                  d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"
-                  fill={colors.primary}
-                />
-              </Svg>
-              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                {strings.reader.audioPlayerTitle}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.closeBtn, { backgroundColor: colors.surfaceAlt }]}
-              onPress={onClose}
-            >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M18 6L6 18M6 6l12 12"
-                  stroke={colors.textSecondary}
-                  strokeWidth={2.2}
-                  strokeLinecap="round"
-                />
-              </Svg>
-            </TouchableOpacity>
-          </View>
-
-          {/* Artwork Circle + Title Row */}
-          <View style={styles.trackRow}>
-            <View style={[styles.waveCircle, { backgroundColor: colors.primarySoft }]}>
-              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-                <Rect x={3} y={10} width={2.4} height={4} rx={1.2} fill={colors.primary} />
-                <Rect x={7.5} y={6} width={2.4} height={12} rx={1.2} fill={colors.primary} />
-                <Rect x={12} y={4} width={2.4} height={16} rx={1.2} fill={colors.primary} />
-                <Rect x={16.5} y={7} width={2.4} height={10} rx={1.2} fill={colors.primary} />
-                <Rect x={20} y={10} width={2} height={4} rx={1} fill={colors.primary} opacity={0.6} />
-              </Svg>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
-                {trackTitle}
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>
-                {trackSubtitle}
-              </Text>
-            </View>
-          </View>
-
-          {/* Progress Scrubber */}
-          <View style={styles.scrubberWrap}>
-            <Pressable
-              style={styles.trackTouchArea}
-              onLayout={(e) => setTrackBarWidth(e.nativeEvent.layout.width || 260)}
-              onPress={(e) => seekToRatio(e.nativeEvent.locationX / trackBarWidth)}
-            >
-              <View style={[styles.trackBg, { backgroundColor: colors.border }]}>
-                <View
-                  style={[
-                    styles.trackFill,
-                    { width: `${progressPct}%`, backgroundColor: colors.primary },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.trackThumb,
-                    {
-                      left: `${progressPct}%`,
-                      backgroundColor: colors.primaryDark,
-                      borderColor: colors.surface,
-                    },
-                  ]}
-                />
-              </View>
-            </Pressable>
-            <View style={styles.timeRow}>
-              <Text style={[styles.timeText, { color: colors.textSecondary }]}>
-                {formatTime(positionSec)}
-              </Text>
-              <Text style={[styles.timeText, { color: colors.textSecondary }]}>
-                {formatTime(durationSec)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Transport Controls Row + Speed Pill */}
-          <View style={styles.controlsRow}>
-            <TouchableOpacity style={styles.skipBtn} onPress={() => seekBy(-10)}>
-              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 5V2L7 6l5 4V7a5 5 0 11-5 5"
-                  stroke={colors.textPrimary}
-                  strokeWidth={1.7}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-              <Text style={[styles.skipInsideText, { color: colors.textPrimary }]}>10</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.playBtn,
-                { backgroundColor: colors.primaryDark, shadowColor: colors.primary },
-              ]}
-              onPress={togglePlay}
-              activeOpacity={0.85}
-            >
-              {loadingAudio ? (
-                <ActivityIndicator color={colors.onPrimary} />
-              ) : isPlaying ? (
-                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M8 5v14M16 5v14"
-                    stroke={colors.onPrimary}
-                    strokeWidth={3.2}
-                    strokeLinecap="round"
-                  />
-                </Svg>
-              ) : (
-                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                  <Path d="M7 5l12 7-12 7V5z" fill={colors.onPrimary} />
-                </Svg>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.skipBtn} onPress={() => seekBy(10)}>
-              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 5V2l5 4-5 4V7a5 5 0 105 5"
-                  stroke={colors.textPrimary}
-                  strokeWidth={1.7}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-              <Text style={[styles.skipInsideText, { color: colors.textPrimary }]}>10</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.speedChip,
-                { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
-              ]}
-              onPress={cycleSpeed}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.speedLabel, { color: colors.textMuted }]}>{speedText}</Text>
-              <Text style={[styles.speedVal, { color: colors.textPrimary }]}>
-                {speed.toFixed(1)}x ⌄
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Footer Status */}
-          <View style={styles.footerRow}>
+          {loadingAudio ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : isPlaying ? (
             <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+              <Path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="#FFFFFF" />
+            </Svg>
+          ) : (
+            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ marginLeft: 2 }}>
+              <Path d="M5 3l14 9-14 9V3z" fill="#FFFFFF" />
+            </Svg>
+          )}
+        </TouchableOpacity>
+
+        {/* -5s Skip */}
+        <TouchableOpacity
+          style={styles.skipBtn}
+          onPress={() => seekBy(-5)}
+          activeOpacity={0.7}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M1 4v6h6M3.51 15a9 9 0 102.13-9.36L1 10"
+              stroke={isDark ? '#CBD5E1' : colors.textSecondary}
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text style={[styles.skipSecLabel, { color: isDark ? '#9AA3B0' : colors.textSecondary }]}>5</Text>
+        </TouchableOpacity>
+
+        {/* +5s Skip */}
+        <TouchableOpacity
+          style={styles.skipBtn}
+          onPress={() => seekBy(5)}
+          activeOpacity={0.7}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M23 4v6h-6M20.49 15a9 9 0 11-2.13-9.36L23 10"
+              stroke={isDark ? '#CBD5E1' : colors.textSecondary}
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text style={[styles.skipSecLabel, { color: isDark ? '#9AA3B0' : colors.textSecondary }]}>5</Text>
+        </TouchableOpacity>
+
+        {/* Scrubber & Time */}
+        <View style={styles.scrubberRow}>
+          <Text style={[styles.timeMono, { color: isDark ? '#9AA3B0' : colors.textPrimary }]}>{formatTime(positionSec)}</Text>
+          <Pressable
+            style={styles.trackTouchArea}
+            onLayout={(e) => setTrackBarWidth(e.nativeEvent.layout.width || 110)}
+            onPress={(e) => seekToRatio(e.nativeEvent.locationX / (trackBarWidth || 1))}
+          >
+            <View style={[styles.trackBg, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(0, 0, 0, 0.12)' }]}>
+              <View style={[styles.trackFill, { width: `${progressPct}%` }]} />
+              <View style={[styles.trackThumb, { left: `${progressPct}%` }]} />
+            </View>
+          </Pressable>
+          <Text style={[styles.timeMono, { color: colors.textSecondary }]}>{formatTime(durationSec)}</Text>
+        </View>
+
+        {/* Speed toggle pill */}
+        <TouchableOpacity
+          style={[styles.speedPill, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.06)' }]}
+          onPress={cycleSpeed}
+          activeOpacity={0.75}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Text style={[styles.speedText, { color: colors.textPrimary }]}>{currentSpeed}x</Text>
+        </TouchableOpacity>
+
+        {/* Transcript Pill Button */}
+        {hasTranscript && onOpenTranscript && (
+          <TouchableOpacity
+            style={[
+              styles.transcriptPill,
+              {
+                backgroundColor: isDark ? 'rgba(109, 63, 209, 0.25)' : colors.answerSoft,
+                borderColor: isDark ? 'rgba(109, 63, 209, 0.5)' : colors.borderStrong,
+              },
+            ]}
+            onPress={onOpenTranscript}
+            activeOpacity={0.78}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
               <Path
-                d="M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4"
-                stroke={isLocalOffline ? colors.accent : colors.primary}
+                d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                stroke={isDark ? '#B69CFF' : colors.answer}
                 strokeWidth={2}
                 strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+                stroke={isDark ? '#B69CFF' : colors.answer}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             </Svg>
-            <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-              {isLocalOffline ? strings.reader.offlineMediaReady : 'AES-256 Encrypted'}
+            <Text style={[styles.transcriptText, { color: isDark ? '#B69CFF' : colors.answer }]}>
+              {language === 'ru' ? 'Транскрипт' : language === 'en' ? 'Transcript' : 'Transkript'}
             </Text>
-          </View>
-        </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Mute button */}
+        <TouchableOpacity
+          style={styles.muteBtn}
+          onPress={toggleMute}
+          activeOpacity={0.7}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          {isMuted ? (
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"
+                stroke="#FB7185"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          ) : (
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"
+                stroke={isDark ? '#CBD5E1' : colors.textSecondary}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          )}
+        </TouchableOpacity>
+
+        {/* Close (X) button */}
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={onClose}
+          activeOpacity={0.75}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M18 6L6 18M6 6l12 12"
+              stroke={isDark ? '#CBD5E1' : colors.textSecondary}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+            />
+          </Svg>
+        </TouchableOpacity>
       </View>
-    </Modal>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.38)',
-    justifyContent: 'center',
+  floatingContainer: {
+    position: 'absolute',
+    bottom: 58,
+    left: 8,
+    right: 8,
+    zIndex: 90,
     alignItems: 'center',
-    paddingHorizontal: 18,
   },
-  card: {
+  capsule: {
     width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 18,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.16,
-    shadowRadius: 28,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  headerRow: {
+    maxWidth: 480,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    backgroundColor: 'rgba(30, 34, 42, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(53, 59, 71, 0.8)',
+    borderRadius: 9999,
+    paddingHorizontal: 8,
+    paddingVertical: 5.5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.45,
+        shadowRadius: 18,
+      },
+      android: {
+        elevation: 12,
+      },
+      web: {
+        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6)',
+      } as any,
+    }),
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  closeBtn: {
-    width: 30,
-    height: 30,
+  playPauseBtn: {
+    width: 29,
+    height: 29,
     borderRadius: 15,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#0E7C70',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 4,
   },
-  trackRow: {
+  skipBtn: {
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginRight: 2,
+  },
+  skipSecLabel: {
+    position: 'absolute',
+    fontSize: 7.5,
+    fontWeight: '800',
+    color: '#9AA3B0',
+    top: 5,
+  },
+  scrubberRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 16,
+    gap: 4,
+    marginHorizontal: 3,
   },
-  waveCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#64748B',
-    marginTop: 2,
-  },
-  scrubberWrap: {
-    marginBottom: 14,
+  timeMono: {
+    fontSize: 9.5,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#9AA3B0',
+    minWidth: 26,
+    textAlign: 'center',
   },
   trackTouchArea: {
-    paddingVertical: 8,
-  },
-  trackBg: {
-    height: 4.5,
-    borderRadius: 3,
-    backgroundColor: '#E2E8F0',
-    position: 'relative',
+    flex: 1,
+    height: 18,
     justifyContent: 'center',
   },
+  trackBg: {
+    width: '100%',
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    position: 'relative',
+  },
   trackFill: {
-    height: 4.5,
-    borderRadius: 3,
-    backgroundColor: '#6366F1',
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: '#0E7C70',
   },
   trackThumb: {
     position: 'absolute',
-    marginLeft: -6,
-    width: 12,
-    height: 12,
+    top: -3.5,
+    marginLeft: -5,
+    width: 10.5,
+    height: 10.5,
     borderRadius: 6,
-    backgroundColor: '#4F46E5',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#0E7C70',
   },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 2,
+  speedPill: {
+    paddingHorizontal: 5.5,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    marginHorizontal: 2,
   },
-  timeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 18,
-    marginBottom: 16,
-  },
-  skipBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  skipInsideText: {
-    position: 'absolute',
-    fontSize: 8.5,
+  speedText: {
+    fontSize: 9,
     fontWeight: '800',
-    color: '#1E293B',
-    marginTop: 3,
+    color: '#E2E8F0',
   },
-  playBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#6366F1',
+  transcriptPill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  speedChip: {
-    backgroundColor: '#F8FAFC',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(109, 63, 209, 0.25)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    alignItems: 'center',
+    borderColor: 'rgba(109, 63, 209, 0.45)',
+    marginHorizontal: 2,
   },
-  speedLabel: {
+  transcriptText: {
     fontSize: 9.5,
-    color: '#64748B',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#B69CFF',
   },
-  speedVal: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  footerRow: {
-    flexDirection: 'row',
+  muteBtn: {
+    padding: 3,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingTop: 2,
+    marginHorizontal: 1,
   },
-  footerText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1E293B',
+  closeBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
   },
 });

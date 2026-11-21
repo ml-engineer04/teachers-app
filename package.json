@@ -13,6 +13,7 @@
     "build:all": "pnpm -r build",
     "test:security": "./apps/api/node_modules/.bin/ts-node --project apps/api/tsconfig.json tests/run-all-tests.ts",
     "test": "pnpm run test:security",
+    "build:apk:docker": "bash scripts/build-apk-docker.sh",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
   },

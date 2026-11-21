@@ -68,9 +68,9 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
   }, [visible, initialTab]);
 
   const badgePalette = [
-    { bg: isDark ? 'rgba(129, 140, 248, 0.18)' : '#EEF2FF', icon: colors.primary },
-    { bg: isDark ? 'rgba(251, 191, 36, 0.18)' : '#FEF3C7', icon: colors.warning },
-    { bg: isDark ? 'rgba(52, 211, 153, 0.18)' : '#DCFCE7', icon: colors.accent },
+    { bg: colors.primarySoft, icon: colors.primary },
+    { bg: colors.warningSoft, icon: colors.warning },
+    { bg: colors.accentSoft, icon: colors.accent },
   ];
 
   const formatPageBadge = (pdfPage: number) => {

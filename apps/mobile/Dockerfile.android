@@ -1,0 +1,37 @@
+# Dockerfile for building Ilmchi Android APK
+FROM eclipse-temurin:17-jdk-jammy
+
+# Set environment variables
+ENV ANDROID_HOME=/opt/android-sdk
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
+
+# Install system dependencies & Node.js 20
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    unzip \
+    git \
+    ca-certificates \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y nodejs \
+    && npm install -g pnpm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Android Command Line Tools
+ARG CMDLINE_TOOLS_URL=https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+RUN mkdir -p ${ANDROID_HOME}/cmdline-tools \
+    && curl -fsSL ${CMDLINE_TOOLS_URL} -o /tmp/cmdline-tools.zip \
+    && unzip -q /tmp/cmdline-tools.zip -d ${ANDROID_HOME}/cmdline-tools \
+    && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest \
+    && rm /tmp/cmdline-tools.zip
+
+# Accept SDK licenses & install required platforms
+RUN yes | sdkmanager --licenses > /dev/null \
+    && sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" > /dev/null
+
+WORKDIR /workspace
+
+# Default command to build the release APK
+CMD ["/bin/bash", "-c", "cd apps/mobile/android && ./gradlew assembleRelease --no-daemon && mkdir -p /workspace/dist-apk && cp app/build/outputs/apk/release/*.apk /workspace/dist-apk/ && echo '✅ APK tayyor: dist-apk/ papkasida! '"]
