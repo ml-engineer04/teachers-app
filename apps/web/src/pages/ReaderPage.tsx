@@ -73,27 +73,27 @@ export const ReaderPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 text-white">
-        <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
-        <span className="text-sm font-bold text-slate-300">Darslik oçilmoqda...</span>
+      <div className="min-h-screen bg-[#F4F5F2] dark:bg-[#15181E] flex flex-col items-center justify-center gap-4 text-[#1F2933] dark:text-[#E6E8EC]">
+        <Loader2 className="w-10 h-10 text-[#2A4FB8] dark:text-[#5B93FA] animate-spin" />
+        <span className="text-sm font-bold text-[#5B6672] dark:text-[#9AA3B0]">Darslik ochilmoqda...</span>
       </div>
     );
   }
 
   if (error || !book) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-white text-center space-y-4">
-        <div className="w-16 h-16 rounded-3xl bg-red-500/20 text-red-400 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F4F5F2] dark:bg-[#15181E] flex flex-col items-center justify-center p-6 text-[#1F2933] dark:text-[#E6E8EC] text-center space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-[#FEF2F2] dark:bg-red-500/20 text-[#B91C1C] dark:text-[#F87171] flex items-center justify-center">
           <BookOpen className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold">{error || 'Darslik topilmadi'}</h2>
+        <h2 className="text-xl font-bold text-[#1F2933] dark:text-white">{error || 'Darslik topilmadi'}</h2>
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-bold shadow-lg"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Kabinetga qaytiş</span>
+          <span>Kabinetga qaytish</span>
         </button>
       </div>
     );

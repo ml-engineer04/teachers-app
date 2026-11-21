@@ -18,20 +18,20 @@ export interface WebDrawStroke {
 }
 
 export const HIGHLIGHTER_COLORS = [
-  { id: 'yellow', hex: '#FDE047', label: 'Sariq' },
+  { id: 'yellow', hex: '#FACC15', label: 'Sariq (Highlighter)' },
   { id: 'green', hex: '#4ADE80', label: 'Yaşil' },
-  { id: 'blue', hex: '#38BDF8', label: 'Moviy' },
-  { id: 'pink', hex: '#F472B6', label: 'Puşti' },
-  { id: 'orange', hex: '#FB923C', label: 'Apelsin' },
+  { id: 'blue', hex: '#5B93FA', label: 'Moviy' },
+  { id: 'pink', hex: '#C23B5A', label: 'Gul rangi' },
+  { id: 'orange', hex: '#F5B82E', label: 'Oltin' },
 ];
 
 export const PEN_COLORS = [
-  { id: 'indigo', hex: '#4F46E5', label: 'Indigo' },
-  { id: 'red', hex: '#EF4444', label: 'Qizil' },
-  { id: 'emerald', hex: '#10B981', label: 'Yaşil' },
-  { id: 'amber', hex: '#F59E0B', label: 'Sariq' },
-  { id: 'slate', hex: '#0F172A', label: 'Qora' },
-  { id: 'purple', hex: '#9333EA', label: 'Binafşa' },
+  { id: 'black', hex: '#0F172A', label: 'Qalam (Qora-ko‘k)' },
+  { id: 'red', hex: '#DC2626', label: 'Qizil' },
+  { id: 'blue', hex: '#1D4ED8', label: 'Ko‘k' },
+  { id: 'green', hex: '#16A34A', label: 'Yashil' },
+  { id: 'purple', hex: '#6D3FD1', label: 'Binafsha' },
+  { id: 'white', hex: '#F1F5F9', label: 'Oq' },
 ];
 
 export function getStrokeWidth(tool: 'PEN' | 'HIGHLIGHTER', size: DrawStrokeSize): number {

@@ -71,25 +71,25 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-[#FBFBF9] dark:bg-[#1E222A] border-l border-[#D9DCD5] dark:border-[#353B47] shadow-2xl animate-in slide-in-from-right duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E]">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 text-[#2A4FB8] dark:text-[#5B93FA]">
             <Film className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+            <h2 className="text-base font-bold text-[#1F2933] dark:text-[#E6E8EC]">
               {strings.reader?.mediaLibrary || 'Media kutubxona'}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0]">
               Jami {mediaItems.length} ta audio va video fayl
             </p>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+          className="rounded-lg p-2 text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] hover:text-[#1F2933] dark:hover:text-[#E6E8EC] transition-colors"
           title="Yopiş"
         >
           <X className="h-5 w-5" />
@@ -97,13 +97,13 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-800/40 p-1 m-3 rounded-xl gap-1">
+      <div className="flex border border-[#D9DCD5] dark:border-[#353B47] bg-[#ECEEEA] dark:bg-[#15181E] p-1 m-3 rounded-xl gap-1">
         <button
           onClick={() => setFilter('ALL')}
           className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             filter === 'ALL'
-              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#2A4FB8] dark:text-[#5B93FA] shadow-xs'
+              : 'text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
           }`}
         >
           Barçasi ({mediaItems.length})
@@ -112,8 +112,8 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
           onClick={() => setFilter('AUDIO')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             filter === 'AUDIO'
-              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#0E7C70] dark:text-[#5ED3C4] shadow-xs'
+              : 'text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
           }`}
         >
           <Music className="h-3 w-3" />
@@ -123,8 +123,8 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
           onClick={() => setFilter('VIDEO')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             filter === 'VIDEO'
-              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#C23B5A] dark:text-[#FF8FA6] shadow-xs'
+              : 'text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
           }`}
         >
           <Video className="h-3 w-3" />
@@ -136,13 +136,13 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
         {filtered.length === 0 ? (
           <div className="text-center py-12 px-4">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 mb-3">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#ECEEEA] dark:bg-[#272C36] text-[#5B6672] dark:text-[#9AA3B0] mb-3">
               <Headphones className="h-6 w-6" />
             </div>
-            <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">
+            <h4 className="text-sm font-semibold text-[#1F2933] dark:text-[#E6E8EC] mb-1">
               Fayllar topilmadi
             </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+            <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] max-w-xs mx-auto">
               Uşbu darslikka biriktirilgan audio yoki video materiallar mavjud emas.
             </p>
           </div>
@@ -152,24 +152,24 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
             return (
               <div
                 key={item.id}
-                className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                className="flex items-center justify-between p-3 rounded-xl border border-[#D9DCD5] dark:border-[#353B47] bg-[#FBFBF9] dark:bg-[#1E222A] hover:border-[#2A4FB8]/30 dark:hover:border-[#5B93FA]/30 transition-colors"
               >
                 <div className="flex items-start gap-3 min-w-0 flex-1 mr-3">
                   <div
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                       isAudio
-                        ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400'
-                        : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
+                        ? 'bg-[#E6F6F4] dark:bg-[#0E7C70]/20 text-[#0E7C70] dark:text-[#5ED3C4]'
+                        : 'bg-[#FDF1F4] dark:bg-[#C23B5A]/20 text-[#C23B5A] dark:text-[#FF8FA6]'
                     }`}
                   >
                     {isAudio ? <Headphones className="h-4 w-4" /> : <Video className="h-4 w-4" />}
                   </div>
                   <div className="min-w-0">
-                    <h5 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    <h5 className="text-xs font-bold text-[#1F2933] dark:text-[#E6E8EC] truncate">
                       {item.title}
                     </h5>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="inline-block rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                      <span className="inline-block rounded bg-[#ECEEEA] dark:bg-[#272C36] px-1.5 py-0.5 text-[10px] font-medium text-[#5B6672] dark:text-[#9AA3B0]">
                         {formatDur(item)}
                       </span>
                       {item.pageNumber && (
@@ -180,7 +180,7 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
                               onClose();
                             }
                           }}
-                          className="inline-flex items-center gap-1 rounded bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                          className="inline-flex items-center gap-1 rounded bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#2A4FB8] dark:text-[#5B93FA] hover:underline"
                         >
                           <BookOpen className="h-2.5 w-2.5" />
                           <span>{formatPage(item.pageNumber)}</span>
@@ -192,10 +192,10 @@ export const MediaLibraryDrawer: React.FC<MediaLibraryDrawerProps> = ({
 
                 <button
                   onClick={() => onPlayMedia(item)}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow transition-transform hover:scale-105 ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-xs transition-transform hover:scale-105 ${
                     isAudio
-                      ? 'bg-purple-600 hover:bg-purple-700'
-                      : 'bg-rose-600 hover:bg-rose-700'
+                      ? 'bg-[#0E7C70] hover:bg-[#0B6259]'
+                      : 'bg-[#C23B5A] hover:bg-[#9E2D47]'
                   }`}
                   title={isAudio ? 'Audioni eşitiş' : "Videoni köriş"}
                 >

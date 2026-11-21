@@ -115,19 +115,19 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
     <>
       <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative w-full max-w-lg bg-white dark:bg-[#121A2D] border-l border-slate-200 dark:border-[#23304E] h-full shadow-2xl flex flex-col justify-between z-10 overflow-hidden">
+        <div className="relative w-full max-w-lg bg-[#FBFBF9] dark:bg-[#1E222A] border-l border-[#D9DCD5] dark:border-[#353B47] h-full shadow-2xl flex flex-col justify-between z-10 overflow-hidden">
           {/* Header */}
-          <div className="p-5 pb-3 border-b border-slate-100 dark:border-slate-800/80 space-y-3">
+          <div className="p-5 pb-3 border-b border-[#D9DCD5] dark:border-[#353B47] space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/70 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-200 dark:border-amber-800 shadow-xs">
+                <div className="w-10 h-10 rounded-2xl bg-[#F4F0FD] dark:bg-[#6D3FD1]/25 text-[#6D3FD1] dark:text-[#B69CFF] flex items-center justify-center border border-[#E6DCFA] dark:border-[#6D3FD1]/40 shadow-xs">
                   <KeyRound className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-base text-slate-900 dark:text-white">
+                  <h3 className="font-black text-base text-[#142452] dark:text-[#E6E8EC]">
                     {currentItem?.studentExerciseLabel || t('reader.answerKeysTitle')}
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0]">
                     {currentPage}-bet • Listening & Javoblar
                   </p>
                 </div>
@@ -136,7 +136,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                className="p-2 rounded-xl text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-[#E6E8EC] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -154,12 +154,12 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                       onClick={() => setSelectedExerciseIndex(idx)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
                         isSelected
-                          ? 'bg-amber-500 text-white shadow-xs'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                          ? 'bg-[#6D3FD1] text-white shadow-xs'
+                          : 'bg-[#ECEEEA] dark:bg-[#272C36] text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#D9DCD5]'
                       }`}
                     >
                       <KeyRound className="w-3.5 h-3.5" />
-                      <span>{item.studentExerciseLabel || `Mashq #${idx + 1}`}</span>
+                      <span>{item.studentExerciseLabel || `Maşq #${idx + 1}`}</span>
                     </button>
                   );
                 })}
@@ -167,14 +167,14 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
             )}
 
             {/* Segmented Dual Tabs: [ 🔑 Javoblar Kaliti ] and [ 📜 Audio Transkript ] */}
-            <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+            <div className="grid grid-cols-2 gap-1 bg-[#ECEEEA] dark:bg-[#272C36] p-1 rounded-2xl border border-[#D9DCD5] dark:border-[#353B47]">
               <button
                 type="button"
                 onClick={() => setActiveTab('ANSWERS')}
                 className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
                   activeTab === 'ANSWERS'
-                    ? 'bg-white dark:bg-[#1E293B] text-amber-600 dark:text-amber-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    ? 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#6D3FD1] dark:text-[#B69CFF] shadow-sm'
+                    : 'text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933]'
                 }`}
               >
                 <KeyRound className="w-4 h-4" />
@@ -185,14 +185,14 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                 onClick={() => setActiveTab('TRANSCRIPT')}
                 className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
                   activeTab === 'TRANSCRIPT'
-                    ? 'bg-white dark:bg-[#1E293B] text-sky-600 dark:text-sky-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    ? 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#0369A1] dark:text-[#7DD3FC] shadow-sm'
+                    : 'text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933]'
                 }`}
               >
                 <FileText className="w-4 h-4" />
                 <span>Audio Transkript</span>
                 {(currentItem?.transcriptText || (currentItem?.transcriptImages && currentItem.transcriptImages.length > 0)) && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0369A1]" />
                 )}
               </button>
             </div>
@@ -201,12 +201,12 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
           {/* Main Body Content */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4 pr-3 custom-scrollbar">
             {!currentItem ? (
-              <div className="p-12 text-center text-xs text-slate-400 dark:text-slate-500 space-y-2">
-                <HelpCircle className="w-10 h-10 mx-auto opacity-40 text-amber-500" />
-                <p className="font-extrabold text-slate-700 dark:text-slate-300">
-                  Ushbu sahifa uchun javoblar kiritilmagan
+              <div className="p-12 text-center text-xs text-[#5B6672] dark:text-[#9AA3B0] space-y-2">
+                <HelpCircle className="w-10 h-10 mx-auto opacity-40 text-[#6D3FD1]" />
+                <p className="font-extrabold text-[#142452] dark:text-[#E6E8EC]">
+                  Uşbu sahifa uçun javoblar kiritilmagan
                 </p>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0]">
                   Visual Hotspot Editor orqali sahifaga javoblar yoki transkript biriktiring.
                 </p>
               </div>
@@ -219,17 +219,17 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                   <div className="space-y-4 animate-in fade-in duration-150">
                     {/* Smart Pills Badges */}
                     {parsedPills.length > 0 && (
-                      <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">
-                          To‘g‘ri Javoblar (Katakchalar):
+                      <div className="p-3.5 rounded-2xl bg-[#F4F0FD] dark:bg-[#6D3FD1]/20 border border-[#E6DCFA] dark:border-[#6D3FD1]/40 space-y-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#6D3FD1] dark:text-[#B69CFF] block">
+                          Töğri Javoblar (Katakçalar):
                         </span>
                         <div className="flex flex-wrap gap-2">
                           {parsedPills.map((pill, idx) => (
                             <span
                               key={idx}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[#1E293B] text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-black text-sm shadow-xs"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FBFBF9] dark:bg-[#1E222A] text-[#6D3FD1] dark:text-[#B69CFF] border border-[#E6DCFA] dark:border-[#6D3FD1]/50 font-black text-sm shadow-xs"
                             >
-                              <span className="text-emerald-500 font-semibold">{pill.num}.</span>
+                              <span className="text-[#8557E6] font-semibold">{pill.num}.</span>
                               <span>{pill.ans}</span>
                             </span>
                           ))}
@@ -239,11 +239,11 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
 
                     {/* Free-form Solution Text */}
                     {currentItem.solutionKey && (
-                      <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#19233C] border border-slate-200 dark:border-[#2D3B5C] space-y-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                          Yechim & Tushuntirish:
+                      <div className="p-4 rounded-2xl bg-[#F4F5F2] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] space-y-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#5B6672] dark:text-[#9AA3B0] block">
+                          Yeçim & Tuşuntiriş:
                         </span>
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed whitespace-pre-wrap">
+                        <p className="text-sm font-semibold text-[#1F2933] dark:text-[#E6E8EC] leading-relaxed whitespace-pre-wrap">
                           {currentItem.solutionKey}
                         </p>
                       </div>
@@ -275,7 +275,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                                 />
                                 <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1 text-white">
                                   <ZoomIn className="w-5 h-5" />
-                                  <span className="text-xs font-bold">Kattalashtirish</span>
+                                  <span className="text-xs font-bold">Kattalaştiriş</span>
                                 </div>
                                 <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-lg bg-black/70 text-white text-[10px] font-black">
                                   #{idx + 1}
@@ -316,7 +316,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                           type="button"
                           onClick={() => setTranscriptFontSize((s) => Math.max(13, s - 2))}
                           className="px-1.5 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-sky-600"
-                          title="Shriftni kichiklashtirish"
+                          title="Shriftni kiçiklaştiriş"
                         >
                           A-
                         </button>
@@ -327,7 +327,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                           type="button"
                           onClick={() => setTranscriptFontSize((s) => Math.min(28, s + 2))}
                           className="px-1.5 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-sky-600"
-                          title="Shriftni kattalashtirish"
+                          title="Shriftni kattalaştiriş"
                         >
                           A+
                         </button>
@@ -347,7 +347,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                     ) : (
                       !currentItem.transcriptImages?.length && (
                         <div className="p-8 text-center text-xs text-slate-400 italic">
-                          Ushbu mashq uchun dialog transkripti kiritilmagan.
+                          Uşbu maşq uçun dialog transkripti kiritilmagan.
                         </div>
                       )
                     )}
@@ -378,7 +378,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                                 />
                                 <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1 text-white">
                                   <ZoomIn className="w-5 h-5" />
-                                  <span className="text-xs font-bold">Kattalashtirish</span>
+                                  <span className="text-xs font-bold">Kattalaştiriş</span>
                                 </div>
                                 <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-lg bg-black/70 text-white text-[10px] font-black">
                                   #{idx + 1}
@@ -408,7 +408,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                     <p className="text-xs font-black truncate">
                       {currentItem.targetMediaTitle || 'Listening Track'}
                     </p>
-                    <p className="text-[10px] text-slate-400">Audio Mashq</p>
+                    <p className="text-[10px] text-slate-400">Audio Maşq</p>
                   </div>
                 </div>
                 <audio controls src={currentItem.targetMediaUrl} className="h-8 w-44 max-w-[55%]" />
@@ -428,7 +428,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                 className="w-full py-2.5 px-4 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-black text-xs flex items-center justify-center gap-2 transition"
               >
                 <BookOpen className="w-4 h-4" />
-                <span>Teacher’s Book #{currentItem.targetTeacherPageNumber}-betga o‘tish</span>
+                <span>Teacher’s Book #{currentItem.targetTeacherPageNumber}-betga ötiş</span>
               </button>
             )}
 
@@ -471,7 +471,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                 type="button"
                 onClick={() => setLightboxZoom((s) => Math.max(0.5, s - 0.5))}
                 className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition"
-                title="Kichiklashtirish (-)"
+                title="Kiçiklaştiriş (-)"
               >
                 <ZoomOut className="w-4 h-4" />
               </button>
@@ -479,7 +479,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                 type="button"
                 onClick={() => setLightboxZoom(1)}
                 className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-black text-slate-300 transition"
-                title="100% asl o'lcham"
+                title="100% asl ölçam"
               >
                 100%
               </button>
@@ -487,7 +487,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                 type="button"
                 onClick={() => setLightboxZoom((s) => Math.min(4, s + 0.5))}
                 className="p-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition font-black"
-                title="Kattalashtirish (+)"
+                title="Kattalaştiriş (+)"
               >
                 <ZoomIn className="w-4 h-4" />
               </button>
@@ -496,7 +496,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                 type="button"
                 onClick={() => setLightboxImage(null)}
                 className="p-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition"
-                title="Yopish (Esc)"
+                title="Yopiş (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -510,7 +510,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
           >
             <img
               src={lightboxImage}
-              alt="Kattalashtirilgan rasm"
+              alt="Kattalaştirilgan rasm"
               style={{
                 transform: `scale(${lightboxZoom})`,
                 transformOrigin: 'center center',
@@ -524,7 +524,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
           </div>
 
           <p className="text-[11px] font-semibold text-slate-400 text-center pb-1">
-            💡 Maslahat: Sichqonchani ikki marta tez bosish (Double-click) orqali darhol 2.5x kattalashtirish mumkin.
+            💡 Maslahat: Siçqonçani ikki marta tez bosiş (Double-click) orqali darhol 2.5x kattalaştiriş mumkin.
           </p>
         </div>
       )}

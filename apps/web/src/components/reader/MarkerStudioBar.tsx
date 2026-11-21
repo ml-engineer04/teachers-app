@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   PenTool,
   Highlighter,
   Eraser,
   RotateCcw,
   Trash2,
-  Check,
   X,
+  GripVertical,
 } from 'lucide-react';
 import {
   DrawStrokeSize,
@@ -14,7 +14,6 @@ import {
   HIGHLIGHTER_COLORS,
   PEN_COLORS,
 } from './DrawingCanvasLayer';
-import { useI18n } from '../../i18n/I18nContext';
 
 interface MarkerStudioBarProps {
   activeTool: DrawTool;
@@ -28,6 +27,8 @@ interface MarkerStudioBarProps {
   onClose: () => void;
 }
 
+const STROKE_SIZES: DrawStrokeSize[] = ['SM', 'MD', 'LG'];
+
 export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
   activeTool,
   activeColor,
@@ -39,127 +40,214 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
   onClear,
   onClose,
 }) => {
-  const { t } = useI18n();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef<{ mouseX: number; mouseY: number; startX: number; startY: number }>({
+    mouseX: 0,
+    mouseY: 0,
+    startX: 0,
+    startY: 0,
+  });
 
   const colors = activeTool === 'HIGHLIGHTER' ? HIGHLIGHTER_COLORS : PEN_COLORS;
 
+  const handleDragStart = useCallback(
+    (clientX: number, clientY: number) => {
+      isDraggingRef.current = true;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const currentX = rect ? rect.left : 80;
+      const currentY = rect ? rect.top : 80;
+
+      dragStartRef.current = {
+        mouseX: clientX,
+        mouseY: clientY,
+        startX: currentX,
+        startY: currentY,
+      };
+
+      const onMove = (moveEvent: MouseEvent | TouchEvent) => {
+        if (!isDraggingRef.current) return;
+        const curX =
+          'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+        const curY =
+          'touches' in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
+
+        const deltaX = curX - dragStartRef.current.mouseX;
+        const deltaY = curY - dragStartRef.current.mouseY;
+
+        const elW = rect?.width || 320;
+        const elH = rect?.height || 44;
+        const maxX = window.innerWidth - elW - 8;
+        const maxY = window.innerHeight - elH - 8;
+
+        const nextX = Math.max(8, Math.min(maxX, dragStartRef.current.startX + deltaX));
+        const nextY = Math.max(8, Math.min(maxY, dragStartRef.current.startY + deltaY));
+
+        setPosition({ x: nextX, y: nextY });
+      };
+
+      const onEnd = () => {
+        isDraggingRef.current = false;
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onEnd);
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onEnd);
+      };
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onEnd);
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend', onEnd);
+    },
+    [],
+  );
+
+  const cycleStrokeSize = () => {
+    const curIdx = STROKE_SIZES.indexOf(strokeSize);
+    const nextIdx = (curIdx + 1) % STROKE_SIZES.length;
+    onSelectSize(STROKE_SIZES[nextIdx]);
+  };
+
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-xl w-[94%] sm:w-auto bg-white/95 dark:bg-[#121A2D]/95 backdrop-blur-xl border border-slate-200 dark:border-[#23304E] rounded-3xl p-3 shadow-2xl flex flex-wrap items-center justify-between sm:justify-center gap-3 animate-in slide-in-from-bottom-4 duration-200">
-      {/* Tool Selector */}
-      <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
+    <div
+      ref={containerRef}
+      style={
+        position
+          ? { left: `${position.x}px`, top: `${position.y}px` }
+          : undefined
+      }
+      onMouseDown={(e) => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        handleDragStart(e.clientX, e.clientY);
+      }}
+      onTouchStart={(e) => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+      }}
+      className={`fixed z-40 select-none max-w-[calc(100vw-16px)] rounded-full bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 backdrop-blur-xl border border-[#D9DCD5] dark:border-[#353B47] shadow-[0_15px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.6)] text-[#1F2933] dark:text-[#E6E8EC] px-2 sm:px-2.5 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5 ${
+        !position ? 'bottom-4 left-1/2 -translate-x-1/2' : ''
+      } cursor-grab active:cursor-grabbing animate-in slide-in-from-bottom-2 duration-150`}
+    >
+      {/* Delicate Drag Handle */}
+      <div className="text-[#5B6672]/50 hover:text-[#1F2933] dark:text-white/30 dark:hover:text-white/60 transition-colors hidden sm:flex items-center -mr-1">
+        <GripVertical className="w-3.5 h-3.5" />
+      </div>
+
+      {/* Tool Selector: Pen, Highlighter, Eraser */}
+      <div className="flex items-center gap-0.5 sm:gap-1 bg-black/5 dark:bg-white/5 p-0.5 rounded-full">
         <button
           type="button"
           onClick={() => onSelectTool('PEN')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all ${
             activeTool === 'PEN'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+              ? 'bg-[#2A4FB8] text-white shadow-xs'
+              : 'text-[#5B6672] hover:text-[#1F2933] hover:bg-black/5 dark:text-[#9AA3B0] dark:hover:text-white dark:hover:bg-white/10'
           }`}
           title="Qalam"
         >
-          <PenTool className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Qalam</span>
+          <PenTool className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
         </button>
 
         <button
           type="button"
           onClick={() => onSelectTool('HIGHLIGHTER')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all ${
             activeTool === 'HIGHLIGHTER'
-              ? 'bg-amber-500 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+              ? 'bg-[#F5B82E] text-[#15181E] shadow-xs'
+              : 'text-[#5B6672] hover:text-[#1F2933] hover:bg-black/5 dark:text-[#9AA3B0] dark:hover:text-white dark:hover:bg-white/10'
           }`}
-          title="Marker"
+          title="Marker (Highlighter)"
         >
-          <Highlighter className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Marker</span>
+          <Highlighter className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
         </button>
 
         <button
           type="button"
           onClick={() => onSelectTool('ERASER')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all ${
             activeTool === 'ERASER'
-              ? 'bg-rose-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+              ? 'bg-[#B91C1C] text-white shadow-xs'
+              : 'text-[#5B6672] hover:text-[#1F2933] hover:bg-black/5 dark:text-[#9AA3B0] dark:hover:text-white dark:hover:bg-white/10'
           }`}
           title="Öçirğiç"
         >
-          <Eraser className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Öçirğiç</span>
+          <Eraser className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
         </button>
       </div>
 
-      {/* Colors (only when pen or highlighter active) */}
+      {/* Colors (when tool !== 'ERASER') */}
       {activeTool !== 'ERASER' && (
-        <div className="flex items-center gap-1.5 px-2">
-          {colors.map((c) => {
-            const isSelected = activeColor.toLowerCase() === c.hex.toLowerCase();
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => onSelectColor(c.hex)}
-                className={`w-6 h-6 rounded-full transition-all border ${
-                  isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 scale-110' : 'hover:scale-105'
-                }`}
-                style={{ backgroundColor: c.hex }}
-                title={c.label}
-              />
-            );
-          })}
-        </div>
+        <>
+          <div className="w-px h-3 bg-[#D9DCD5] dark:bg-[#353B47]" />
+          <div className="flex items-center gap-1 sm:gap-1.5 px-0.5">
+            {colors.slice(0, 4).map((c) => {
+              const isSelected = activeColor.toLowerCase() === c.hex.toLowerCase();
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => onSelectColor(c.hex)}
+                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full transition-transform border border-black/20 ${
+                    isSelected
+                      ? 'ring-2 ring-[#2A4FB8] dark:ring-white ring-offset-1 ring-offset-[#FBFBF9] dark:ring-offset-[#1E222A] scale-110'
+                      : 'hover:scale-105 opacity-80 hover:opacity-100'
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                  title={c.label}
+                />
+              );
+            })}
+          </div>
+        </>
       )}
 
-      {/* Stroke Size */}
+      {/* Stroke Size Cycle Pill (when tool !== 'ERASER') */}
       {activeTool !== 'ERASER' && (
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
-          {(['SM', 'MD', 'LG'] as DrawStrokeSize[]).map((sz) => (
-            <button
-              key={sz}
-              type="button"
-              onClick={() => onSelectSize(sz)}
-              className={`px-2.5 py-1 text-[11px] font-black rounded-lg transition-all ${
-                strokeSize === sz
-                  ? 'bg-white dark:bg-[#121A2D] text-indigo-600 dark:text-indigo-400 shadow-sm'
-                  : 'text-slate-500'
-              }`}
-            >
-              {sz}
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="w-px h-3 bg-[#D9DCD5] dark:bg-[#353B47]" />
+          <button
+            type="button"
+            onClick={cycleStrokeSize}
+            className="px-1.5 py-0.5 rounded-full bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] text-[9px] sm:text-[10px] font-mono font-bold transition shrink-0 active:scale-95"
+            title="Çiziq qalinligini özgartiriş"
+          >
+            {strokeSize}
+          </button>
+        </>
       )}
 
-      {/* Actions: Undo, Clear, Done */}
-      <div className="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-700 pl-2">
-        <button
-          type="button"
-          onClick={onUndo}
-          className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          title="Bekor qiliş (Undo)"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
+      {/* Actions: Undo & Clear */}
+      <div className="w-px h-3 bg-[#D9DCD5] dark:bg-[#353B47]" />
+      <button
+        type="button"
+        onClick={onUndo}
+        className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[#5B6672] hover:text-[#1F2933] hover:bg-black/5 dark:text-[#9AA3B0] dark:hover:text-white dark:hover:bg-white/10 transition"
+        title="Bekor qiliş (Undo)"
+      >
+        <RotateCcw className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+      </button>
 
-        <button
-          type="button"
-          onClick={onClear}
-          className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-          title="Sahifani tozalaş"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+      <button
+        type="button"
+        onClick={onClear}
+        className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[#B91C1C] hover:text-[#EF4444] hover:bg-[#B91C1C]/10 transition"
+        title="Sahifani tozalaş"
+      >
+        <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+      </button>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 shadow-sm"
-        >
-          <Check className="w-3.5 h-3.5" />
-          <span>{t('common.done')}</span>
-        </button>
-      </div>
+      {/* Delicate Close Button (X) */}
+      <div className="w-px h-3 bg-[#D9DCD5] dark:bg-[#353B47]" />
+      <button
+        type="button"
+        onClick={onClose}
+        className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-white flex items-center justify-center transition active:scale-90 shrink-0"
+        title="Yopiş (M)"
+        aria-label="Yopiş"
+      >
+        <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+      </button>
     </div>
   );
 };

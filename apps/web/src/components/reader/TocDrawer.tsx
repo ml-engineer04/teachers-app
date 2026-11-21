@@ -52,7 +52,6 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
     if (tocItems && tocItems.length > 0) {
       return [...tocItems].sort((a, b) => a.pageNumber - b.pageNumber);
     }
-    // Auto-generate standard units if none defined
     const itemsPerUnit = Math.max(8, Math.floor(totalPages / 6));
     const generated: TocEntry[] = [];
     let start = 1;
@@ -75,7 +74,6 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
     return generated;
   }, [tocItems, totalPages, contentStartPdfPage, strings.common?.introShort]);
 
-  // Find active unit index
   const activeUnitIndex = useMemo(() => {
     let matchIdx = 0;
     effectiveToc.forEach((item, idx) => {
@@ -108,39 +106,40 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 backdrop-blur-2xl border-l border-[#D9DCD5] dark:border-[#353B47] text-[#1F2933] dark:text-[#E6E8EC] shadow-2xl animate-in slide-in-from-right duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-            <List className="h-5 w-5" />
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#D9DCD5] dark:border-[#353B47]">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#2A4FB8]/30 shrink-0">
+            <List className="h-4 w-4" />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-[#142452] dark:text-white truncate">
               {strings.reader?.contents || 'Mundarija'}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Jami {totalPages} sahifa ({contentTotal} asosiy darslik beti)
+            <p className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0] truncate">
+              {contentTotal} asosiy darslik beti
             </p>
           </div>
         </div>
+
         <button
           onClick={onClose}
-          className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-          title="Yopiş"
+          className="w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-white flex items-center justify-center transition active:scale-90"
+          title="Yopiş (Esc)"
         >
-          <X className="h-5 w-5" />
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Quick Jump Bar */}
       <form
         onSubmit={handleGoToInput}
-        className="flex items-center gap-2 p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+        className="flex items-center gap-2 px-4 py-2.5 border-b border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2]/60 dark:bg-[#15181E]/40"
       >
         <div className="relative flex-1">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <Compass className="h-4 w-4 text-slate-400" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-[#5B6672] dark:text-[#9AA3B0]">
+            <Compass className="h-3.5 w-3.5" />
           </div>
           <input
             type="number"
@@ -149,21 +148,21 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
             placeholder={`Bet raqami (1 - ${contentTotal})...`}
             value={pageInput}
             onChange={(e) => setPageInput(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-[#D9DCD5] dark:border-[#353B47] bg-[#ECEEEA] dark:bg-[#15181E] pl-8 pr-2 py-1.5 text-xs text-[#1F2933] dark:text-[#E6E8EC] placeholder-[#5B6672] dark:placeholder-[#9AA3B0] focus:border-[#2A4FB8] dark:focus:border-[#5B93FA] focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
         <button
           type="submit"
           disabled={!pageInput}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#2A4FB8] text-xs font-semibold text-white hover:bg-[#223F94] disabled:opacity-40 transition active:scale-95 shadow-xs"
         >
           <span>Ötiş</span>
-          <ArrowRight className="h-3.5 w-3.5" />
+          <ArrowRight className="h-3 w-3" />
         </button>
       </form>
 
       {/* Chapter List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">
         {effectiveToc.map((item, idx) => {
           const isActive = idx === activeUnitIndex;
           return (
@@ -173,46 +172,41 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
                 onSelectPage(item.pageNumber);
                 onClose();
               }}
-              className={`w-full text-left rounded-xl p-3.5 transition-all flex items-center justify-between border ${
+              className={`w-full text-left rounded-xl p-2.5 transition-all flex items-center justify-between border ${
                 isActive
-                  ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-800 ring-1 ring-indigo-400/30'
-                  : 'bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/70'
+                  ? 'bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 border-[#BAD2FF] dark:border-[#5B93FA]/40 text-[#2A4FB8] dark:text-white shadow-xs'
+                  : 'bg-[#F4F5F2] hover:bg-[#ECEEEA] border-[#D9DCD5] text-[#1F2933] dark:bg-[#272C36]/50 dark:hover:bg-[#272C36] dark:border-[#353B47]/50 dark:hover:border-[#353B47] dark:text-[#E6E8EC]'
               }`}
             >
-              <div className="flex items-start gap-3 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${
                     isActive
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      ? 'bg-[#2A4FB8] text-white'
+                      : 'bg-[#ECEEEA] text-[#5B6672] dark:bg-[#15181E] dark:text-[#9AA3B0]'
                   }`}
                 >
-                  <BookOpen className="h-4 w-4" />
+                  <BookOpen className="h-3 w-3" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {item.unit && (
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A4FB8] dark:text-[#5B93FA]">
                         {item.unit}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                  <h4 className="text-xs font-medium truncate text-[#1F2933] dark:text-white">
                     {item.title}
                   </h4>
-                  {item.subtitle && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                      {item.subtitle}
-                    </p>
-                  )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 ml-3">
-                <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                <span className="rounded-md bg-[#ECEEEA] dark:bg-[#15181E] px-1.5 py-0.5 text-[10.5px] font-mono text-[#5B6672] dark:text-[#9AA3B0]">
                   {formatPdfPage(item.pageNumber)}
                 </span>
-                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <ChevronRight className="h-3.5 w-3.5 text-[#5B6672] dark:text-[#9AA3B0]" />
               </div>
             </button>
           );

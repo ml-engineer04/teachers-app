@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import type { Book, Hotspot } from '@smartteacherbook/shared';
 import {
   ArrowLeft,
@@ -23,6 +23,17 @@ import {
   FileQuestion,
   Search,
   X,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  PanelLeftClose,
+  PanelLeftOpen,
+  BookOpen,
+  Menu,
+  Lightbulb,
+  StickyNote,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import {
   bookPageToPdfPage,
@@ -31,6 +42,7 @@ import {
 } from '@smartteacherbook/shared';
 import { useI18n } from '../../i18n/I18nContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../theme/ThemeContext';
 import { webApi, resolveAssetUrl } from '../../services/api/webApi';
 import { notify } from '../../utils/notify';
 import {
@@ -46,6 +58,7 @@ import { AnswerKeyDrawer, AnswerItem } from './AnswerKeyDrawer';
 import { TocDrawer, TocEntry } from './TocDrawer';
 import { BookmarksNotesDrawer, BookmarkEntry, NoteEntry } from './BookmarksNotesDrawer';
 import { MediaLibraryDrawer, MediaLibraryItem } from './MediaLibraryDrawer';
+import { FloatingImagePopup } from './FloatingImagePopup';
 
 interface InteractiveReaderProps {
   book: Book;
@@ -59,15 +72,92 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
   onExit,
 }) => {
   const { t, formatGrade, strings } = useI18n();
+  const { isDark, toggleTheme } = useTheme();
 
   const totalPages = Math.max(1, book.totalPages || 1);
   const contentStartPdfPage = book.contentStartPdfPage || 1;
   const contentTotalPages = getBookContentTotalPages(totalPages, contentStartPdfPage);
 
   // Reader UI State (Default 55% zoom matching desktop overview)
+  const ZOOM_PRESETS = [0.45, 0.55, 0.65, 0.75, 0.85, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5];
+  const MIN_ZOOM = 0.45;
+  const MAX_ZOOM = 2.5;
+
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [zoomLevel, setZoomLevel] = useState<number>(0.55);
+  const isZoomingRef = useRef(false);
+  const zoomAnchorRef = useRef<{ pageNum: number; relativeTop: number } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Responsive Viewport Tracking (Mobile & Tablet Optimization)
+  const [viewportWidth, setViewportWidth] = useState<number>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth : 1200;
+  });
+
+  const isMobile = viewportWidth < 640;
+  const isTablet = viewportWidth >= 640 && viewportWidth < 1024;
+
+  // Thumbnails panel visibility (auto hidden on mobile for maximum book reading area)
+  const [showThumbnails, setShowThumbnails] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+
+  // Mobile direct page jump modal
+  const [isMobileJumpOpen, setIsMobileJumpOpen] = useState<boolean>(false);
+
+  // Reader Comprehensive Slide-over Tools Menu (Single clean menu for all tools)
+  const [isReaderMenuOpen, setIsReaderMenuOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const w = window.innerWidth;
+      setViewportWidth(w);
+      if (w < 1024) {
+        setShowThumbnails(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Touch Swipe for Mobile & Tablet (when Marker Studio is inactive)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isMarkerActive) return;
+    if (e.touches.length === 1) {
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+      };
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (isMarkerActive || !touchStartRef.current) return;
+    const touchEnd = e.changedTouches[0];
+    const deltaX = touchEnd.clientX - touchStartRef.current.x;
+    const deltaY = touchEnd.clientY - touchStartRef.current.y;
+
+    // Minimum swipe threshold: 50px horizontal, less than 65px vertical drift
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaY) < 65) {
+      if (deltaX < 0) {
+        // Swiped left -> Next page
+        if (currentPage < totalPages) {
+          scrollToPage(currentPage + 1, 'smooth');
+        }
+      } else {
+        // Swiped right -> Previous page
+        if (currentPage > 1) {
+          scrollToPage(currentPage - 1, 'smooth');
+        }
+      }
+    }
+    touchStartRef.current = null;
+  };
 
   // User Profile
   const { user } = useAuth();
@@ -92,12 +182,28 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isMediaOpen, setIsMediaOpen] = useState(false);
 
+  // Floating Draggable & Resizable Image Popups (No Fullscreen Overlay!)
+  const [floatingAnswerImage, setFloatingAnswerImage] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    imageUrl?: string | null;
+  } | null>(null);
+
+  const [floatingTranscriptImage, setFloatingTranscriptImage] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    imageUrl?: string | null;
+  } | null>(null);
+
   // Active Media Players
   const [activeAudioItem, setActiveAudioItem] = useState<{
     id: string;
     title: string;
     url: string;
     durationSeconds?: number;
+    transcriptImageUrl?: string;
   } | null>(null);
 
   const [activeVideoItem, setActiveVideoItem] = useState<{
@@ -309,6 +415,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
   // Track active page via scroll position
   const handleScroll = useCallback(() => {
+    if (isZoomingRef.current) return;
     if (!scrollContainerRef.current) return;
     const container = scrollContainerRef.current;
     const scrollMiddle = container.scrollTop + container.clientHeight / 2;
@@ -399,54 +506,72 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
     };
   }, []);
 
-  // Zoom change with scroll anchoring so the active page stays locked in view
-  const zoomAnchorRef = useRef<{ pageNum: number; offsetFromTop: number } | null>(null);
-
-  const changeZoom = useCallback(
-    (delta: number) => {
+  // Anchored Zoom Engine (Pages stay rock-solid in place without jumping)
+  const applyZoom = useCallback(
+    (newZoomOrUpdater: number | ((prev: number) => number)) => {
       const container = scrollContainerRef.current;
-      const currentEl = pageRefs.current.get(currentPage);
-      if (container && currentEl) {
+      const targetPage = currentPage;
+      const el = pageRefs.current.get(targetPage);
+
+      if (container && el) {
         const containerRect = container.getBoundingClientRect();
-        const elRect = currentEl.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
         zoomAnchorRef.current = {
-          pageNum: currentPage,
-          offsetFromTop: elRect.top - containerRect.top,
+          pageNum: targetPage,
+          relativeTop: elRect.top - containerRect.top,
         };
       }
+
+      isZoomingRef.current = true;
+
       setZoomLevel((prev) => {
-        const next = Math.max(0.5, Math.min(2.5, Number((prev + delta).toFixed(2))));
-        return next;
+        const target =
+          typeof newZoomOrUpdater === 'function'
+            ? newZoomOrUpdater(prev)
+            : newZoomOrUpdater;
+        const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(target.toFixed(2))));
+        return clamped;
       });
     },
     [currentPage],
   );
 
-  const resetZoom = useCallback(() => {
-    const container = scrollContainerRef.current;
-    const currentEl = pageRefs.current.get(currentPage);
-    if (container && currentEl) {
-      const containerRect = container.getBoundingClientRect();
-      const elRect = currentEl.getBoundingClientRect();
-      zoomAnchorRef.current = {
-        pageNum: currentPage,
-        offsetFromTop: elRect.top - containerRect.top,
-      };
-    }
-    setZoomLevel(1.0);
-  }, [currentPage]);
+  const zoomIn = useCallback(() => {
+    applyZoom((prev) => {
+      const next = ZOOM_PRESETS.find((p) => p > prev + 0.01);
+      return next !== undefined ? next : Math.min(MAX_ZOOM, Number((prev + 0.1).toFixed(2)));
+    });
+  }, [applyZoom]);
 
-  // Restore scroll anchor right after zoom state update applies to DOM
-  useEffect(() => {
+  const zoomOut = useCallback(() => {
+    applyZoom((prev) => {
+      const prevPresets = ZOOM_PRESETS.filter((p) => p < prev - 0.01);
+      const prevPreset = prevPresets.length > 0 ? prevPresets[prevPresets.length - 1] : undefined;
+      return prevPreset !== undefined ? prevPreset : Math.max(MIN_ZOOM, Number((prev - 0.1).toFixed(2)));
+    });
+  }, [applyZoom]);
+
+  const resetZoom = useCallback(() => {
+    applyZoom(1.0);
+  }, [applyZoom]);
+
+  // Synchronously lock scroll position to anchor page before browser paints
+  useLayoutEffect(() => {
     if (!zoomAnchorRef.current || !scrollContainerRef.current) return;
-    const { pageNum, offsetFromTop } = zoomAnchorRef.current;
+    const { pageNum, relativeTop } = zoomAnchorRef.current;
     const targetEl = pageRefs.current.get(pageNum);
     const container = scrollContainerRef.current;
+
     if (targetEl && container) {
-      const newScrollTop = targetEl.offsetTop - offsetFromTop;
-      container.scrollTop = Math.max(0, newScrollTop);
+      const targetScrollTop = targetEl.offsetTop - relativeTop;
+      container.scrollTop = Math.max(0, targetScrollTop);
     }
+
     zoomAnchorRef.current = null;
+
+    requestAnimationFrame(() => {
+      isZoomingRef.current = false;
+    });
   }, [zoomLevel]);
 
   // Keyboard Shortcuts (M for marker, Esc for drawers, Arrows for scrolling, Ctrl/Cmd + - for zoom)
@@ -477,7 +602,11 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
         e.code === 'Numpad0';
 
       if (e.key === 'Escape') {
-        if (isTocOpen) setIsTocOpen(false);
+        if (isReaderMenuOpen) setIsReaderMenuOpen(false);
+        else if (isMobileJumpOpen) setIsMobileJumpOpen(false);
+        else if (floatingAnswerImage?.isOpen) setFloatingAnswerImage(null);
+        else if (floatingTranscriptImage?.isOpen) setFloatingTranscriptImage(null);
+        else if (isTocOpen) setIsTocOpen(false);
         else if (isAnswersOpen) setIsAnswersOpen(false);
         else if (isBookmarksOpen) setIsBookmarksOpen(false);
         else if (isMediaOpen) setIsMediaOpen(false);
@@ -485,27 +614,27 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
       } else if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         setIsMarkerActive((prev) => !prev);
-      } else if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
         e.preventDefault();
         scrollToPage(currentPage + 1, 'smooth');
-      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
         e.preventDefault();
         scrollToPage(currentPage - 1, 'smooth');
       } else if (isCtrlOrCmd && isZoomIn) {
         e.preventDefault();
-        changeZoom(0.15);
+        zoomIn();
       } else if (isCtrlOrCmd && isZoomOut) {
         e.preventDefault();
-        changeZoom(-0.15);
+        zoomOut();
       } else if (isCtrlOrCmd && isZoomReset) {
         e.preventDefault();
         resetZoom();
       } else if (!isCtrlOrCmd && (e.key === '+' || e.key === '=')) {
         e.preventDefault();
-        changeZoom(0.15);
+        zoomIn();
       } else if (!isCtrlOrCmd && e.key === '-') {
         e.preventDefault();
-        changeZoom(-0.15);
+        zoomOut();
       }
     };
 
@@ -518,7 +647,8 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
     isMediaOpen,
     isMarkerActive,
     currentPage,
-    changeZoom,
+    zoomIn,
+    zoomOut,
     resetZoom,
   ]);
 
@@ -592,11 +722,20 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
       const url =
         resolveAssetUrl(h.targetUrl) ||
         (h.targetMediaId ? resolveAssetUrl(`/content/media/${h.targetMediaId}/file`) : '');
+      const linkedM = mediaList.find((m) => m.id === h.targetMediaId);
+      const rawTranscript =
+        (h as any).transcriptImageUrl ||
+        (h as any).transcriptImages?.[0] ||
+        (linkedM as any)?.transcriptImageUrl ||
+        (linkedM as any)?.transcriptImages?.[0];
+      const transcriptUrl = rawTranscript ? resolveAssetUrl(rawTranscript) || rawTranscript : undefined;
+
       setActiveAudioItem({
         id: h.id,
-        title: (h as any).label || (h as any).tooltipText || `Audio Maşq • ${pageNum}-sahifa`,
+        title: (h as any).label || (h as any).tooltipText || `Audio Maşq • ${pageNum}-bet`,
         url: url || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
         durationSeconds: 120,
+        transcriptImageUrl: transcriptUrl,
       });
     } else if (h.type === 'VIDEO') {
       const url =
@@ -604,12 +743,28 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
         'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
       setActiveVideoItem({
         id: h.id,
-        title: (h as any).label || (h as any).tooltipText || `Video Darslik • ${pageNum}-sahifa`,
+        title: (h as any).label || (h as any).tooltipText || `Video Darslik • ${pageNum}-bet`,
         url,
       });
     } else if (h.type === 'ANSWER_LINK') {
       setSelectedAnswerHotspotId(h.id);
-      setIsAnswersOpen(true);
+      const matchingAnswer = pageAnswerItems.find(
+        (a) => a.id === h.id || a.studentPageNumber === pageNum,
+      );
+      const rawImg =
+        (h as any).imageUrl ||
+        (h as any).answerImages?.[0] ||
+        matchingAnswer?.imageUrl ||
+        matchingAnswer?.answerImages?.[0];
+      const answerImgUrl = rawImg ? resolveAssetUrl(rawImg) || rawImg : null;
+
+      // Open floating draggable & resizable window (NO background overlay!)
+      setFloatingAnswerImage({
+        isOpen: true,
+        title: (h as any).exerciseLabel || (h as any).label || `Javoblar kaliti • ${pageNum}-bet`,
+        subtitle: `${book.title} • ${pageNum}-sahifa`,
+        imageUrl: answerImgUrl,
+      });
     }
   };
 
@@ -656,62 +811,83 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
     return pdfPageToBookDisplay(currentPage, totalPages, contentStartPdfPage);
   }, [currentPage, totalPages, contentStartPdfPage]);
 
-  // Page width based on zoom level (base 820px)
+  // Page width based on zoom level (base 820px) with adaptive layout for mobile & tablet
   const basePageWidth = 820;
-  const computedPageWidth = Math.round(basePageWidth * zoomLevel);
+  const targetWidth = Math.round(basePageWidth * zoomLevel);
+  // On mobile (<640px), keep page fit to available width with padding so it never horizontally cuts off
+  const maxAvailableWidth = isMobile
+    ? viewportWidth - 20
+    : viewportWidth - (showThumbnails ? (isTablet ? 96 : 112) : 24);
+  const computedPageWidth = isMobile ? Math.min(targetWidth, maxAvailableWidth) : targetWidth;
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[#0F172A] text-slate-100 select-none overflow-hidden">
+    <div className="fixed inset-0 z-40 flex flex-col bg-[#F4F5F2] dark:bg-[#15181E] text-[#1F2933] dark:text-[#E6E8EC] select-none overflow-hidden">
       {/* =========================================================================
           Top SmartBoard Navigation Bar (Matching Design)
       ========================================================================= */}
-      <header className="h-14 sm:h-16 shrink-0 bg-[#0B101D] border-b border-slate-800/90 px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-3 shadow-lg z-30">
+      <header className="h-14 sm:h-16 shrink-0 bg-[#FBFBF9] dark:bg-[#1E222A] border-b border-[#D9DCD5] dark:border-[#353B47] px-2 sm:px-4 flex items-center justify-between gap-1.5 sm:gap-3 shadow-sm dark:shadow-lg z-30">
         {/* Left: Exit & Book Details */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
           <button
             onClick={handleExit}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/80 transition-colors text-xs font-semibold shadow-sm shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:hover:text-white dark:border-[#353B47] border transition-colors text-xs font-semibold shadow-xs shrink-0 cursor-pointer"
             title="Çiqiş"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Chiqish</span>
+            <span className="hidden sm:inline">Çiqiş</span>
           </button>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xs sm:text-sm font-bold text-white truncate max-w-[160px] sm:max-w-xs md:max-w-md">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <h1 className="text-xs sm:text-sm font-bold text-[#142452] dark:text-white truncate max-w-[120px] xs:max-w-[170px] sm:max-w-xs md:max-w-md">
                 {book.title}
               </h1>
-              <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+              <span className="inline-flex px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-[#EEF4FF] dark:bg-[#EEF4FF]/10 text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#5B93FA]/30 shrink-0">
                 {formatGrade(book.gradeId)}
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-slate-400 truncate hidden sm:block">
+            <p className="text-[10px] sm:text-[11px] text-[#5B6672] dark:text-[#9AA3B0] truncate hidden md:block">
               {book.type === 'TEACHER_BOOK'
-                ? "O'qituvchi kitobi (Teacher's Book)"
+                ? "Öqituvçi kitobi (Teacher's Book)"
                 : book.type === 'WORKBOOK'
-                ? 'Iş daftari (Workbook)'
+                ? 'İş daftari (Workbook)'
                 : "Öquvçi darsligi (Student's Book)"}
             </p>
           </div>
         </div>
 
-        {/* Center: Smart Page Indicator & Quick Jump */}
-        <div className="flex items-center gap-2">
-          {/* Page Indicator Pill */}
-          <div className="flex items-center gap-1.5 bg-[#060A14] border border-slate-750 px-3 py-1.5 rounded-xl shadow-inner text-xs font-bold text-indigo-400">
+        {/* Center: Mobile/Tablet Clickable Page Pill (opens jump modal) */}
+        <button
+          type="button"
+          onClick={() => setIsMobileJumpOpen(true)}
+          className="lg:hidden flex items-center rounded-full bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#15181E] dark:hover:bg-[#272C36] dark:border-[#353B47] border px-3.5 py-1.5 gap-1.5 shadow-inner transition active:scale-95 cursor-pointer"
+          title="Başqa sahifaga ötiş"
+        >
+          <span className="text-[#2A4FB8] dark:text-[#5B93FA] font-black text-xs sm:text-sm">
+            {pageDisplayInfo.isFrontMatter
+              ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplayInfo.frontMatterIndex}`
+              : `${pageDisplayInfo.bookPage}-bet`}
+          </span>
+          <span className="text-[#5B6672] dark:text-[#5B6672] font-normal text-xs sm:text-sm">/</span>
+          <span className="text-[#1F2933] dark:text-[#E6E8EC] text-xs sm:text-sm font-semibold">
+            {pageDisplayInfo.isFrontMatter ? totalPages : contentTotalPages}
+          </span>
+        </button>
+
+        {/* Center: Desktop Direct Indicator & Quick Jump Form */}
+        <div className="hidden lg:flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 bg-[#ECEEEA] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] px-3 py-1.5 rounded-xl shadow-inner text-xs font-bold text-[#2A4FB8] dark:text-[#5B93FA]">
             <span>
               {pageDisplayInfo.isFrontMatter
                 ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplayInfo.frontMatterIndex}`
                 : `${pageDisplayInfo.bookPage} / ${contentTotalPages} bet`}
             </span>
-            <span className="text-[10px] text-slate-500 font-normal hidden md:inline">
+            <span className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0] font-normal">
               (PDF {currentPage}/{totalPages})
             </span>
           </div>
 
-          {/* Quick Page Jump Form */}
-          <form onSubmit={handleJumpSubmit} className="hidden sm:flex items-center gap-1.5">
+          <form onSubmit={handleJumpSubmit} className="flex items-center gap-1.5">
             <input
               type="number"
               min={1}
@@ -719,37 +895,61 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               value={jumpInput}
               onChange={(e) => setJumpInput(e.target.value)}
               placeholder="Bet..."
-              className="w-16 h-8 text-center bg-[#060A14] border border-slate-750 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              className="w-16 h-8 text-center bg-[#ECEEEA] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] rounded-lg text-xs text-[#1F2933] dark:text-white placeholder-[#5B6672] dark:placeholder-[#9AA3B0] focus:outline-none focus:border-[#2A4FB8]"
             />
             <button
               type="submit"
-              className="h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors shadow-sm"
+              className="h-8 px-3 rounded-lg bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-bold transition-colors shadow-sm cursor-pointer"
             >
-              O'tish
+              Ötiş
             </button>
           </form>
         </div>
 
-        {/* Right: SmartBoard Tools & Drawers */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Right: Mobile/Tablet Single Clean Menu Button */}
+        <button
+          type="button"
+          onClick={() => setIsReaderMenuOpen(true)}
+          className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:hover:text-white dark:border-[#353B47] border transition-all text-xs font-bold shadow-xs shrink-0"
+          title="Asboblar menyusi"
+        >
+          <Menu className="h-4 w-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+          <span className="hidden sm:inline">Menyu</span>
+        </button>
+
+        {/* Right: Desktop Full SmartBoard Toolbar */}
+        <div className="hidden lg:flex items-center gap-1.5 sm:gap-2">
+          {/* Thumbnails Toggle */}
+          <button
+            onClick={() => setShowThumbnails((prev) => !prev)}
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors border ${
+              showThumbnails
+                ? 'bg-[#2A4FB8] text-white border-[#2A4FB8]'
+                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47]'
+            }`}
+            title="Sahifalar paneli"
+          >
+            <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </button>
+
           {/* Search Toggle */}
           <button
             onClick={() => setIsSearchOpen((prev) => !prev)}
-            className={`p-1.5 sm:p-2 rounded-xl transition-colors ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors border ${
               isSearchOpen
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'
+                ? 'bg-[#2A4FB8] text-white border-[#2A4FB8]'
+                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47]'
             }`}
-            title="Qidiriş"
+            title="Qidirish"
           >
             <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
 
           {/* Zoom Out */}
           <button
-            onClick={() => changeZoom(-0.05)}
-            disabled={zoomLevel <= 0.45}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 disabled:opacity-30 transition-colors"
+            onClick={zoomOut}
+            disabled={zoomLevel <= MIN_ZOOM}
+            className="p-1.5 sm:p-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] disabled:opacity-30 transition-colors border"
             title="Kiçraytiriş (Ctrl / Cmd + -)"
           >
             <ZoomOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -759,29 +959,27 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           <div className="relative">
             <select
               value={Math.round(zoomLevel * 100)}
-              onChange={(e) => setZoomLevel(Number(e.target.value) / 100)}
-              className="appearance-none bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold pl-2.5 pr-6 py-1.5 rounded-xl border border-slate-700/80 focus:outline-none cursor-pointer"
+              onChange={(e) => applyZoom(Number(e.target.value) / 100)}
+              className="appearance-none bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] text-xs font-bold pl-2.5 pr-6 py-1.5 rounded-xl border focus:outline-none cursor-pointer"
               title="Masshtab (Zoom)"
             >
-              <option value={45}>45%</option>
-              <option value={50}>50%</option>
-              <option value={55}>55%</option>
-              <option value={65}>65%</option>
-              <option value={75}>75%</option>
-              <option value={85}>85%</option>
-              <option value={100}>100%</option>
-              <option value={125}>125%</option>
-              <option value={150}>150%</option>
-              <option value={200}>200%</option>
+              {ZOOM_PRESETS.map((p) => {
+                const pct = Math.round(p * 100);
+                return (
+                  <option key={pct} value={pct}>
+                    {pct}%
+                  </option>
+                );
+              })}
             </select>
-            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3 h-3 text-[#5B6672] dark:text-[#9AA3B0] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
           {/* Zoom In */}
           <button
-            onClick={() => changeZoom(0.05)}
-            disabled={zoomLevel >= 2.45}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 disabled:opacity-30 transition-colors"
+            onClick={zoomIn}
+            disabled={zoomLevel >= MAX_ZOOM}
+            className="p-1.5 sm:p-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] disabled:opacity-30 transition-colors border"
             title="Kattalaştiriş (Ctrl / Cmd + +)"
           >
             <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -792,54 +990,41 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             onClick={() => setIsMarkerActive((prev) => !prev)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
               isMarkerActive
-                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
-                : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/40'
+                ? 'bg-[#F5B82E] text-slate-950 border-[#F5B82E] shadow-md shadow-[#F5B82E]/20'
+                : 'bg-[#F5B82E]/10 hover:bg-[#F5B82E]/20 text-[#B45309] dark:text-[#F5B82E] border-[#F5B82E]/40'
             }`}
             title="Marker Studio (M)"
           >
-            <PenTool className="h-3.5 w-3.5 text-amber-400" />
+            <PenTool className="h-3.5 w-3.5 text-[#B45309] dark:text-[#F5B82E]" />
             <span className="hidden xl:inline">Marker Studio</span>
           </button>
 
           {/* TOC Drawer Toggle */}
           <button
             onClick={() => setIsTocOpen((prev) => !prev)}
-            className={`p-1.5 sm:p-2 rounded-xl transition-colors ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors border ${
               isTocOpen
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'
+                ? 'bg-[#2A4FB8] text-white border-[#2A4FB8]'
+                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47]'
             }`}
             title="Mundarija (TOC)"
           >
             <List className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
 
-          {/* Quick Drawing Pen */}
-          <button
-            onClick={() => setIsMarkerActive((prev) => !prev)}
-            className={`p-1.5 sm:p-2 rounded-xl transition-colors ${
-              isMarkerActive
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-800/80 hover:bg-slate-700 text-emerald-400'
-            }`}
-            title="Çiziş qalami"
-          >
-            <Pen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </button>
-
           {/* Bookmarks & Notes Toggle */}
           <button
             onClick={() => setIsBookmarksOpen((prev) => !prev)}
-            className={`p-1.5 sm:p-2 rounded-xl transition-colors relative ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors relative border ${
               isBookmarksOpen
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'
+                ? 'bg-[#2A4FB8] text-white border-[#2A4FB8]'
+                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47]'
             }`}
             title="Xatçöplar va izohlar"
           >
             <Bookmark className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             {bookmarks.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-amber-500 text-[9px] font-bold text-slate-950 flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-[#F5B82E] text-[9px] font-bold text-slate-950 flex items-center justify-center">
                 {bookmarks.length}
               </span>
             )}
@@ -848,24 +1033,38 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           {/* Media Library Drawer Toggle */}
           <button
             onClick={() => setIsMediaOpen((prev) => !prev)}
-            className={`p-1.5 sm:p-2 rounded-xl transition-colors relative ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors relative border ${
               isMediaOpen
-                ? 'bg-purple-600 text-white'
-                : 'bg-slate-800/80 hover:bg-slate-700 text-purple-400'
+                ? 'bg-[#0E7C70] text-white border-[#0E7C70]'
+                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#0E7C70] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#5ED3C4] dark:border-[#353B47]'
             }`}
             title="Media kutubxona"
           >
             <Headphones className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             {mediaList.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-purple-500 text-[9px] font-bold text-white flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-[#0E7C70] text-[9px] font-bold text-white flex items-center justify-center">
                 {mediaList.length}
               </span>
             )}
           </button>
 
+          {/* Theme Toggle Button */}
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 sm:p-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] transition-colors border"
+            title={isDark ? "Yorug' rejim (Light mode)" : "Qorong'i rejim (Dark mode)"}
+            aria-label="Rejimni almashtirish"
+          >
+            {isDark ? (
+              <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#F5B82E]" />
+            ) : (
+              <Moon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#2A4FB8]" />
+            )}
+          </button>
+
           {/* User Profile Avatar */}
           <div
-            className="w-7 h-7 rounded-full bg-indigo-600 text-white font-black text-xs flex items-center justify-center ring-2 ring-indigo-400/30 shrink-0 select-none"
+            className="w-7 h-7 rounded-full bg-[#2A4FB8] text-white font-black text-xs flex items-center justify-center ring-2 ring-[#5B93FA]/30 shrink-0 select-none"
             title={currentUser?.fullName || currentUser?.email || "Öqituvçi"}
           >
             {userInitial}
@@ -874,7 +1073,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-colors hidden sm:block"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] transition-colors border"
             title={isFullscreen ? 'Oynani kiçraytiriş' : 'Butun ekran (Fullscreen)'}
           >
             {isFullscreen ? (
@@ -888,9 +1087,9 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
       {/* Quick Search Overlay Dropdown */}
       {isSearchOpen && (
-        <div className="bg-[#0B101D] border-b border-slate-800 px-4 py-2.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 z-30">
-          <div className="flex-1 max-w-md flex items-center gap-2 bg-[#060A14] border border-slate-700 px-3 py-1.5 rounded-xl">
-            <Search className="w-4 h-4 text-slate-400" />
+        <div className="bg-[#FBFBF9] dark:bg-[#0B101D] border-b border-[#D9DCD5] dark:border-slate-800 px-4 py-2.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 z-30">
+          <div className="flex-1 max-w-md flex items-center gap-2 bg-[#ECEEEA] dark:bg-[#060A14] border border-[#D9DCD5] dark:border-slate-700 px-3 py-1.5 rounded-xl">
+            <Search className="w-4 h-4 text-[#5B6672] dark:text-slate-400" />
             <input
               type="text"
               autoFocus
@@ -904,19 +1103,19 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                 }
               }}
               placeholder="Sahifa raqamini kiriting (masalan: 3)..."
-              className="bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none w-full"
+              className="bg-transparent text-xs text-[#1F2933] dark:text-white placeholder-[#5B6672] dark:placeholder-slate-500 focus:outline-none w-full"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-white">
+              <button onClick={() => setSearchQuery('')} className="text-[#5B6672] dark:text-slate-400 hover:text-[#1F2933] dark:hover:text-white">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
           <button
             onClick={() => setIsSearchOpen(false)}
-            className="text-xs font-semibold text-slate-400 hover:text-white px-2.5 py-1 rounded-lg"
+            className="text-xs font-semibold text-[#5B6672] dark:text-slate-400 hover:text-[#1F2933] dark:hover:text-white px-2.5 py-1 rounded-lg"
           >
-            Yopish
+            Yopiş
           </button>
         </div>
       )}
@@ -925,90 +1124,131 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           Workspace: Left Thumbnails Sidebar + Center Document Canvas
       ========================================================================= */}
       <div className="flex-1 flex overflow-hidden relative">
+        {/* Mobile Backdrop for Thumbnails Drawer */}
+        {showThumbnails && isMobile && (
+          <div
+            onClick={() => setShowThumbnails(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-30 animate-in fade-in"
+          />
+        )}
+
         {/* =========================================================================
-            Left Vertical Page Thumbnails Sidebar (Matching Screenshot)
+            Left Vertical Page Thumbnails Sidebar / Drawer
         ========================================================================= */}
-        <aside
-          ref={thumbnailContainerRef}
-          className="w-20 sm:w-24 shrink-0 bg-[#0B0F19] border-r border-slate-800/80 overflow-y-auto overflow-x-hidden py-3 px-2 flex flex-col items-center gap-3.5 select-none z-20"
-          style={{ scrollbarWidth: 'thin' }}
-        >
-          {Array.from({ length: totalPages }, (_, i) => {
-            const pageNum = i + 1;
-            const isActive = pageNum === currentPage;
-            const pageDisplay = pdfPageToBookDisplay(
-              pageNum,
-              totalPages,
-              contentStartPdfPage,
-            );
-            const pageImageUrl = `${resolveAssetUrl(`/content/books/${book.id}/pages/${pageNum}/image`)}`;
-            const pageNumberLabel = pageDisplay.isFrontMatter
-              ? pageDisplay.frontMatterIndex
-              : pageDisplay.bookPage;
-            const shouldRenderThumb = loadedThumbs.has(pageNum) || Math.abs(pageNum - currentPage) <= 6;
-
-            return (
-              <div
-                key={pageNum}
-                ref={(el) => {
-                  if (el) thumbnailRefs.current.set(pageNum, el);
-                  else thumbnailRefs.current.delete(pageNum);
-                }}
-                onClick={() => scrollToPage(pageNum, 'smooth')}
-                className="flex flex-col items-center cursor-pointer group w-full"
-                title={`${pageDisplay.isFrontMatter ? 'Kiriş ' + pageDisplay.frontMatterIndex : pageDisplay.bookPage + '-bet'}`}
-              >
-                {/* Thumbnail Preview Box */}
-                <div
-                  className={`w-16 h-20 sm:h-22 rounded-lg overflow-hidden bg-white relative transition-all duration-150 flex items-center justify-center ${
-                    isActive
-                      ? 'border-2 border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/30 scale-105'
-                      : 'border border-slate-700/60 opacity-60 group-hover:opacity-100 group-hover:border-slate-500'
-                  }`}
+        {showThumbnails && (
+          <aside
+            ref={thumbnailContainerRef}
+            className={`${
+              isMobile
+                ? 'fixed inset-y-0 left-0 z-40 w-24 pt-16 shadow-2xl animate-in slide-in-from-left duration-200'
+                : 'w-20 sm:w-24 shrink-0 z-20'
+            } bg-[#FBFBF9] dark:bg-[#1E222A] border-r border-[#D9DCD5] dark:border-[#353B47] overflow-y-auto overflow-x-hidden py-3 px-2 flex flex-col items-center gap-3.5 select-none`}
+            style={{ scrollbarWidth: 'thin' }}
+          >
+            {isMobile && (
+              <div className="w-full flex justify-between items-center px-1 pb-1 border-b border-[#D9DCD5] dark:border-[#353B47] mb-1">
+                <span className="text-[10px] font-bold text-[#5B6672] dark:text-[#9AA3B0]">Betlar</span>
+                <button
+                  type="button"
+                  onClick={() => setShowThumbnails(false)}
+                  className="p-1 rounded text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-white"
                 >
-                  {shouldRenderThumb ? (
-                    <img
-                      src={pageImageUrl}
-                      alt=""
-                      loading="lazy"
-                      className="w-full h-full object-fill block pointer-events-none"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        target.style.display = 'none';
-                        const fallback = target.parentElement?.querySelector('.thumb-fallback');
-                        if (fallback) (fallback as HTMLElement).style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className={`thumb-fallback absolute inset-0 ${
-                      shouldRenderThumb ? 'hidden' : 'flex'
-                    } flex-col items-center justify-center p-1 bg-slate-800 text-slate-300 text-center`}
-                  >
-                    <span className="text-[10px] font-bold">{pageNumberLabel}</span>
-                  </div>
-                </div>
-
-                {/* Page Number Underneath Thumbnail */}
-                <span
-                  className={`text-[11px] font-bold text-center mt-1 transition-colors ${
-                    isActive
-                      ? 'text-indigo-400 font-extrabold'
-                      : 'text-slate-400 group-hover:text-white'
-                  }`}
-                >
-                  {pageNumberLabel}
-                </span>
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
-            );
-          })}
-        </aside>
+            )}
+            {Array.from({ length: totalPages }, (_, i) => {
+              const pageNum = i + 1;
+              const isActive = pageNum === currentPage;
+              const pageDisplay = pdfPageToBookDisplay(
+                pageNum,
+                totalPages,
+                contentStartPdfPage,
+              );
+              const pageImageUrl = `${resolveAssetUrl(`/content/books/${book.id}/pages/${pageNum}/image`)}`;
+              const pageNumberLabel = pageDisplay.isFrontMatter
+                ? pageDisplay.frontMatterIndex
+                : pageDisplay.bookPage;
+              const shouldRenderThumb = loadedThumbs.has(pageNum) || Math.abs(pageNum - currentPage) <= 6;
+
+              return (
+                <div
+                  key={pageNum}
+                  ref={(el) => {
+                    if (el) thumbnailRefs.current.set(pageNum, el);
+                    else thumbnailRefs.current.delete(pageNum);
+                  }}
+                  onClick={() => {
+                    scrollToPage(pageNum, 'smooth');
+                    if (isMobile) setShowThumbnails(false);
+                  }}
+                  className="flex flex-col items-center cursor-pointer group w-full"
+                  title={`${pageDisplay.isFrontMatter ? 'Kiriş ' + pageDisplay.frontMatterIndex : pageDisplay.bookPage + '-bet'}`}
+                >
+                  {/* Thumbnail Preview Box */}
+                  <div
+                    className={`w-16 h-20 sm:h-22 rounded-lg overflow-hidden bg-white relative transition-all duration-150 flex items-center justify-center ${
+                      isActive
+                        ? 'border-2 border-[#2A4FB8] ring-2 ring-[#2A4FB8]/40 shadow-lg shadow-[#2A4FB8]/30 scale-105'
+                        : 'border border-[#D9DCD5] dark:border-[#353B47] opacity-60 group-hover:opacity-100 group-hover:border-[#2A4FB8] dark:group-hover:border-[#5B93FA]'
+                    }`}
+                  >
+                    {shouldRenderThumb ? (
+                      <img
+                        src={pageImageUrl}
+                        alt=""
+                        loading="lazy"
+                        className="w-full h-full object-fill block pointer-events-none"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.style.display = 'none';
+                          const fallback = target.parentElement?.querySelector('.thumb-fallback');
+                          if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`thumb-fallback absolute inset-0 ${
+                        shouldRenderThumb ? 'hidden' : 'flex'
+                      } flex-col items-center justify-center p-1 bg-[#ECEEEA] dark:bg-slate-800 text-[#5B6672] dark:text-slate-300 text-center`}
+                    >
+                      <span className="text-[10px] font-bold">{pageNumberLabel}</span>
+                    </div>
+                  </div>
+
+                  {/* Page Number Underneath Thumbnail */}
+                  <span
+                    className={`text-[11px] font-bold text-center mt-1 transition-colors ${
+                      isActive
+                        ? 'text-[#2A4FB8] dark:text-indigo-400 font-extrabold'
+                        : 'text-[#5B6672] hover:text-[#1F2933] dark:text-slate-400 dark:group-hover:text-white'
+                    }`}
+                  >
+                    {pageNumberLabel}
+                  </span>
+                </div>
+              );
+            })}
+          </aside>
+        )}
 
         {/* Main Document Canvas */}
         <main
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0F1D] py-8 px-4 flex flex-col items-center gap-8 relative select-none scroll-smooth"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onWheel={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+              if (e.deltaY < 0) {
+                zoomIn();
+              } else {
+                zoomOut();
+              }
+            }
+          }}
+          className="flex-1 overflow-y-auto overflow-x-hidden bg-[#F4F5F2] dark:bg-[#15181E] py-4 sm:py-8 px-2 sm:px-4 flex flex-col items-center gap-6 sm:gap-8 relative select-none"
         >
         {Array.from({ length: totalPages }, (_, i) => {
           const pageNum = i + 1;
@@ -1037,17 +1277,17 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                 minHeight: `${computedPageHeight}px`,
                 maxHeight: `${computedPageHeight}px`,
               }}
-              className="relative shrink-0 rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-800/80 transition-[width,height] duration-150"
+              className="relative shrink-0 rounded-2xl bg-white shadow-xl dark:shadow-2xl overflow-hidden border border-[#D9DCD5] dark:border-[#353B47]"
             >
               {/* Page Header Ribbon */}
               <div className="absolute top-3 left-4 z-20 flex items-center gap-2">
-                <span className="rounded-full bg-slate-900/85 backdrop-blur-md px-3 py-1 text-[11px] font-bold text-white shadow-md border border-slate-700">
+                <span className="rounded-full bg-[#1F2933]/85 dark:bg-[#15181E]/85 backdrop-blur-md px-3 py-1 text-[11px] font-bold text-white shadow-md border border-[#D9DCD5]/30 dark:border-[#353B47]">
                   {pageDisplay.isFrontMatter
                     ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplay.frontMatterIndex}`
                     : `${pageDisplay.bookPage}-bet`}
                 </span>
                 {bookmarks.some((b) => b.pageNumber === pageNum) && (
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-slate-950 shadow-md">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F5B82E] text-slate-950 shadow-md">
                     <Bookmark className="h-3.5 w-3.5 fill-current" />
                   </span>
                 )}
@@ -1101,7 +1341,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                 className="page-fallback absolute inset-0 hidden flex-col items-center justify-between p-12 text-slate-800 bg-gradient-to-b from-amber-50/20 via-white to-slate-50"
               >
                 <div className="w-full flex justify-between items-center border-b pb-4 border-slate-200">
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#2A4FB8]">
                     {book.title}
                   </span>
                   <span className="text-xs font-bold text-slate-500">
@@ -1110,7 +1350,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                 </div>
 
                 <div className="flex-1 flex flex-col items-center justify-center text-center max-w-md py-12">
-                  <div className="h-16 w-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 mb-4 shadow-sm">
+                  <div className="h-16 w-16 rounded-2xl bg-[#EEF4FF] flex items-center justify-center text-[#2A4FB8] mb-4 shadow-sm">
                     <Sparkles className="h-8 w-8" />
                   </div>
                   <h3 className="text-lg font-bold text-slate-900 mb-2">
@@ -1119,7 +1359,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                       : `${pageDisplay.bookPage}-bet dars mavzusi`}
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed mb-6">
-                    Interaktiv darslik kontenti. Sahifadagi multimedia belgilarini bosib, audio eshitishingiz yoki video darslarni tomosha qilishingiz mumkin.
+                    Interaktiv darslik kontenti. Sahifadagi multimedia belgilarini bosib, audio eşitişingiz yoki video darslarni tomoşa qilişingiz mumkin.
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -1127,12 +1367,23 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                       className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors inline-flex items-center gap-1.5"
                     >
                       <Bookmark className="h-3.5 w-3.5" />
-                      <span>Xatcho'p</span>
+                      <span>Xatçöp</span>
                     </button>
                     <button
                       onClick={() => {
                         setCurrentPage(pageNum);
-                        setIsAnswersOpen(true);
+                        const curHs = hotspots.find(
+                          (h: any) => h.pageNumber === pageNum && h.type === 'ANSWER_LINK',
+                        );
+                        const rawImg =
+                          (curHs as any)?.imageUrl ||
+                          (curHs as any)?.answerImages?.[0];
+                        setFloatingAnswerImage({
+                          isOpen: true,
+                          title: (curHs as any)?.exerciseLabel || `Javoblar kaliti • ${pageNum}-bet`,
+                          subtitle: `${book.title} • ${pageNum}-sahifa`,
+                          imageUrl: resolveAssetUrl(rawImg) || rawImg || null,
+                        });
                       }}
                       className="px-3 py-1.5 rounded-lg bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors inline-flex items-center gap-1.5"
                     >
@@ -1153,53 +1404,117 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               </div>
 
               {/* =================================================================
-                  Overlaid Interactive Hotspots (Audio, Video, Answers)
+                  Overlaid Interactive Hotspots (Audio, Video, Answers, Notes)
+                  100% VISUAL PARITY WITH ADMIN VISUAL PDF EDITOR
               ================================================================= */}
               <div className="absolute inset-0 pointer-events-none z-20">
                 {pageHs.map((hs: any) => {
                   const isAudio = hs.type === 'AUDIO';
                   const isVideo = hs.type === 'VIDEO';
                   const isAnswer = hs.type === 'ANSWER_LINK';
+                  const isSolid = hs.appearanceStyle !== 'OUTLINE';
 
-                  // Center coordinates strictly matching Admin Visual Hotspot Editor midpoint
-                  const centerX = ((hs.rect?.x || 0) + (hs.rect?.w || 0) / 2) * 100;
-                  const centerY = ((hs.rect?.y || 0) + (hs.rect?.h || 0) / 2) * 100;
+                  const accent = isAudio
+                    ? '#0E7C70'
+                    : isVideo
+                    ? '#C23B5A'
+                    : isAnswer
+                    ? '#6D3FD1'
+                    : '#15803D';
+
+                  const size = hs.size || 'MD';
 
                   return (
-                    <button
+                    <div
                       key={hs.id}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleHotspotClick(hs, pageNum);
                       }}
                       style={{
-                        left: `${centerX}%`,
-                        top: `${centerY}%`,
+                        left: `${(hs.rect?.x || 0) * 100}%`,
+                        top: `${(hs.rect?.y || 0) * 100}%`,
+                        width: `${(hs.rect?.w || 0) * 100}%`,
+                        height: `${(hs.rect?.h || 0) * 100}%`,
                       }}
-                      className={`absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full shadow-xl transition-all transform hover:scale-125 focus:outline-none ${
-                        isAudio
-                          ? 'h-9 w-9 bg-purple-600 hover:bg-purple-700 text-white ring-4 ring-purple-400/30 animate-pulse'
+                      title={
+                        hs.tooltipText ||
+                        hs.label ||
+                        (isAudio
+                          ? 'Audioni tinglaş'
                           : isVideo
-                          ? 'h-9 w-9 bg-rose-600 hover:bg-rose-700 text-white ring-4 ring-rose-400/30'
-                          : 'h-9 w-9 bg-emerald-600 hover:bg-emerald-700 text-white ring-4 ring-emerald-400/30'
-                      }`}
-                      title={hs.label || hs.tooltipText || (isAudio ? 'Audioni tinglaş' : isVideo ? 'Videoni köriş' : 'Javoblarni köriş')}
+                          ? 'Videoni köriş'
+                          : isAnswer
+                          ? 'Javoblarni köriş'
+                          : 'Eslatmani köriş')
+                      }
+                      className="absolute pointer-events-auto flex items-center justify-center cursor-pointer transition-transform group"
                     >
-                      {isAudio ? (
-                        <Volume2 className="h-4.5 w-4.5 fill-current" />
-                      ) : isVideo ? (
-                        <Play className="h-4.5 w-4.5 fill-current ml-0.5" />
-                      ) : (
-                        <div className="relative flex items-center justify-center">
-                          <KeyRound className="h-4.5 w-4.5" />
-                          {pageHs.filter((h: any) => h.type === 'ANSWER_LINK').length > 1 && (
-                            <span className="absolute -top-2.5 -right-2.5 w-4 h-4 rounded-full bg-amber-400 text-slate-900 font-black text-[9px] flex items-center justify-center shadow-xs border border-white">
-                              {pageHs.filter((h: any) => h.type === 'ANSWER_LINK').findIndex((h: any) => h.id === hs.id) + 1}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </button>
+                      {/* Clean Icon-Only Appearance Badge (Matching Admin Panel Exactly) */}
+                      <div
+                        style={{
+                          backgroundColor: isSolid ? accent : '#FFFFFF',
+                          color: isSolid ? '#FFFFFF' : accent,
+                          borderColor: accent,
+                        }}
+                        className={`rounded-full border-[1.5px] flex items-center justify-center shadow-md transition-all group-hover:scale-125 relative ${
+                          size === 'LG'
+                            ? 'w-7 h-7'
+                            : size === 'SM'
+                            ? 'w-4 h-4'
+                            : 'w-5 h-5'
+                        }`}
+                      >
+                        {isAudio ? (
+                          <Headphones
+                            className={
+                              size === 'LG'
+                                ? 'w-3.5 h-3.5'
+                                : size === 'SM'
+                                ? 'w-2.5 h-2.5'
+                                : 'w-3 h-3'
+                            }
+                          />
+                        ) : isVideo ? (
+                          <Play
+                            className={`${
+                              size === 'LG'
+                                ? 'w-3.5 h-3.5'
+                                : size === 'SM'
+                                ? 'w-2.5 h-2.5'
+                                : 'w-3 h-3'
+                            } fill-current ml-0.5`}
+                          />
+                        ) : isAnswer ? (
+                          <>
+                            <Lightbulb
+                              className={
+                                size === 'LG'
+                                  ? 'w-3.5 h-3.5'
+                                  : size === 'SM'
+                                  ? 'w-2.5 h-2.5'
+                                  : 'w-3 h-3'
+                              }
+                            />
+                            {pageHs.filter((h: any) => h.type === 'ANSWER_LINK').length > 1 && (
+                              <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-amber-600 text-white text-[8.5px] font-black flex items-center justify-center shadow-xs border border-white">
+                                {pageHs.filter((h: any) => h.type === 'ANSWER_LINK').findIndex((h: any) => h.id === hs.id) + 1}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <StickyNote
+                            className={
+                              size === 'LG'
+                                ? 'w-3.5 h-3.5'
+                                : size === 'SM'
+                                ? 'w-2.5 h-2.5'
+                                : 'w-3 h-3'
+                            }
+                          />
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -1308,14 +1623,118 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
         onSelectPage={(page) => scrollToPage(page, 'smooth')}
       />
 
-      {/* Audio Player Modal */}
+      {/* Audio Player Modal with Transcript Button */}
       {activeAudioItem && (
         <AudioPlayerModal
           isOpen={true}
           onClose={() => setActiveAudioItem(null)}
           title={activeAudioItem.title}
           audioUrl={activeAudioItem.url}
+          transcriptImageUrl={activeAudioItem.transcriptImageUrl}
+          onOpenTranscript={() => {
+            setFloatingTranscriptImage({
+              isOpen: true,
+              title: `Transkript • ${activeAudioItem.title}`,
+              subtitle: 'Listening Audio transkripti',
+              imageUrl: activeAudioItem.transcriptImageUrl,
+            });
+          }}
         />
+      )}
+
+      {/* Floating Draggable Answer Key Image Popup (No Overlay!) */}
+      {floatingAnswerImage?.isOpen && (
+        <FloatingImagePopup
+          isOpen={true}
+          onClose={() => setFloatingAnswerImage(null)}
+          title={floatingAnswerImage.title}
+          subtitle={floatingAnswerImage.subtitle}
+          badge="Javob"
+          type="ANSWER"
+          imageUrl={floatingAnswerImage.imageUrl}
+          initialOffset={{ x: 20, y: -20 }}
+        />
+      )}
+
+      {/* Floating Draggable Audio Transcript Image Popup (No Overlay!) */}
+      {floatingTranscriptImage?.isOpen && (
+        <FloatingImagePopup
+          isOpen={true}
+          onClose={() => setFloatingTranscriptImage(null)}
+          title={floatingTranscriptImage.title}
+          subtitle={floatingTranscriptImage.subtitle}
+          badge="Transkript"
+          type="TRANSCRIPT"
+          imageUrl={floatingTranscriptImage.imageUrl}
+          initialOffset={{ x: -20, y: 30 }}
+        />
+      )}
+
+      {/* Mobile Quick Jump Modal Dialog */}
+      {isMobileJumpOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] w-full max-w-xs rounded-3xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#1F2933] dark:text-white flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+                <span>Sahifaga ötiş</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsMobileJumpOpen(false)}
+                className="p-1 rounded-lg text-[#5B6672] hover:text-[#1F2933] dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const p = parseInt(jumpInput, 10);
+                if (!isNaN(p) && p >= 1 && p <= contentTotalPages) {
+                  const targetPdf = bookPageToPdfPage(p, contentStartPdfPage);
+                  scrollToPage(targetPdf, 'smooth');
+                  setIsMobileJumpOpen(false);
+                  setJumpInput('');
+                }
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="text-[11px] text-[#5B6672] dark:text-slate-400 font-medium block mb-1">
+                  1 dan {contentTotalPages} gaça bet raqami:
+                </label>
+                <input
+                  type="number"
+                  autoFocus
+                  min={1}
+                  max={contentTotalPages}
+                  value={jumpInput}
+                  onChange={(e) => setJumpInput(e.target.value)}
+                  placeholder={`Masalan: ${pageDisplayInfo.bookPage || 1}`}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#ECEEEA] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] text-[#1F2933] dark:text-white text-sm font-bold placeholder-[#5B6672] dark:placeholder-slate-500 focus:outline-none focus:border-[#2A4FB8] text-center"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMobileJumpOpen(false)}
+                  className="flex-1 py-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                >
+                  Bekor qiliş
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-bold shadow-md shadow-[#2A4FB8]/30 cursor-pointer"
+                >
+                  Ötiş
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Video Player Modal */}
@@ -1326,6 +1745,306 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           title={activeVideoItem.title}
           videoUrl={activeVideoItem.url}
         />
+      )}
+
+      {/* =========================================================================
+          Comprehensive Reader Tools Slide-Over Drawer Menu
+      ========================================================================= */}
+      {isReaderMenuOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
+          {/* Backdrop */}
+          <div
+            onClick={() => setIsReaderMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+          />
+
+          {/* Drawer Container */}
+          <div className="relative w-80 max-w-[85vw] h-full bg-[#FBFBF9] dark:bg-[#0B101D] border-l border-[#D9DCD5] dark:border-slate-800 shadow-2xl flex flex-col justify-between overflow-y-auto p-4 sm:p-5 z-10 animate-in slide-in-from-right duration-200">
+            {/* Top Area: Header & Navigation/Tool Actions */}
+            <div className="space-y-5">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#D9DCD5] dark:border-slate-800/80">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-[#1F2933] dark:text-white flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+                    <span>Darslik asboblari</span>
+                  </h3>
+                  <p className="text-[11px] text-[#5B6672] dark:text-slate-400 truncate mt-0.5">
+                    {book.title}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsReaderMenuOpen(false)}
+                  className="p-1.5 rounded-xl text-[#5B6672] hover:text-[#1F2933] dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-slate-800 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Section 1: Navigation & Search */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6672] dark:text-slate-500 px-1">
+                  Navigatsiya
+                </p>
+
+                {/* Search in Book */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsReaderMenuOpen(false);
+                    setIsSearchOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Search className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+                    <span>Qidirish</span>
+                  </div>
+                </button>
+
+                {/* Table of Contents (TOC) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsReaderMenuOpen(false);
+                    setIsTocOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <List className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+                    <span>Mundarija (TOC)</span>
+                  </div>
+                  {tocEntries.length > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#D9DCD5] dark:bg-slate-800 text-[#1F2933] dark:text-slate-400 font-mono">
+                      {tocEntries.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Thumbnails Sidebar Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowThumbnails((prev) => !prev);
+                    setIsReaderMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    showThumbnails
+                      ? 'bg-[#EEF4FF] text-[#2A4FB8] border border-[#BAD2FF] dark:bg-indigo-600/20 dark:text-indigo-300 dark:border-indigo-500/30'
+                      : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <LayoutGrid className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+                    <span>Sahifalar lentasi</span>
+                  </div>
+                  <span className="text-[10px] font-bold">
+                    {showThumbnails ? 'Yoniq' : 'Öçiq'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Section 2: SmartBoard & Interactive Tools */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6672] dark:text-slate-500 px-1">
+                  Interaktiv Asboblar
+                </p>
+
+                {/* Marker Studio Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMarkerActive((prev) => !prev);
+                    setIsReaderMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    isMarkerActive
+                      ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30'
+                      : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <PenTool className="w-4 h-4 text-[#B45309] dark:text-amber-400" />
+                    <span>Marker Studio (Doska qalami)</span>
+                  </div>
+                  <span className="text-[10px] font-bold">
+                    {isMarkerActive ? 'Faol' : 'Öçiq'}
+                  </span>
+                </button>
+
+                {/* Bookmarks & Notes */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsReaderMenuOpen(false);
+                    setIsBookmarksOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Bookmark className="w-4 h-4 text-[#B45309] dark:text-amber-400" />
+                    <span>Xatçöplar va izohlar</span>
+                  </div>
+                  {bookmarks.length > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold">
+                      {bookmarks.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Media Library */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsReaderMenuOpen(false);
+                    setIsMediaOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Headphones className="w-4 h-4 text-[#0E7C70] dark:text-[#5ED3C4]" />
+                    <span>Media kutubxonasi (Audio/Video)</span>
+                  </div>
+                  {mediaList.length > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#D9DCD5] dark:bg-slate-800 text-[#1F2933] dark:text-slate-400 font-mono">
+                      {mediaList.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Answer Keys Drawer */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsReaderMenuOpen(false);
+                    setIsAnswersOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <KeyRound className="w-4 h-4 text-[#6D3FD1] dark:text-[#B69CFF]" />
+                    <span>Maşq javoblari kaliti</span>
+                  </div>
+                  {pageAnswerItems.length > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#6D3FD1] text-white font-bold">
+                      {pageAnswerItems.length} ta
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Section 3: View & Zoom Controls */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6672] dark:text-slate-500 px-1">
+                  Köriniş va Masshtab
+                </p>
+
+                {/* Theme Mode Toggle in Drawer */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleTheme();
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {isDark ? (
+                      <Sun className="w-4 h-4 text-[#F5B82E]" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-[#2A4FB8]" />
+                    )}
+                    <span>{isDark ? "Yorug' rejim (Light mode)" : "Qorong'i rejim (Dark mode)"}</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-[#5B6672] dark:text-slate-400">
+                    {isDark ? "Qorong'i" : "Yorug'"}
+                  </span>
+                </button>
+
+                {/* Zoom Controller */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-[#ECEEEA] dark:bg-slate-900/60 border border-[#D9DCD5] dark:border-slate-800">
+                  <span className="text-xs font-semibold text-[#1F2933] dark:text-slate-300">Masshtab</span>
+                  <div className="flex items-center gap-1 bg-[#FBFBF9] dark:bg-slate-950 p-1 rounded-lg border border-[#D9DCD5] dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={zoomOut}
+                      disabled={zoomLevel <= MIN_ZOOM}
+                      className="p-1 rounded-md text-[#5B6672] hover:text-[#1F2933] hover:bg-[#ECEEEA] dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
+                      title="Kiçraytiriş"
+                    >
+                      <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetZoom}
+                      className="px-2 py-0.5 text-[11px] font-bold font-mono text-[#2A4FB8] dark:text-indigo-400 hover:underline cursor-pointer"
+                      title="100% ga qaytarish"
+                    >
+                      {Math.round(zoomLevel * 100)}%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={zoomIn}
+                      disabled={zoomLevel >= MAX_ZOOM}
+                      className="p-1 rounded-md text-[#5B6672] hover:text-[#1F2933] hover:bg-[#ECEEEA] dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
+                      title="Kattalaştiriş"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Fullscreen Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleFullscreen();
+                    setIsReaderMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {isFullscreen ? (
+                      <Minimize2 className="w-4 h-4 text-[#2A4FB8] dark:text-indigo-400" />
+                    ) : (
+                      <Maximize2 className="w-4 h-4 text-[#2A4FB8] dark:text-indigo-400" />
+                    )}
+                    <span>{isFullscreen ? 'Oynani kiçraytiriş' : 'Butun ekran (Fullscreen)'}</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Area: User Info & Exit */}
+            <div className="pt-4 border-t border-[#D9DCD5] dark:border-slate-800/80 space-y-3">
+              {/* Teacher Profile */}
+              <div className="flex items-center gap-2.5 px-1 py-1">
+                <div className="w-8 h-8 rounded-full bg-[#2A4FB8] text-white font-black text-xs flex items-center justify-center ring-2 ring-[#5B93FA]/30 shrink-0">
+                  {userInitial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-[#1F2933] dark:text-white truncate">
+                    {currentUser?.fullName || currentUser?.email || 'Öqituvçi'}
+                  </p>
+                  <p className="text-[10px] text-[#5B6672] dark:text-slate-400 truncate">
+                    {currentUser?.email || 'teacher@ilmchi.uz'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Exit Reader */}
+              <button
+                type="button"
+                onClick={handleExit}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Darslikdan çiqiş</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
