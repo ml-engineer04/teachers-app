@@ -199,10 +199,10 @@ export const SettingsView: React.FC = () => {
           Header
       ========================================================================= */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-black text-[#142452] dark:text-[#E6E8EC] tracking-tight">
           {strings.settings?.headerTitle || 'Sozlamalar'}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+        <p className="text-xs sm:text-sm text-[#5B6672] dark:text-[#9AA3B0] mt-1">
           {strings.settings?.headerSubtitle || 'Profil, köriniş, til va 2 ta qurilma xavfsizligi'}
         </p>
       </div>
@@ -210,23 +210,23 @@ export const SettingsView: React.FC = () => {
       {/* =========================================================================
           1. Personal Profile Card
       ========================================================================= */}
-      <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+      <div className="rounded-3xl p-6 sm:p-8 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-[#D9DCD5] dark:border-[#353B47]">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-indigo-500/20">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#2A4FB8] to-[#1C3375] text-white flex items-center justify-center font-black text-2xl shadow-[0_6px_20px_-4px_rgba(42,79,184,0.35)]">
               {(currentUser?.fullName || currentUser?.email || 'O')[0].toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                <h2 className="text-lg sm:text-xl font-bold text-[#142452] dark:text-[#E6E8EC]">
                   {currentUser?.fullName || strings.settings?.noNameProvided || 'Ism kiritilmagan'}
                 </h2>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                  <CheckCircle2 className="w-3 h-3" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#E6F6F4] dark:bg-[#0E7C70]/20 text-[#0E7C70] dark:text-[#5ED3C4] border border-[#0E7C70]/30">
+                  <CheckCircle2 className="w-3 h-3 text-[#0E7C70] dark:text-[#5ED3C4]" />
                   {strings.settings?.verifiedTeacher || 'Tasdiqlangan öqituvçi'}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs sm:text-sm text-[#5B6672] dark:text-[#9AA3B0] mt-0.5">
                 {currentUser?.email}
               </p>
             </div>
@@ -235,7 +235,7 @@ export const SettingsView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsEditingProfile(true)}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors self-start sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#F4F5F2] dark:bg-[#15181E] hover:bg-[#EEF4FF] dark:hover:bg-[#142452] text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933] dark:hover:text-[#E6E8EC] border border-[#D9DCD5] dark:border-[#353B47] font-bold text-xs transition-colors self-start sm:self-auto"
           >
             <Edit3 className="w-4 h-4" />
             <span>{strings.settings?.editProfileBtn || 'Profilni tahrirlaş'}</span>
@@ -243,29 +243,29 @@ export const SettingsView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+          <div className="p-4 rounded-2xl bg-[#F4F5F2] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#5B6672] dark:text-[#9AA3B0] block mb-1">
               {strings.settings?.emailLabel || 'Elektron poçta'}
             </span>
-            <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white break-all">
+            <span className="text-xs sm:text-sm font-semibold text-[#1F2933] dark:text-[#E6E8EC] break-all">
               {currentUser?.email || '—'}
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+          <div className="p-4 rounded-2xl bg-[#F4F5F2] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#5B6672] dark:text-[#9AA3B0] block mb-1">
               {strings.settings?.phoneLabel || 'Telefon raqami'}
             </span>
-            <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">
+            <span className="text-xs sm:text-sm font-semibold text-[#1F2933] dark:text-[#E6E8EC]">
               {currentUser?.phoneNumber || '+998 ••••••••'}
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+          <div className="p-4 rounded-2xl bg-[#F4F5F2] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#5B6672] dark:text-[#9AA3B0] block mb-1">
               {strings.settings?.accountTypeLabel || 'Hisob turi'}
             </span>
-            <span className="text-xs sm:text-sm font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+            <span className="text-xs sm:text-sm font-semibold text-[#2A4FB8] dark:text-[#5B93FA] flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
               ilmçi Pro
             </span>
@@ -276,22 +276,22 @@ export const SettingsView: React.FC = () => {
       {/* =========================================================================
           2. Active Tariffs & Subscriptions (Ulangan Tariflar va Obunalar)
       ========================================================================= */}
-      <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+      <div className="rounded-3xl p-6 sm:p-8 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#D9DCD5] dark:border-[#353B47]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] flex items-center justify-center">
               <CreditCard className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base sm:text-lg font-bold text-[#142452] dark:text-[#E6E8EC]">
                   {strings.settings?.subscriptionsTitle || 'Ulangan tariflar va obunalar'}
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA]">
                   {t('settings.subscriptionsCount', { count: subscriptions.length }) || `${subscriptions.length} ta obuna`}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] mt-0.5">
                 {strings.settings?.subscriptionsDesc || 'Siz faollashtirgan fanlar, ularning amal qiliş muddati va qolgan vaqt'}
               </p>
             </div>
@@ -301,7 +301,7 @@ export const SettingsView: React.FC = () => {
             type="button"
             onClick={fetchSubscriptions}
             disabled={loadingSubscriptions}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors self-start sm:self-auto"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D9DCD5] dark:border-[#353B47] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] transition-colors self-start sm:self-auto"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingSubscriptions ? 'animate-spin' : ''}`} />
             <span>{strings.settings?.refreshBtn || 'Yangilaş'}</span>
@@ -310,13 +310,13 @@ export const SettingsView: React.FC = () => {
 
         {subscriptions.length === 0 ? (
           <div className="text-center py-8 space-y-3">
-            <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
+            <p className="text-xs sm:text-sm font-semibold text-[#5B6672] dark:text-[#9AA3B0]">
               {strings.settings?.noSubscriptions || 'Hozirça sizda faol ulangan tariflar mavjud emas.'}
             </p>
             <button
               type="button"
               onClick={() => navigate('/dashboard/plans')}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 active:scale-95 transition-all inline-flex items-center gap-1.5"
+              className="px-5 py-2.5 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white font-bold text-xs shadow-md shadow-[#2A4FB8]/25 active:scale-95 transition-all inline-flex items-center gap-1.5"
             >
               <span>{strings.settings?.goToPlansBtn || 'Tariflar bölimiga ötiş va ulaniş'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -344,51 +344,51 @@ export const SettingsView: React.FC = () => {
                   key={sub.id}
                   className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-4 ${
                     isExpiringSoon
-                      ? 'bg-amber-500/5 border-amber-300 dark:border-amber-600/60 ring-1 ring-amber-500/30'
+                      ? 'bg-[#FFFBEB] dark:bg-[#92400E]/20 border-[#FCD34D] dark:border-[#B45309]/60 ring-1 ring-[#F5B82E]/30'
                       : isExpired
                       ? 'bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50 opacity-80'
-                      : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/80'
+                      : 'bg-[#F4F5F2] dark:bg-[#15181E] border-[#D9DCD5] dark:border-[#353B47]'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-base">{subj?.icon || '📘'}</span>
-                        <h4 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white">
+                        <h4 className="font-extrabold text-sm sm:text-base text-[#142452] dark:text-[#E6E8EC]">
                           {formatGrade(sub.gradeId)} • {subj?.name || sub.subjectId || 'Fan darsligi'}
                         </h4>
                       </div>
-                      <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 mt-1">
+                      <p className="text-[11px] font-semibold text-[#2A4FB8] dark:text-[#5B93FA] mt-1">
                         {planTitle}
                       </p>
                     </div>
 
                     {isExpired ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 dark:bg-red-950 text-[#B91C1C] dark:text-[#F87171] border border-red-200 dark:border-red-800">
                         Tugagan
                       </span>
                     ) : isExpiringSoon ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-400/50 animate-pulse flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3 text-amber-500" />
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#FFFBEB] dark:bg-[#92400E]/30 text-[#B45309] dark:text-[#FBBF24] border border-[#FCD34D]/60 dark:border-[#B45309]/50 animate-pulse flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-[#B45309]" />
                         Tugamoqda
                       </span>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#E6F6F4] dark:bg-[#0E7C70]/20 text-[#0E7C70] dark:text-[#5ED3C4] border border-[#0E7C70]/30">
                         Faol
                       </span>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#D9DCD5] dark:border-[#353B47]">
                     <div>
-                      <span className="text-[10px] text-slate-400 block">{strings.settings?.startDate || 'Boşlangan sana'}</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0] block">{strings.settings?.startDate || 'Boşlangan sana'}</span>
+                      <span className="font-semibold text-[#5B6672] dark:text-[#9AA3B0]">
                         {sub.startsAt ? new Date(sub.startsAt).toLocaleDateString('uz-UZ') : '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">{strings.settings?.expiresDate || 'Amal qiliş muddati'}</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0] block">{strings.settings?.expiresDate || 'Amal qiliş muddati'}</span>
+                      <span className="font-semibold text-[#5B6672] dark:text-[#9AA3B0]">
                         {sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString('uz-UZ') : '—'}
                       </span>
                     </div>
@@ -397,15 +397,15 @@ export const SettingsView: React.FC = () => {
                   <div className="pt-2 flex items-center justify-between">
                     <div>
                       {isExpired ? (
-                        <span className="text-xs font-bold text-red-500">{strings.settings?.expiredNotice || 'Muddati ötib ketgan'}</span>
+                        <span className="text-xs font-bold text-[#B91C1C]">{strings.settings?.expiredNotice || 'Muddati ötib ketgan'}</span>
                       ) : isExpiringSoon ? (
-                        <span className="text-xs font-black text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-xs font-black text-[#B45309] dark:text-[#FBBF24] flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 text-[#B45309]" />
                           {daysLeft <= 0 ? (strings.settings?.todayLastDay || 'Bugun sönggi kun!') : (t('settings.daysRemaining', { days: daysLeft }) || `${daysLeft} kun qoldi`)}
                         </span>
                       ) : (
-                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-xs font-bold text-[#0E7C70] dark:text-[#5ED3C4] flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#0E7C70] dark:text-[#5ED3C4]" />
                           {t('settings.daysRemaining', { days: daysLeft }) || `${daysLeft} kun qoldi`}
                         </span>
                       )}
@@ -414,7 +414,7 @@ export const SettingsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate('/dashboard/plans')}
-                      className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-200 dark:border-indigo-800 transition-all flex items-center gap-1"
+                      className="px-3 py-1.5 rounded-xl bg-[#EEF4FF] dark:bg-[#142452] hover:bg-[#DCE8FF] dark:hover:bg-[#1C3375] text-[#2A4FB8] dark:text-[#5B93FA] text-xs font-bold border border-[#BAD2FF] dark:border-[#223F94] transition-all flex items-center gap-1"
                     >
                       <span>{isExpired || isExpiringSoon ? (strings.settings?.extendBtn || 'Uzaytiriş') : (strings.settings?.planDetailsBtn || 'Reja')}</span>
                       <ArrowRight className="w-3 h-3" />
@@ -430,22 +430,22 @@ export const SettingsView: React.FC = () => {
       {/* =========================================================================
           3. Connected Devices Management (Strict 2-Device Limit)
       ========================================================================= */}
-      <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft space-y-6">
+      <div className="rounded-3xl p-6 sm:p-8 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] flex items-center justify-center">
               <Shield className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base sm:text-lg font-bold text-[#142452] dark:text-[#E6E8EC]">
                   {strings.settings?.devicesLimitTitle || 'Ulangan qurilmalar (Maksimal 2 ta)'}
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA]">
                   {devices.length} / 2
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0]">
                 {strings.settings?.devicesLimitDesc || 'Xavfsizlik talabiga köra bir vaqtning özida faqat 2 ta qurilmada kiriş ruxsat etiladi'}
               </p>
             </div>
@@ -455,7 +455,7 @@ export const SettingsView: React.FC = () => {
             type="button"
             onClick={fetchDevices}
             disabled={loadingDevices}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors self-start sm:self-auto"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D9DCD5] dark:border-[#353B47] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] transition-colors self-start sm:self-auto"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingDevices ? 'animate-spin' : ''}`} />
             <span>{strings.settings?.refreshBtn || 'Yangilaş'}</span>
@@ -464,9 +464,9 @@ export const SettingsView: React.FC = () => {
 
         {/* Warning Banner if 2 devices reached */}
         {devices.length >= 2 && (
-          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+          <div className="p-4 rounded-2xl bg-[#FFFBEB] dark:bg-[#92400E]/30 border border-[#FCD34D]/60 dark:border-[#B45309]/50 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-[#B45309] dark:text-[#FBBF24] shrink-0 mt-0.5" />
+            <div className="text-xs text-[#B45309] dark:text-[#FBBF24] leading-relaxed">
               <span className="font-bold">{strings.settings?.devicesLimitWarningTitle || '2 ta qurilma çegarasi töldi:'}</span> {strings.settings?.devicesLimitWarningDesc || 'Yangi qurilmadan kiriş uçun quyidagi röyxatdan eski yoki foydalanilmayotgan qurilmani tizimdan uzişingiz kerak.'}
             </div>
           </div>
@@ -486,8 +486,8 @@ export const SettingsView: React.FC = () => {
                 key={dev.deviceId || dev.id}
                 className={`p-5 rounded-2xl border transition-all ${
                   dev.isCurrent
-                    ? 'border-indigo-400 dark:border-indigo-700 bg-indigo-50/40 dark:bg-indigo-950/20 ring-1 ring-indigo-400/30'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40'
+                    ? 'border-[#2A4FB8]/40 dark:border-[#5B93FA]/40 bg-[#EEF4FF]/30 dark:bg-[#142452]/20 ring-1 ring-[#2A4FB8]/20'
+                    : 'border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E]'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -495,24 +495,24 @@ export const SettingsView: React.FC = () => {
                     <div
                       className={`w-11 h-11 rounded-xl flex items-center justify-center ${
                         dev.isCurrent
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                          ? 'bg-[#2A4FB8] text-white'
+                          : 'bg-[#ECEEEA] dark:bg-[#272C36] text-[#5B6672] dark:text-[#9AA3B0]'
                       }`}
                     >
                       {isWeb ? <Laptop className="w-5 h-5" /> : <Smartphone className="w-5 h-5" />}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                        <h4 className="text-sm font-bold text-[#142452] dark:text-[#E6E8EC]">
                           {dev.deviceModel || strings.settings?.unknownDevice || 'Noma’lum qurilma'}
                         </h4>
                         {dev.isCurrent && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#E6F6F4] text-[#0E7C70] border border-[#0E7C70]/30">
                             Shu qurilma
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] mt-0.5">
                         {dev.platform || (isWeb ? 'Web Browser' : 'Android')} • OS {dev.osVersion || '—'}
                       </p>
                     </div>
@@ -522,7 +522,7 @@ export const SettingsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setDeviceToDisconnect(dev)}
-                      className="p-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition-colors"
+                      className="p-2 text-[#B91C1C] hover:bg-red-50 dark:hover:bg-red-950/50 rounded-xl transition-colors"
                       title={strings.settings?.disconnectDeviceBtn || "Tizimdan uziş"}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -530,7 +530,7 @@ export const SettingsView: React.FC = () => {
                   )}
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+                <div className="mt-4 pt-3 border-t border-[#D9DCD5] dark:border-[#353B47] flex items-center justify-between text-[11px] text-[#5B6672] dark:text-[#9AA3B0]">
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {formatDeviceTime(dev.lastActiveAt)}
@@ -539,7 +539,7 @@ export const SettingsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setDeviceToDisconnect(dev)}
-                      className="text-rose-600 hover:underline font-bold text-xs"
+                      className="text-[#B91C1C] hover:underline font-bold text-xs"
                     >
                       Tizimdan uzish
                     </button>
@@ -556,16 +556,16 @@ export const SettingsView: React.FC = () => {
       ========================================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Theme Settings */}
-        <div className="rounded-3xl p-6 sm:p-7 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft space-y-4">
+        <div className="rounded-3xl p-6 sm:p-7 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               {isDark ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base font-bold text-[#142452] dark:text-[#E6E8EC]">
                 {strings.settings?.appearanceTitle || 'Taşqi köriniş (Mavzu)'}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0]">
                 {strings.settings?.appearanceDesc || 'Kunduzgi va tungi körinişni tanlang'}
               </p>
             </div>
@@ -579,14 +579,14 @@ export const SettingsView: React.FC = () => {
               }}
               className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-24 ${
                 !isDark
-                  ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/30'
-                  : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                  ? 'border-[#2A4FB8] bg-[#EEF4FF]/70 text-[#142452] ring-2 ring-[#2A4FB8]/30'
+                  : 'border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E] text-[#5B6672] dark:text-[#9AA3B0]'
               }`}
             >
               <Sun className="w-5 h-5 text-amber-500" />
               <div>
                 <span className="text-xs font-bold block">{strings.settings?.themeLight || 'Kunduzgi (Light)'}</span>
-                <span className="text-[10px] text-slate-400">{strings.settings?.themeLightDesc || 'Yorqin interfeys'}</span>
+                <span className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0]">{strings.settings?.themeLightDesc || 'Yorqin interfeys'}</span>
               </div>
             </button>
 
@@ -597,30 +597,30 @@ export const SettingsView: React.FC = () => {
               }}
               className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-24 ${
                 isDark
-                  ? 'border-indigo-500 bg-indigo-950/60 text-white ring-2 ring-indigo-500/30'
-                  : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                  ? 'border-[#5B93FA] bg-[#272C36] text-[#E6E8EC] ring-2 ring-[#5B93FA]/30'
+                  : 'border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E] text-[#5B6672] dark:text-[#9AA3B0]'
               }`}
             >
-              <Moon className="w-5 h-5 text-indigo-400" />
+              <Moon className="w-5 h-5 text-[#5B93FA]" />
               <div>
                 <span className="text-xs font-bold block">{strings.settings?.themeDark || 'Tungi (Dark)'}</span>
-                <span className="text-[10px] text-slate-400">{strings.settings?.themeDarkDesc || 'Közni çarçatmaydi'}</span>
+                <span className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0]">{strings.settings?.themeDarkDesc || 'Közni çarçatmaydi'}</span>
               </div>
             </button>
           </div>
         </div>
 
         {/* Language Settings */}
-        <div className="rounded-3xl p-6 sm:p-7 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft space-y-4">
+        <div className="rounded-3xl p-6 sm:p-7 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft space-y-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[#EEF8FD] dark:bg-[#0369A1]/20 text-[#0369A1] dark:text-[#7DD3FC] flex items-center justify-center">
               <Globe className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base font-bold text-[#142452] dark:text-[#E6E8EC]">
                 {strings.settings?.languageTitle || 'Ilova tili'}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0]">
                 {strings.settings?.languageDesc || 'Barça menyu va darslik interfeysi tili'}
               </p>
             </div>
@@ -638,8 +638,8 @@ export const SettingsView: React.FC = () => {
                 onClick={() => setLanguage(item.code as any)}
                 className={`p-3.5 rounded-2xl border text-center transition-all ${
                   language === item.code
-                    ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-bold ring-2 ring-indigo-500/30'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                    ? 'border-[#2A4FB8] dark:border-[#5B93FA] bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] font-bold ring-2 ring-[#2A4FB8]/30'
+                    : 'border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E] text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#EEF4FF]/50 dark:hover:bg-[#142452]/40'
                 }`}
               >
                 <span className="text-xl block mb-1">{item.flag}</span>
@@ -653,24 +653,24 @@ export const SettingsView: React.FC = () => {
       {/* =========================================================================
           4. SmartBoard PIN Code Security
       ========================================================================= */}
-      <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft">
+      <div className="rounded-3xl p-6 sm:p-8 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] flex items-center justify-center">
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base sm:text-lg font-bold text-[#142452] dark:text-[#E6E8EC]">
                   {strings.settings?.pinCardTitle || 'SmartBoard 4-raqamli PIN himoyasi'}
                 </h3>
                 {hasPin && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#E6F6F4] text-[#0E7C70] border border-[#0E7C70]/30">
                     Faol
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0]">
                 {strings.settings?.pinCardDesc || 'Sinf doskasida darsdan söng akkauntni tezkor qulflaş va himoyalaş'}
               </p>
             </div>
@@ -682,14 +682,14 @@ export const SettingsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsPinModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
+                  className="px-4 py-2 rounded-xl bg-[#F4F5F2] dark:bg-[#15181E] hover:bg-[#EEF4FF] dark:hover:bg-[#142452] text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] border border-[#D9DCD5] dark:border-[#353B47] transition-colors"
                 >
                   {strings.settings?.pinChangeBtn || 'PIN kodni almaştiriş'}
                 </button>
                 <button
                   type="button"
                   onClick={handleRemovePin}
-                  className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition-colors"
+                  className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 text-[#B91C1C] dark:text-[#F87171] hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition-colors"
                 >
                   {strings.settings?.pinRemoveBtn || 'Olib taşlaş'}
                 </button>
@@ -698,7 +698,7 @@ export const SettingsView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsPinModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors"
+                className="px-4 py-2 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-bold shadow-md shadow-[#2A4FB8]/25 transition-colors"
               >
                 {strings.settings?.pinSetupBtn || 'PIN kod örnatiş'}
               </button>
@@ -725,14 +725,14 @@ export const SettingsView: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowLogoutConfirm(true)}
-              className="px-4 py-2.5 rounded-xl bg-white dark:bg-rose-900/40 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-xs font-bold transition-colors"
+              className="px-4 py-2.5 rounded-xl bg-[#FBFBF9] dark:bg-rose-900/40 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-xs font-bold transition-colors"
             >
               {strings.settings?.logoutCurrentBtn || 'Şu qurilmadan çiqiş'}
             </button>
             <button
               type="button"
               onClick={() => setShowLogoutAllConfirm(true)}
-              className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors shadow-sm"
+              className="px-4 py-2.5 rounded-xl bg-[#B91C1C] hover:bg-[#991B1B] text-white text-xs font-bold transition-colors shadow-sm"
             >
               {strings.settings?.logoutAllBtn || 'Barça qurilmalardan çiqiş'}
             </button>
@@ -744,16 +744,16 @@ export const SettingsView: React.FC = () => {
           MODAL 1: Edit Profile Modal
       ========================================================================= */}
       {isEditingProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white dark:bg-[#121A2D] rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-[#FBFBF9] dark:bg-[#1E222A] rounded-3xl p-6 shadow-2xl border border-[#D9DCD5] dark:border-[#353B47]">
+            <div className="flex items-center justify-between pb-4 border-b border-[#D9DCD5] dark:border-[#353B47]">
+              <h3 className="text-base font-bold text-[#142452] dark:text-[#E6E8EC]">
                 {strings.settings?.editProfileTitle || 'Profil ma’lumotlarini tahrirlaş'}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsEditingProfile(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="p-1 rounded-lg text-[#5B6672] hover:text-[#1F2933] dark:hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -761,7 +761,7 @@ export const SettingsView: React.FC = () => {
 
             <form onSubmit={handleSaveProfile} className="space-y-4 pt-4">
               <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                <label className="text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] block mb-1">
                   {strings.settings?.nameLabel || 'Ism familiya'}
                 </label>
                 <input
@@ -769,19 +769,19 @@ export const SettingsView: React.FC = () => {
                   value={fullNameDraft}
                   onChange={(e) => setFullNameDraft(e.target.value)}
                   placeholder={strings.settings?.namePlaceholder || "Masalan: Sardor Alimov"}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E] text-xs text-[#1F2933] dark:text-[#E6E8EC] focus:outline-none focus:border-[#2A4FB8]"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                <label className="text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] block mb-1">
                   {strings.settings?.emailImmutable || 'Email (Özgarmas)'}
                 </label>
                 <input
                   type="email"
                   value={currentUser?.email || ''}
                   disabled
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-xs text-slate-400 cursor-not-allowed"
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#D9DCD5] dark:border-[#353B47] bg-[#ECEEEA] dark:bg-[#272C36] text-xs text-[#5B6672] cursor-not-allowed"
                 />
               </div>
 
@@ -789,14 +789,14 @@ export const SettingsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsEditingProfile(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36]"
                 >
                   {strings.settings?.cancelBtn || 'Bekor qiliş'}
                 </button>
                 <button
                   type="submit"
                   disabled={savingProfile || !fullNameDraft.trim()}
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-bold transition-colors disabled:opacity-50 shadow-md shadow-[#2A4FB8]/25"
                 >
                   {savingProfile ? (strings.settings?.savingBtn || 'Saqlanmoqda...') : (strings.settings?.saveBtn || 'Saqlaş')}
                 </button>
@@ -810,16 +810,16 @@ export const SettingsView: React.FC = () => {
           MODAL 2: SmartBoard PIN Setup Modal
       ========================================================================= */}
       {isPinModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-white dark:bg-[#121A2D] rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-[#FBFBF9] dark:bg-[#1E222A] rounded-3xl p-6 shadow-2xl border border-[#D9DCD5] dark:border-[#353B47]">
+            <div className="flex items-center justify-between pb-4 border-b border-[#D9DCD5] dark:border-[#353B47]">
+              <h3 className="text-base font-bold text-[#142452] dark:text-[#E6E8EC]">
                 {strings.settings?.pinModalTitle || '4-raqamli PIN kod örnatiş'}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsPinModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="p-1 rounded-lg text-[#5B6672] hover:text-[#1F2933] dark:hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -827,7 +827,7 @@ export const SettingsView: React.FC = () => {
 
             <form onSubmit={handleSavePin} className="space-y-4 pt-4">
               <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                <label className="text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] block mb-1">
                   {strings.settings?.pinNewInputLabel || 'Yangi PIN kod (4 ta raqam)'}
                 </label>
                 <input
@@ -836,12 +836,12 @@ export const SettingsView: React.FC = () => {
                   value={newPin}
                   onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
                   placeholder="••••"
-                  className="w-full text-center tracking-widest text-lg font-bold py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full text-center tracking-widest text-lg font-bold py-2 rounded-xl border border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E] text-[#1F2933] dark:text-[#E6E8EC] focus:outline-none focus:border-[#2A4FB8]"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                <label className="text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] block mb-1">
                   {strings.settings?.pinConfirmInputLabel || 'PIN kodni tasdiqlang'}
                 </label>
                 <input
@@ -850,7 +850,7 @@ export const SettingsView: React.FC = () => {
                   value={confirmPin}
                   onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
                   placeholder="••••"
-                  className="w-full text-center tracking-widest text-lg font-bold py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full text-center tracking-widest text-lg font-bold py-2 rounded-xl border border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E] text-[#1F2933] dark:text-[#E6E8EC] focus:outline-none focus:border-[#2A4FB8]"
                 />
               </div>
 
@@ -864,14 +864,14 @@ export const SettingsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsPinModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36]"
                 >
                   {strings.settings?.cancelBtn || 'Bekor qiliş'}
                 </button>
                 <button
                   type="submit"
                   disabled={newPin.length !== 4 || confirmPin.length !== 4}
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-bold transition-colors disabled:opacity-50 shadow-md shadow-[#2A4FB8]/25"
                 >
                   {strings.settings?.setBtn || 'Örnatiş'}
                 </button>
@@ -885,16 +885,16 @@ export const SettingsView: React.FC = () => {
           MODAL 3: Disconnect Device Confirmation
       ========================================================================= */}
       {deviceToDisconnect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-white dark:bg-[#121A2D] rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-[#FBFBF9] dark:bg-[#1E222A] rounded-3xl p-6 shadow-2xl border border-[#D9DCD5] dark:border-[#353B47] space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950 text-rose-600 flex items-center justify-center">
               <Trash2 className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base font-bold text-[#142452] dark:text-[#E6E8EC]">
                 {strings.settings?.disconnectConfirmTitle || 'Qurilmani uzişni tasdiqlaysizmi?'}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+              <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] mt-1 leading-relaxed">
                 {t('settings.disconnectConfirmDesc', { model: deviceToDisconnect.deviceModel }) || `“${deviceToDisconnect.deviceModel}” qurilmasi akkauntingizdan uziladi va uning darsliklarga kirişi töxtatiladi.`}
               </p>
             </div>
@@ -903,7 +903,7 @@ export const SettingsView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDeviceToDisconnect(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36]"
               >
                 {strings.settings?.cancelBtn || 'Bekor qiliş'}
               </button>
@@ -911,7 +911,7 @@ export const SettingsView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmDisconnect}
                 disabled={disconnecting}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors"
+                className="px-5 py-2 rounded-xl bg-[#B91C1C] hover:bg-[#991B1B] text-white text-xs font-bold transition-colors shadow-sm"
               >
                 {disconnecting ? (strings.settings?.disconnectingBtn || 'Uzilmoqda...') : (strings.settings?.disconnectActionBtn || 'Uziş')}
               </button>
@@ -924,19 +924,19 @@ export const SettingsView: React.FC = () => {
           MODAL 4: Logout Confirmations
       ========================================================================= */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-white dark:bg-[#121A2D] rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-[#FBFBF9] dark:bg-[#1E222A] rounded-3xl p-6 shadow-2xl border border-[#D9DCD5] dark:border-[#353B47] space-y-4">
+            <h3 className="text-base font-bold text-[#142452] dark:text-[#E6E8EC]">
               {strings.settings?.logoutSectionTitle || 'Tizimdan çiqiş'}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] leading-relaxed">
               {strings.settings?.logoutCurrentConfirmDesc || 'Haqiqatan ham şu brauzerdagi sessiyangizdan çiqmoqçimisiz?'}
             </p>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36]"
               >
                 {strings.settings?.cancelBtn || 'Bekor qiliş'}
               </button>
@@ -946,7 +946,7 @@ export const SettingsView: React.FC = () => {
                   setShowLogoutConfirm(false);
                   await logout();
                 }}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors"
+                className="px-5 py-2 rounded-xl bg-[#B91C1C] hover:bg-[#991B1B] text-white text-xs font-bold transition-colors"
               >
                 {strings.settings?.confirmLogoutAction || 'Çiqiş'}
               </button>
@@ -956,19 +956,19 @@ export const SettingsView: React.FC = () => {
       )}
 
       {showLogoutAllConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-white dark:bg-[#121A2D] rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-[#FBFBF9] dark:bg-[#1E222A] rounded-3xl p-6 shadow-2xl border border-[#D9DCD5] dark:border-[#353B47] space-y-4">
+            <h3 className="text-base font-bold text-[#142452] dark:text-[#E6E8EC]">
               {strings.settings?.logoutAllBtn || 'Barça qurilmalardan çiqiş'}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] leading-relaxed">
               {strings.settings?.logoutAllConfirmDesc || 'Barça ulangan 2 ta qurilma (kompyuter, smartfon, sinf doskasi)dagi barça faol sessiyalar bekor qilinadi.'}
             </p>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowLogoutAllConfirm(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36]"
               >
                 {strings.settings?.cancelBtn || 'Bekor qiliş'}
               </button>
@@ -978,7 +978,7 @@ export const SettingsView: React.FC = () => {
                   setShowLogoutAllConfirm(false);
                   await logoutAll();
                 }}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors"
+                className="px-5 py-2 rounded-xl bg-[#B91C1C] hover:bg-[#991B1B] text-white text-xs font-bold transition-colors"
               >
                 {strings.settings?.confirmLogoutAllAction || 'Barçasidan çiqiş'}
               </button>

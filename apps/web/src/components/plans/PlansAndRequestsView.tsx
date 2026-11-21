@@ -203,17 +203,17 @@ export const PlansAndRequestsView: React.FC = () => {
       case AccessRequestStatus.PAID_APPROVED:
         return {
           label: strings.requests.statusApproved,
-          bg: 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+          bg: 'bg-[#E6F6F4] dark:bg-[#0E7C70]/20 text-[#0E7C70] dark:text-[#5ED3C4] border-[#0E7C70]/30',
         };
       case AccessRequestStatus.REJECTED:
         return {
           label: strings.requests.statusRejected,
-          bg: 'bg-red-50 dark:bg-red-950/70 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+          bg: 'bg-red-50 dark:bg-red-950/70 text-[#B91C1C] dark:text-[#F87171] border-red-200 dark:border-red-800',
         };
       default:
         return {
           label: strings.requests.statusPending,
-          bg: 'bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+          bg: 'bg-[#FFFBEB] dark:bg-[#92400E]/30 text-[#B45309] dark:text-[#FBBF24] border-[#FCD34D]/60 dark:border-[#B45309]/50',
         };
     }
   };
@@ -234,10 +234,10 @@ export const PlansAndRequestsView: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#142452] dark:text-[#E6E8EC] tracking-tight">
             {strings.requests.headerTitle}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-[#5B6672] dark:text-[#9AA3B0] mt-1">
             {strings.requests.headerSubtitle}
           </p>
         </div>
@@ -245,18 +245,18 @@ export const PlansAndRequestsView: React.FC = () => {
         <button
           type="button"
           onClick={() => fetchData(true)}
-          className="self-start sm:self-auto px-4 py-2 rounded-xl bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-[#1A243E] transition-all flex items-center gap-2 shadow-soft"
+          className="self-start sm:self-auto px-4 py-2 rounded-xl bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] text-[#5B6672] dark:text-[#9AA3B0] text-xs font-bold hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] hover:text-[#1F2933] dark:hover:text-[#E6E8EC] transition-all flex items-center gap-2 shadow-soft"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+          <RefreshCw className="w-3.5 h-3.5 text-[#5B6672] dark:text-[#9AA3B0]" />
           <span>{strings.common.refresh}</span>
         </button>
       </div>
 
       {/* Active Subscriptions Banner */}
       {mySubscriptions.length > 0 && (
-        <div className="rounded-3xl p-6 bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-soft">
+        <div className="rounded-3xl p-6 bg-gradient-to-r from-[#2A4FB8] to-[#0E7C70] text-white shadow-[0_8px_24px_-4px_rgba(14,124,112,0.25)]">
           <div className="flex items-center gap-2 mb-3">
-            <ShieldCheck className="w-5 h-5 text-emerald-200" />
+            <ShieldCheck className="w-5 h-5 text-white/90" />
             <h3 className="font-extrabold text-base sm:text-lg">
               {strings.requests.activeSubscriptionsTitle} ({mySubscriptions.length})
             </h3>
@@ -265,11 +265,11 @@ export const PlansAndRequestsView: React.FC = () => {
             {mySubscriptions.map((sub, i) => (
               <div
                 key={sub.id || i}
-                className="rounded-2xl p-4 bg-white/10 backdrop-blur-sm border border-white/20"
+                className="rounded-2xl p-4 bg-white/15 backdrop-blur-sm border border-white/25"
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-black text-sm">{formatGrade(sub.gradeId)}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400 text-slate-900">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-[#142452]">
                     {strings.settings?.statusActive || 'Faol'}
                   </span>
                 </div>
@@ -290,16 +290,16 @@ export const PlansAndRequestsView: React.FC = () => {
       {/* Main Request Form & Guide Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Form (8 Cols) */}
-        <div className="lg:col-span-8 rounded-3xl p-6 sm:p-8 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft">
-          <h2 className="text-xl font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+        <div className="lg:col-span-8 rounded-3xl p-6 sm:p-8 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft">
+          <h2 className="text-xl font-black text-[#142452] dark:text-[#E6E8EC] mb-6 flex items-center gap-2">
+            <CreditCard className="w-5 h-5 text-[#2A4FB8] dark:text-[#5B93FA]" />
             <span>{strings.requests.newRequestTitle}</span>
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* 1. Grade Selector */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] uppercase tracking-wider mb-2">
                 1. {strings.requests.gradeLabel}
               </label>
               <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
@@ -312,8 +312,8 @@ export const PlansAndRequestsView: React.FC = () => {
                       onClick={() => setSelectedGradeId(g.id)}
                       className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 border ${
                         active
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-slate-50 dark:bg-[#19233C] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#2D3B5C] hover:border-indigo-300'
+                          ? 'bg-[#2A4FB8] text-white border-transparent shadow-sm'
+                          : 'bg-[#ECEEEA] dark:bg-[#272C36] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47] hover:border-[#2A4FB8]/40 hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
                       }`}
                     >
                       {formatGrade(g.gradeNumber || g.id)}
@@ -326,10 +326,10 @@ export const PlansAndRequestsView: React.FC = () => {
             {/* 2. Select Subject */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] uppercase tracking-wider">
                   2. {strings.requests.selectSubject || 'Fanni tanlang'}
                 </label>
-                <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-extrabold bg-indigo-50 dark:bg-indigo-950/70 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60">
+                <span className="text-[11px] text-[#2A4FB8] dark:text-[#5B93FA] font-extrabold bg-[#EEF4FF] dark:bg-[#142452] px-2.5 py-0.5 rounded-full border border-[#BAD2FF] dark:border-[#223F94]">
                   {strings.requests.singleSubjectOnly || 'Faqat bitta tanlangan fan uçun'}
                 </span>
               </div>
@@ -343,8 +343,8 @@ export const PlansAndRequestsView: React.FC = () => {
                       onClick={() => setSelectedSubjectId(sub.id)}
                       className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all border shrink-0 flex items-center gap-2 ${
                         active
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20 scale-[1.02]'
-                          : 'bg-slate-50 dark:bg-[#19233C] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#2D3B5C] hover:border-indigo-300'
+                          ? 'bg-[#2A4FB8] text-white border-transparent shadow-md shadow-[#2A4FB8]/20 scale-[1.02]'
+                          : 'bg-[#ECEEEA] dark:bg-[#272C36] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47] hover:border-[#2A4FB8]/40 hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
                       }`}
                     >
                       <span className="text-sm">{sub.icon || '📘'}</span>
@@ -353,14 +353,14 @@ export const PlansAndRequestsView: React.FC = () => {
                   );
                 })}
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                {strings.requests.subjectNotice || 'Har bir fan uçun alohida obuna amal qiladi.'} {strings.requests.selectedSubjectPrompt || 'Siz tanlagan fan:'} <strong className="text-slate-900 dark:text-white">{formatGrade(selectedGradeId)} • {formatSubject(activeSubject?.name, activeSubject?.id)}</strong>
+              <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0] mt-1">
+                {strings.requests.subjectNotice || 'Har bir fan uçun alohida obuna amal qiladi.'} {strings.requests.selectedSubjectPrompt || 'Siz tanlagan fan:'} <strong className="text-[#1F2933] dark:text-[#E6E8EC]">{formatGrade(selectedGradeId)} • {formatSubject(activeSubject?.name, activeSubject?.id)}</strong>
               </p>
             </div>
 
             {/* 3. Duration Plans (3 Cards) */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] uppercase tracking-wider mb-2">
                 3. {strings.requests.planLabel}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -395,22 +395,22 @@ export const PlansAndRequestsView: React.FC = () => {
                       onClick={() => setSelectedPlan(plan.id)}
                       className={`relative p-4 rounded-2xl border text-left transition-all ${
                         active
-                          ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 dark:border-[#2D3B5C] bg-slate-50 dark:bg-[#19233C]'
+                          ? 'border-[#2A4FB8] bg-[#EEF4FF]/70 dark:bg-[#142452]/40 ring-2 ring-[#2A4FB8]/20'
+                          : 'border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E] hover:border-[#2A4FB8]/40'
                       }`}
                     >
                       {plan.badge && (
-                        <span className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-white shadow-sm">
+                        <span className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-[#2A4FB8] to-[#0E7C70] text-white shadow-sm">
                           {plan.badge}
                         </span>
                       )}
-                      <p className="text-xs font-black text-slate-900 dark:text-white mb-1">
+                      <p className="text-xs font-black text-[#1F2933] dark:text-[#E6E8EC] mb-1">
                         {plan.label}
                       </p>
-                      <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+                      <p className="text-lg font-black text-[#2A4FB8] dark:text-[#5B93FA]">
                         {formatPriceUzs(plan.price)} {t('common.currencySom')}
                       </p>
-                      <p className="text-[11px] text-slate-400 mt-1">{plan.duration}</p>
+                      <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0] mt-1">{plan.duration}</p>
                     </button>
                   );
                 })}
@@ -420,30 +420,30 @@ export const PlansAndRequestsView: React.FC = () => {
             {/* 4. Phone Number & Note */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] mb-1">
                   {strings.requests.phoneLabel} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                  <Phone className="absolute left-3.5 top-3 w-4 h-4 text-[#5B6672] dark:text-[#9AA3B0]" />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => handlePhoneChange(e.target.value)}
                     placeholder={strings.requests.phonePlaceholder}
                     required
-                    className="w-full h-11 pl-10 pr-9 text-sm font-mono font-bold rounded-xl bg-slate-50 dark:bg-[#19233C] border border-slate-200 dark:border-[#2D3B5C] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all placeholder:text-slate-400"
+                    className="w-full h-11 pl-10 pr-9 text-sm font-mono font-bold rounded-xl bg-[#F4F5F2] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] text-[#1F2933] dark:text-[#E6E8EC] focus:outline-none focus:ring-2 focus:ring-[#2A4FB8]/20 focus:border-[#2A4FB8] transition-all placeholder:text-[#5B6672]"
                   />
                   {isPhoneValid && (
-                    <CheckCircle2 className="absolute right-3 top-3 w-4 h-4 text-emerald-500" />
+                    <CheckCircle2 className="absolute right-3 top-3 w-4 h-4 text-[#0E7C70]" />
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0] mt-1">
                   {strings.requests.phoneHint || 'Tölovni tasdiqlaş uçun amaldagi Özbekiston telefon raqamingiz'}
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0] mb-1">
                   {strings.requests.noteLabel}
                 </label>
                 <input
@@ -451,9 +451,9 @@ export const PlansAndRequestsView: React.FC = () => {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder={strings.requests.notePlaceholder}
-                  className="w-full h-11 px-3.5 text-sm rounded-xl bg-slate-50 dark:bg-[#19233C] border border-slate-200 dark:border-[#2D3B5C] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all placeholder:text-slate-400"
+                  className="w-full h-11 px-3.5 text-sm rounded-xl bg-[#F4F5F2] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] text-[#1F2933] dark:text-[#E6E8EC] focus:outline-none focus:ring-2 focus:ring-[#2A4FB8]/20 focus:border-[#2A4FB8] transition-all placeholder:text-[#5B6672]"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0] mt-1">
                   {strings.requests.noteHint || 'Ixtiyoriy: tölov çeki yoki qöşimça izoh'}
                 </p>
               </div>
@@ -461,8 +461,8 @@ export const PlansAndRequestsView: React.FC = () => {
 
             {/* Duplicate Protection Warning */}
             {(duplicatePendingRequest || duplicateApprovedSub) && (
-              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3 text-xs text-amber-800 dark:text-amber-200">
-                <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div className="p-4 rounded-2xl bg-[#FFFBEB] dark:bg-[#92400E]/30 border border-[#FCD34D]/60 dark:border-[#B45309]/50 flex items-start gap-3 text-xs text-[#B45309] dark:text-[#FBBF24]">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-[#B45309] dark:text-[#FBBF24] mt-0.5" />
                 <div>
                   <p className="font-bold">
                     {duplicateApprovedSub
@@ -479,8 +479,8 @@ export const PlansAndRequestsView: React.FC = () => {
             {/* Submit Button */}
             <div className="pt-2 flex items-center justify-between gap-4">
               <div className="text-xs">
-                <span className="text-slate-400">{strings.common?.totalPrice || 'Jami narx'}: </span>
-                <span className="font-black text-lg text-slate-900 dark:text-white">
+                <span className="text-[#5B6672] dark:text-[#9AA3B0]">{strings.common?.totalPrice || 'Jami narx'}: </span>
+                <span className="font-black text-lg text-[#142452] dark:text-[#E6E8EC]">
                   {formatPriceUzs(activePlanObj.priceUzs)} {t('common.currencySom')}
                 </span>
               </div>
@@ -488,7 +488,7 @@ export const PlansAndRequestsView: React.FC = () => {
               <button
                 type="submit"
                 disabled={submitting || !isPhoneValid || !!duplicatePendingRequest || !!duplicateApprovedSub}
-                className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-sm shadow-glow active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                className="px-8 py-3.5 rounded-2xl bg-[#2A4FB8] hover:bg-[#223F94] text-white font-bold text-sm shadow-md shadow-[#2A4FB8]/25 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -505,24 +505,24 @@ export const PlansAndRequestsView: React.FC = () => {
 
         {/* Right Info & Telegram Support (4 Cols) */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="rounded-3xl p-6 sm:p-7 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft space-y-4">
-            <div className="flex items-center gap-2.5 text-indigo-600 dark:text-indigo-400 font-extrabold text-sm">
+          <div className="rounded-3xl p-6 sm:p-7 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft space-y-4">
+            <div className="flex items-center gap-2.5 text-[#2A4FB8] dark:text-[#5B93FA] font-extrabold text-sm">
               <Info className="w-4 h-4" />
               <span>{strings.requests.paymentBoxTitle}</span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] leading-relaxed">
               {strings.requests.paymentBoxBody}
             </p>
 
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+            <div className="pt-2 border-t border-[#D9DCD5] dark:border-[#353B47]">
+              <p className="text-xs font-bold text-[#142452] dark:text-[#E6E8EC] mb-2">
                 {strings.requests.helpTitle || 'Savollaringiz bormi yoki tezkor tasdiqlaş kerakmi?'}
               </p>
               <a
                 href="https://t.me/ilmchi_support"
                 target="_blank"
                 rel="noreferrer"
-                className="w-full py-3 px-4 rounded-xl bg-sky-50 dark:bg-sky-950/50 hover:bg-sky-100 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 text-xs font-bold transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-xl bg-[#EEF8FD] dark:bg-[#0369A1]/20 hover:bg-[#DCE8FF] text-[#0369A1] dark:text-[#7DD3FC] border border-[#0369A1]/30 text-xs font-bold transition-all flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
                 <span>{strings.requests.telegramBtn}</span>
@@ -533,23 +533,23 @@ export const PlansAndRequestsView: React.FC = () => {
       </div>
 
       {/* Requests History List */}
-      <div className="rounded-3xl p-6 sm:p-8 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft space-y-5">
+      <div className="rounded-3xl p-6 sm:p-8 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft space-y-5">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <Clock className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <h3 className="text-lg font-black text-[#142452] dark:text-[#E6E8EC] flex items-center gap-2">
+            <Clock className="w-5 h-5 text-[#2A4FB8] dark:text-[#5B93FA]" />
             <span>{strings.requests.historyTitle}</span>
           </h3>
-          <span className="text-xs font-bold text-slate-400">
+          <span className="text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0]">
             {t('requests.requestsCount', { count: myRequests.length }) || `${myRequests.length} ta sörov`}
           </span>
         </div>
 
         {myRequests.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
+          <div className="p-8 text-center text-xs text-[#5B6672] dark:text-[#9AA3B0]">
             {strings.requests.noHistory}
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+          <div className="divide-y divide-[#D9DCD5] dark:divide-[#353B47]">
             {myRequests.map((req) => {
               const meta = getStatusBadge(req.status);
               return (
@@ -559,11 +559,11 @@ export const PlansAndRequestsView: React.FC = () => {
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-black text-sm text-slate-900 dark:text-white">
+                      <span className="font-black text-sm text-[#142452] dark:text-[#E6E8EC]">
                         {formatGrade(req.gradeId)}
                       </span>
                       {req.subjectName && (
-                        <span className="text-xs font-bold text-slate-500">
+                        <span className="text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0]">
                           • {formatSubject(req.subjectName, req.subjectId)}
                         </span>
                       )}
@@ -574,24 +574,24 @@ export const PlansAndRequestsView: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center gap-4 text-xs text-[#5B6672] dark:text-[#9AA3B0]">
                       <span>Tel: {req.phoneNumber}</span>
                       <span>•</span>
                       <span>{formatDate(req.createdAt)}</span>
                     </div>
 
                     {req.internalNote && (
-                      <p className="text-[11px] text-slate-400 italic">
+                      <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0] italic">
                         Izoh: {req.internalNote}
                       </p>
                     )}
                   </div>
 
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-black text-slate-900 dark:text-white">
+                    <p className="text-sm font-black text-[#142452] dark:text-[#E6E8EC]">
                       {formatPriceUzs(req.priceUzs)} {t('common.currencySom')}
                     </p>
-                    <p className="text-[11px] text-slate-400 capitalize">
+                    <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0] capitalize">
                       {req.plan.toLowerCase().replace('_', ' ')}
                     </p>
                   </div>

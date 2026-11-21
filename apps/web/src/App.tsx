@@ -135,7 +135,7 @@ export const App: React.FC = () => {
           {onAdminPath ? (
             <button
               onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-full shadow-lg border border-white/20 transition-all hover:scale-105"
+              className="flex items-center gap-2 px-3.5 py-2 bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-semibold rounded-full shadow-lg border border-white/20 transition-all hover:scale-105"
               title="Öqituvçi kabinetiga ötiş (/dashboard)"
             >
               <GraduationCap className="w-4 h-4" />

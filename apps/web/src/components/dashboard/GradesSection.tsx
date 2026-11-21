@@ -88,20 +88,20 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
 
   if (gradeList.length === 0) {
     return (
-      <div className="rounded-3xl p-10 bg-white dark:bg-[#121A2D] border border-dashed border-slate-300 dark:border-slate-700 text-center max-w-lg mx-auto my-6 space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center">
+      <div className="rounded-3xl p-10 bg-[#FBFBF9] dark:bg-[#1E222A] border border-dashed border-[#D9DCD5] dark:border-[#353B47] text-center max-w-lg mx-auto my-6 space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] mx-auto flex items-center justify-center">
           <GraduationCap className="w-8 h-8" />
         </div>
-        <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+        <h3 className="text-xl font-bold text-[#142452] dark:text-[#E6E8EC]">
           {t('dashboard.emptyGradesCabinetTitle')}
         </h3>
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+        <p className="text-xs sm:text-sm text-[#5B6672] dark:text-[#9AA3B0] leading-relaxed max-w-md mx-auto">
           {t('dashboard.emptyGradesCabinetDesc')}
         </p>
         <button
           type="button"
           onClick={() => onRequestSubscription(5)}
-          className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/25 active:scale-95 transition-all inline-flex items-center gap-2"
+          className="px-6 py-3 rounded-2xl bg-[#2A4FB8] hover:bg-[#223F94] text-white font-bold text-xs shadow-md shadow-[#2A4FB8]/25 active:scale-95 transition-all inline-flex items-center gap-2"
         >
           <span>{t('dashboard.goToPlansBtn')}</span>
           <ArrowRight className="w-4 h-4" />
@@ -127,8 +127,8 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
               }}
               className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shrink-0 border ${
                 active
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-glow scale-[1.02]'
-                  : 'bg-white dark:bg-[#121A2D] text-slate-700 dark:text-slate-300 border-slate-200/90 dark:border-[#23304E] hover:border-indigo-300'
+                  ? 'bg-[#2A4FB8] text-white border-[#2A4FB8] shadow-md shadow-[#2A4FB8]/25 scale-[1.02]'
+                  : 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47] hover:border-[#2A4FB8]/50 hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
               }`}
             >
               <span>{formatGrade(g.gradeNumber || g.id)}</span>
@@ -137,7 +137,7 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
                   className={`px-1.5 py-0.5 text-[10px] rounded-md font-extrabold ${
                     active
                       ? 'bg-white/20 text-white'
-                      : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400'
+                      : 'bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA]'
                   }`}
                 >
                   {count}
@@ -149,7 +149,7 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
       </div>
 
       {/* Filter Row: Subject Tags & Book Type Tabs */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-3xl bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-3xl bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft">
         {/* Subject Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
           <button
@@ -157,8 +157,8 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
             onClick={() => setSelectedSubjectId('ALL')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 ${
               selectedSubjectId === 'ALL'
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-transparent'
-                : 'bg-slate-50 dark:bg-[#1A243E] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#293A60]'
+                ? 'bg-[#142452] dark:bg-[#EEF4FF] text-white dark:text-[#142452] border-transparent'
+                : 'bg-[#ECEEEA] dark:bg-[#272C36] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47] hover:border-[#2A4FB8]/40 hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
             }`}
           >
             {t('common.allSubjects')}
@@ -172,8 +172,8 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
                 onClick={() => setSelectedSubjectId(sub.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${
                   active
-                    ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 border-indigo-300 dark:border-indigo-700'
-                    : 'bg-slate-50 dark:bg-[#1A243E] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#293A60]'
+                    ? 'bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] border-[#BAD2FF] dark:border-[#223F94]'
+                    : 'bg-[#ECEEEA] dark:bg-[#272C36] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47] hover:border-[#2A4FB8]/40 hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
                 }`}
               >
                 <span>{sub.icon || '📘'}</span>
@@ -184,7 +184,7 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
         </div>
 
         {/* Book Type Tabs */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl shrink-0 overflow-x-auto">
+        <div className="flex items-center bg-[#ECEEEA] dark:bg-[#272C36] p-1 rounded-2xl shrink-0 overflow-x-auto">
           {bookTypeTabs.map((tab) => {
             const active = selectedBookType === tab.id;
             return (
@@ -194,8 +194,8 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
                 onClick={() => setSelectedBookType(tab.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                   active
-                    ? 'bg-white dark:bg-[#121A2D] text-indigo-600 dark:text-indigo-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#2A4FB8] dark:text-[#5B93FA] shadow-sm'
+                    : 'text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
                 }`}
               >
                 {tab.label}
@@ -207,12 +207,12 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
 
       {/* Books Grid */}
       {displayBooks.length === 0 ? (
-        <div className="rounded-3xl p-12 bg-white dark:bg-[#121A2D] border border-dashed border-slate-300 dark:border-slate-700 text-center max-w-md mx-auto my-8">
-          <BookOpen className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h4 className="text-base font-bold text-slate-800 dark:text-slate-200 mb-1">
+        <div className="rounded-3xl p-12 bg-[#FBFBF9] dark:bg-[#1E222A] border border-dashed border-[#D9DCD5] dark:border-[#353B47] text-center max-w-md mx-auto my-8">
+          <BookOpen className="w-12 h-12 text-[#5B6672] dark:text-[#9AA3B0] mx-auto mb-3" />
+          <h4 className="text-base font-bold text-[#142452] dark:text-[#E6E8EC] mb-1">
             {t('grades.noBooksInGrade')}
           </h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] mb-4">
             {t('dashboard.emptyFilterPrompt')}
           </p>
           <button
@@ -221,7 +221,7 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
               setSelectedSubjectId('ALL');
               setSelectedBookType('ALL');
             }}
-            className="px-4 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-xs font-bold hover:bg-indigo-100"
+            className="px-4 py-2 rounded-xl bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] text-xs font-bold hover:bg-[#DCE8FF]"
           >
             {t('common.clear')}
           </button>
@@ -233,10 +233,10 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
             return (
               <div
                 key={book.id}
-                className="group rounded-3xl p-5 bg-white dark:bg-[#121A2D] border border-slate-200/90 dark:border-[#23304E] shadow-soft hover:shadow-elevated hover:border-indigo-300 dark:hover:border-indigo-700 transition-all flex flex-col justify-between"
+                className="group rounded-3xl p-5 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft hover:shadow-[0_12px_32px_-4px_rgba(42,79,184,0.15)] hover:border-[#2A4FB8]/40 transition-all flex flex-col justify-between"
               >
                 {/* Book Cover Container */}
-                <div className="relative w-full aspect-[3/4] rounded-2xl bg-gradient-to-tr from-indigo-500 to-indigo-700 overflow-hidden mb-4 shadow-sm flex items-center justify-center">
+                <div className="relative w-full aspect-[3/4] rounded-2xl bg-gradient-to-tr from-[#2A4FB8] to-[#0369A1] overflow-hidden mb-4 shadow-sm flex items-center justify-center">
                   {book.coverImageUrl ? (
                     <img
                       src={book.coverImageUrl}
@@ -254,10 +254,10 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
 
                   {/* Top Badges */}
                   <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-white/90 dark:bg-[#121A2D]/90 text-indigo-700 dark:text-indigo-300 backdrop-blur-sm shadow-sm">
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-[#FBFBF9]/90 dark:bg-[#1E222A]/90 text-[#2A4FB8] dark:text-[#5B93FA] backdrop-blur-sm shadow-sm">
                       {formatBookType(book.type)}
                     </span>
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-900/70 text-white backdrop-blur-sm">
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-[#0F172A]/70 text-white backdrop-blur-sm">
                       {book.totalPages} {t('common.pages')}
                     </span>
                   </div>
@@ -267,11 +267,11 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
                 <div className="space-y-1.5 mb-4">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs">{subj?.icon || '📘'}</span>
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0]">
                       {formatSubject(subj?.name, book.subjectId)}
                     </span>
                   </div>
-                  <h4 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white line-clamp-2 leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  <h4 className="font-extrabold text-sm sm:text-base text-[#142452] dark:text-[#E6E8EC] line-clamp-2 leading-snug group-hover:text-[#2A4FB8] dark:group-hover:text-[#5B93FA] transition-colors">
                     {book.title}
                   </h4>
                 </div>
@@ -280,7 +280,7 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenReader(book)}
-                  className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white font-bold text-xs shadow-sm hover:shadow-[0_4px_14px_rgba(42,79,184,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
                   <span>{t('grades.openBookBtn')}</span>
@@ -293,16 +293,16 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
       )}
 
       {/* Bottom CTA Banner to subscribe to more subjects */}
-      <div className="p-5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
+      <div className="p-5 rounded-2xl bg-gradient-to-r from-[#EEF4FF] to-[#E6F6F4] dark:from-[#1E222A] dark:to-[#272C36] border border-[#2A4FB8]/20 dark:border-[#2A4FB8]/30 flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#2A4FB8] text-white flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+            <p className="text-xs sm:text-sm font-bold text-[#142452] dark:text-[#E6E8EC]">
               {t('dashboard.addMoreSubjectTitle')}
             </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0]">
               {t('dashboard.addMoreSubjectDesc')}
             </p>
           </div>
@@ -310,7 +310,7 @@ export const GradesSection: React.FC<GradesSectionProps> = ({
         <button
           type="button"
           onClick={() => onRequestSubscription(selectedGradeId)}
-          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shrink-0 transition-all shadow-sm flex items-center gap-1.5"
+          className="px-4 py-2 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-bold shrink-0 transition-all shadow-sm flex items-center gap-1.5"
         >
           <span>{t('dashboard.goToPlansSimple')}</span>
           <ArrowRight className="w-3.5 h-3.5" />
