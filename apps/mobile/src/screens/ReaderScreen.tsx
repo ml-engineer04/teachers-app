@@ -256,6 +256,9 @@ const PdfVerticalPageCanvas: React.FC<{
 let devTotalMountedImages = 0;
 let devCardRenderCount = 0;
 
+const VERTICAL_WINDOW_BACKWARD = 2;
+const VERTICAL_WINDOW_FORWARD = 4;
+
 interface ReaderVerticalPageCardProps {
   pageNumber: number;
   inWindow: boolean;
@@ -318,26 +321,62 @@ const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
     }
   }, [inWindow, pageImgUrl]);
 
+  const [isLocalLoaded, setIsLocalLoaded] = useState(false);
+  const [hasFailed, setHasFailed] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
+  const retryTimerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!inWindow) {
+      setIsLocalLoaded(false);
+      setHasFailed(false);
+      setRetryAttempt(0);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    }
+  }, [inWindow]);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleLoad = useCallback(
     (e: any) => {
       readerBenchmark.markT3(pageNumber);
+      setIsLocalLoaded(true);
+      setHasFailed(false);
       onMarkLoaded(pageNumber);
       onImageDimensionLoaded(pageNumber, e);
     },
     [onMarkLoaded, onImageDimensionLoaded, pageNumber],
   );
 
+  const RETRY_DELAYS = [400, 1200, 2500];
+
   const handleError = useCallback(() => {
-    if (retryAttempt < 1) {
-      setTimeout(() => {
+    if (retryAttempt < RETRY_DELAYS.length) {
+      const delay = RETRY_DELAYS[retryAttempt] || 1000;
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = setTimeout(() => {
         setRetryAttempt((prev) => prev + 1);
-      }, 400);
+      }, delay);
     } else {
-      onMarkLoaded(pageNumber);
+      // 3 ta urinish tugadi, sahifa failed holatiga o'tadi
+      // DIQQAT: onMarkLoaded chaqirilmaydi, sahifa yuklangan deb belgilanmaydi
+      setHasFailed(true);
     }
-  }, [onMarkLoaded, pageNumber, retryAttempt]);
+  }, [retryAttempt]);
+
+  const handleManualRetry = useCallback(() => {
+    setHasFailed(false);
+    setRetryAttempt(0);
+  }, []);
 
   const handleStrokes = useCallback(
     (next: DrawStroke[]) => {
@@ -361,37 +400,89 @@ const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
     >
       {inWindow ? (
         <View style={{ width: pageWidth, height: cardHeight, position: 'relative' }}>
-          {!isLoaded && (
-            <View style={[StyleSheet.absoluteFill, { zIndex: 1 }]}>
-              <ReaderPageSkeleton style={{ width: '100%', height: '100%', marginTop: 0 }} />
-            </View>
+          {hasFailed ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleManualRetry}
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: placeholderBg,
+                  padding: 16,
+                  zIndex: 2,
+                },
+              ]}
+            >
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: cardBg,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 8,
+                  borderWidth: 1,
+                  borderColor,
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>🔄</Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: borderColor,
+                  textAlign: 'center',
+                  marginBottom: 4,
+                }}
+              >
+                {pageBadgeText}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '500',
+                  color: '#0E7C70',
+                  textAlign: 'center',
+                }}
+              >
+                Qayta yuklash
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              {!isLocalLoaded && (
+                <View style={[StyleSheet.absoluteFill, { zIndex: 1 }]}>
+                  <ReaderPageSkeleton style={{ width: '100%', height: '100%', marginTop: 0 }} />
+                </View>
+              )}
+              {pageImgUrl ? (
+                <Image
+                  key={`${pageImgUrl}_retry_${retryAttempt}`}
+                  source={{ uri: pageImgUrl }}
+                  style={styles.pageImageFull}
+                  resizeMode="contain"
+                  resizeMethod="resize"
+                  fadeDuration={0}
+                  progressiveRenderingEnabled={true}
+                  onLoad={handleLoad}
+                  onError={handleError}
+                />
+              ) : hasPdf && Platform.OS === 'web' && pdfDoc ? (
+                <PdfVerticalPageCanvas
+                  pdfDoc={pdfDoc}
+                  pageNumber={pageNumber}
+                  width={pageWidth}
+                  height={cardHeight}
+                />
+              ) : renderCustomFallback ? (
+                renderCustomFallback(pageNumber, { width: pageWidth, height: cardHeight })
+              ) : null}
+            </>
           )}
-          {pageImgUrl ? (
-            <Image
-              key={`${pageImgUrl}_retry${retryAttempt}`}
-              source={{
-                uri:
-                  retryAttempt > 0
-                    ? `${pageImgUrl}${pageImgUrl.includes('?') ? '&' : '?'}retry=${retryAttempt}`
-                    : pageImgUrl,
-              }}
-              style={styles.pageImageFull}
-              resizeMode="contain"
-              fadeDuration={0}
-              progressiveRenderingEnabled={true}
-              onLoad={handleLoad}
-              onError={handleError}
-            />
-          ) : hasPdf && Platform.OS === 'web' && pdfDoc ? (
-            <PdfVerticalPageCanvas
-              pdfDoc={pdfDoc}
-              pageNumber={pageNumber}
-              width={pageWidth}
-              height={cardHeight}
-            />
-          ) : renderCustomFallback ? (
-            renderCustomFallback(pageNumber, { width: pageWidth, height: cardHeight })
-          ) : null}
         </View>
       ) : (
         <View
@@ -480,9 +571,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     };
   });
 
-  const [loadedPages, setLoadedPages] = useState<Set<number>>(
-    () => new Set([initialRestoredPage, 1]),
-  );
+  const loadedPagesRef = useRef<Set<number>>(new Set([initialRestoredPage, 1]));
 
   const devScreenRenderCountRef = useRef(0);
   if (__DEV__) {
@@ -492,22 +581,13 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   useEffect(() => {
     if (__DEV__) {
       console.log(
-        `[READER_DEV_METRICS] Page: ${currentPage} | ScreenRenders: ${devScreenRenderCountRef.current} | MountedImages: ${devTotalMountedImages} | CardRenders: ${devCardRenderCount} | LoadedPages: ${loadedPages.size}`,
+        `[READER_DEV_METRICS] Page: ${currentPage} | ScreenRenders: ${devScreenRenderCountRef.current} | MountedImages: ${devTotalMountedImages} | CardRenders: ${devCardRenderCount} | LoadedPages: ${loadedPagesRef.current.size}`,
       );
     }
-  }, [currentPage, loadedPages.size]);
+  }, [currentPage]);
 
   const markPageLoaded = useCallback((pageNum: number) => {
-    setLoadedPages((prev) => {
-      if (prev.has(pageNum)) return prev;
-      const cur = currentPageRef.current;
-      const next = new Set<number>();
-      for (const p of prev) {
-        if (Math.abs(p - cur) <= 40) next.add(p);
-      }
-      next.add(pageNum);
-      return next;
-    });
+    loadedPagesRef.current.add(pageNum);
   }, []);
 
   const handleImageDimensionLoaded = useCallback((pageNum: number, e: any) => {
@@ -2655,7 +2735,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             >
               {Array.from({ length: totalPages }, (_, idx) => {
                 const pg = idx + 1;
-                const inWindow = Math.abs(pg - currentPage) <= 6 || loadedPages.has(pg);
+                const inWindow =
+                  pg >= currentPage - VERTICAL_WINDOW_BACKWARD &&
+                  pg <= currentPage + VERTICAL_WINDOW_FORWARD;
                 const pgObj = pagesByNumberMap.get(pg);
                 const versionParam = (book as any).pagesVersion || (book as any).version || '';
                 let basePgImgUrl =
@@ -2676,7 +2758,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                     key={`vpage_${pg}`}
                     pageNumber={pg}
                     inWindow={inWindow}
-                    isLoaded={loadedPages.has(pg)}
+                    isLoaded={loadedPagesRef.current.has(pg)}
                     pageWidth={vPageWidth}
                     cardHeight={cardHeight}
                     pageImgUrl={pgImgUrl}
