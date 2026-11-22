@@ -253,6 +253,9 @@ const PdfVerticalPageCanvas: React.FC<{
   );
 });
 
+let devTotalMountedImages = 0;
+let devCardRenderCount = 0;
+
 interface ReaderVerticalPageCardProps {
   pageNumber: number;
   inWindow: boolean;
@@ -302,6 +305,19 @@ const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
   onStrokesChange,
   renderCustomFallback,
 }) => {
+  if (__DEV__) {
+    devCardRenderCount++;
+  }
+
+  useEffect(() => {
+    if (__DEV__ && inWindow && pageImgUrl) {
+      devTotalMountedImages++;
+      return () => {
+        devTotalMountedImages = Math.max(0, devTotalMountedImages - 1);
+      };
+    }
+  }, [inWindow, pageImgUrl]);
+
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   const handleLoad = useCallback(
@@ -467,6 +483,20 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   const [loadedPages, setLoadedPages] = useState<Set<number>>(
     () => new Set([initialRestoredPage, 1]),
   );
+
+  const devScreenRenderCountRef = useRef(0);
+  if (__DEV__) {
+    devScreenRenderCountRef.current++;
+  }
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log(
+        `[READER_DEV_METRICS] Page: ${currentPage} | ScreenRenders: ${devScreenRenderCountRef.current} | MountedImages: ${devTotalMountedImages} | CardRenders: ${devCardRenderCount} | LoadedPages: ${loadedPages.size}`,
+      );
+    }
+  }, [currentPage, loadedPages.size]);
+
   const markPageLoaded = useCallback((pageNum: number) => {
     setLoadedPages((prev) => {
       if (prev.has(pageNum)) return prev;
