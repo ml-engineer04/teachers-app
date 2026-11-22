@@ -337,6 +337,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       return;
     }
 
+    // Optimistic Instant Open: if access is already valid in memory, open reader immediately (<15ms)
+    const cachedAccess = SubscriptionManager.getCachedGradeAccess(book.gradeId || 11);
+    const hasCachedAccess =
+      cachedAccess &&
+      (SubscriptionManager.isAccessValid(cachedAccess) || (isDl && cachedAccess.status !== 'EXPIRED'));
+    if (hasCachedAccess) {
+      readerBenchmark.markT1();
+      onOpenReader({
+        ...book,
+        initialPage: resolvedInitialPage,
+      });
+
+      // Background re-validation (non-blocking)
+      SubscriptionManager.checkBookAccess({
+        bookId: book.id,
+        gradeId: book.gradeId || 11,
+        subjectId: book.subjectId,
+      }).catch(() => {});
+      return;
+    }
+
     const { allowed, access } = await SubscriptionManager.checkBookAccess({
       bookId: book.id,
       gradeId: book.gradeId || 11,

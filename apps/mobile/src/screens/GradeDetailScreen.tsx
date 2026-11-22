@@ -379,6 +379,36 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
       return;
     }
 
+    // Optimistic Instant Open: if access is already valid in memory, open reader immediately (<15ms)
+    const hasCachedAccess =
+      gradeAccess &&
+      (SubscriptionManager.isAccessValid(gradeAccess) || (isDl && gradeAccess.status !== 'EXPIRED'));
+    if (hasCachedAccess) {
+      readerBenchmark.markT1();
+      onOpenReader({
+        id: book.id,
+        title: book.title,
+        gradeId: book.gradeId,
+        subjectId: book.subjectId,
+        totalPages: book.totalPages || 6,
+        contentStartPdfPage: (book as any).contentStartPdfPage,
+        type: book.type,
+        initialPage: resolvedInitialPage,
+      });
+
+      // Background re-validation (non-blocking)
+      SubscriptionManager.checkBookAccess({
+        bookId: book.id,
+        gradeId: book.gradeId || selectedGrade,
+        subjectId: book.subjectId,
+      })
+        .then(({ access }) => {
+          setGradeAccess(access);
+        })
+        .catch(() => {});
+      return;
+    }
+
     const { allowed, access } = await SubscriptionManager.checkBookAccess({
       bookId: book.id,
       gradeId: book.gradeId || selectedGrade,

@@ -154,6 +154,11 @@ export class SubscriptionManager {
     return Array.from(this.gradeAccessCache.values());
   }
 
+  static getCachedGradeAccess(gradeId: number): GradeAccessInfo | undefined {
+    const current = this.gradeAccessCache.get(gradeId);
+    return current ? evaluateGradeAccessExpiry(current) : undefined;
+  }
+
   static async getGradeAccess(gradeId: number, forceSync = true): Promise<GradeAccessInfo> {
     await this.ensureAsyncCacheLoaded();
     this.refreshCacheExpiries();

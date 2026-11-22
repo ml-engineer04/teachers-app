@@ -143,16 +143,26 @@ async function executeRequest<T>(endpoint: string, options?: RequestInit, isRetr
     ...(options?.headers as any),
   };
 
+  const timeoutMs = endpoint.includes('/image') || endpoint.includes('/pdf') ? 20000 : 12000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${endpoint}`, {
       headers,
+      signal: options?.signal || controller.signal,
       ...options,
     });
   } catch (netErr: any) {
-    const error: ApiError = new Error(netErr?.message || 'Internet aloqasi mavjud emas');
+    const isTimeout = netErr?.name === 'AbortError';
+    const error: ApiError = new Error(
+      isTimeout ? 'Tarmoq so‘rovi vaqti tugadi (timeout)' : netErr?.message || 'Internet aloqasi mavjud emas',
+    );
     error.isNetworkError = true;
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 
   // Handle 401 Unauthorized -> Transparent Token Refresh

@@ -302,6 +302,8 @@ const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
   onStrokesChange,
   renderCustomFallback,
 }) => {
+  const [retryAttempt, setRetryAttempt] = useState(0);
+
   const handleLoad = useCallback(
     (e: any) => {
       readerBenchmark.markT3(pageNumber);
@@ -312,8 +314,14 @@ const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
   );
 
   const handleError = useCallback(() => {
-    onMarkLoaded(pageNumber);
-  }, [onMarkLoaded, pageNumber]);
+    if (retryAttempt < 1) {
+      setTimeout(() => {
+        setRetryAttempt((prev) => prev + 1);
+      }, 400);
+    } else {
+      onMarkLoaded(pageNumber);
+    }
+  }, [onMarkLoaded, pageNumber, retryAttempt]);
 
   const handleStrokes = useCallback(
     (next: DrawStroke[]) => {
@@ -344,7 +352,13 @@ const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
           )}
           {pageImgUrl ? (
             <Image
-              source={{ uri: pageImgUrl }}
+              key={`${pageImgUrl}_retry${retryAttempt}`}
+              source={{
+                uri:
+                  retryAttempt > 0
+                    ? `${pageImgUrl}${pageImgUrl.includes('?') ? '&' : '?'}retry=${retryAttempt}`
+                    : pageImgUrl,
+              }}
               style={styles.pageImageFull}
               resizeMode="contain"
               fadeDuration={0}
@@ -705,11 +719,13 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     setTotalPages(optimisticTotal);
 
     // Instant optimistic pages initialization: starts rendering page image at 0ms!
+    const versionParam = (book as any).pagesVersion || (book as any).version || '';
+    const versionQuery = versionParam ? `?v=${versionParam}` : '';
     const initialOptimisticPages = Array.from({ length: optimisticTotal }, (_, i) => ({
       pageNumber: i + 1,
-      imageUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image`,
-      imageNormalUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image`,
-      imageHighUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image`,
+      imageUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image${versionQuery}`,
+      imageNormalUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image${versionQuery}`,
+      imageHighUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image${versionQuery}`,
     }));
     setPages(initialOptimisticPages);
     setLoadingBook(false);
@@ -975,59 +991,64 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         );
         mobileApi.saveReadingProgress(book.id, restoredPage).catch(() => {});
 
-        // Background Stage 2: Non-blocking secondary metadata hydration
-        Promise.all([
-          mobileApi.getMedia(book.id).catch(() => []),
-          mobileApi.getAnswerMappings(book.gradeId, book.subjectId).catch(() => []),
-          mobileApi.getAnswerKeys(book.id).catch(() => []),
-          mobileApi.getBookToc(book.id).catch(() => []),
-          mobileApi.getBookmarks(book.id).catch(() => []),
-          mobileApi.getNotes(book.id).catch(() => []),
-          mobileApi.getDrawings(book.id).catch(() => []),
-        ]).then(([rawMedia, mappings, keys, toc, bmList, noteList, drawList]) => {
+        // Background Stage 2: Deferred secondary metadata hydration (frees network queue for initial page)
+        setTimeout(() => {
           if (!active) return;
-          if (rawMedia && rawMedia.length > 0) {
-            setMediaList(
-              (rawMedia || []).map((m: any) => ({
-                id: m.id,
-                type: m.type === 'VIDEO' ? 'VIDEO' : 'AUDIO',
-                title: m.title || m.filename || 'Media',
-                filename: m.filename,
-                subtitle: m.unitLabel || (m.pageNumber ? `${m.pageNumber}` : undefined),
-                durationSeconds: m.durationSeconds,
-                pageNumber: m.pageNumber,
-                url: m.url,
-              })),
-            );
-          }
-          if (mappings && mappings.length > 0) setAnswerMappings(mappings);
-          if (keys && keys.length > 0) setAnswerKeys(keys);
-          if (toc && toc.length > 0) setTocItems(toc);
-          if (bmList && bmList.length > 0) {
-            setBookmarks(
-              resolveMergedBookmarks({
-                localPayload: localAnnotations,
-                remoteBookmarks: bmList,
-              }),
-            );
-          }
-          if (noteList && noteList.length > 0) {
-            setNotes(
-              resolveMergedNotes({
-                localPayload: localAnnotations,
-                remoteNotes: noteList,
-              }),
-            );
-          }
-          if (drawList && drawList.length > 0) {
-            setDrawingsMap(
-              mergeBookDrawings({
-                localPayload: localAnnotations,
-                remoteDrawList: drawList,
-              }) as Record<number, DrawStroke[]>,
-            );
-          }
-        }).catch(() => {});
+          Promise.all([
+            mobileApi.getMedia(book.id).catch(() => []),
+            mobileApi.getAnswerMappings(book.gradeId, book.subjectId).catch(() => []),
+            mobileApi.getAnswerKeys(book.id).catch(() => []),
+            mobileApi.getBookToc(book.id).catch(() => []),
+            mobileApi.getBookmarks(book.id).catch(() => []),
+            mobileApi.getNotes(book.id).catch(() => []),
+            mobileApi.getDrawings(book.id).catch(() => []),
+          ])
+            .then(([rawMedia, mappings, keys, toc, bmList, noteList, drawList]) => {
+              if (!active) return;
+              if (rawMedia && rawMedia.length > 0) {
+                setMediaList(
+                  (rawMedia || []).map((m: any) => ({
+                    id: m.id,
+                    type: m.type === 'VIDEO' ? 'VIDEO' : 'AUDIO',
+                    title: m.title || m.filename || 'Media',
+                    filename: m.filename,
+                    subtitle: m.unitLabel || (m.pageNumber ? `${m.pageNumber}` : undefined),
+                    durationSeconds: m.durationSeconds,
+                    pageNumber: m.pageNumber,
+                    url: m.url,
+                  })),
+                );
+              }
+              if (mappings && mappings.length > 0) setAnswerMappings(mappings);
+              if (keys && keys.length > 0) setAnswerKeys(keys);
+              if (toc && toc.length > 0) setTocItems(toc);
+              if (bmList && bmList.length > 0) {
+                setBookmarks(
+                  resolveMergedBookmarks({
+                    localPayload: localAnnotations,
+                    remoteBookmarks: bmList,
+                  }),
+                );
+              }
+              if (noteList && noteList.length > 0) {
+                setNotes(
+                  resolveMergedNotes({
+                    localPayload: localAnnotations,
+                    remoteNotes: noteList,
+                  }),
+                );
+              }
+              if (drawList && drawList.length > 0) {
+                setDrawingsMap(
+                  mergeBookDrawings({
+                    localPayload: localAnnotations,
+                    remoteDrawList: drawList,
+                  }) as Record<number, DrawStroke[]>,
+                );
+              }
+            })
+            .catch(() => {});
+        }, 750);
       } catch {
         if (active && restoredBookRef.current !== book.id) {
           pendingVerticalScrollPageRef.current = startPage > 1 ? startPage : null;
@@ -1430,22 +1451,33 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     [offlineAssetUrlMap],
   );
 
-  // Aggressively prefetch surrounding pages into native memory/disk cache for instant, zero-lag scrolling
+  // Lightweight prefetch: only surrounding (+2 forward, -1 backward) pages, debounced to keep network free
   useEffect(() => {
     if (!book?.id || totalPages <= 0) return;
-    const start = Math.max(1, currentPage - 4);
-    const end = Math.min(totalPages, currentPage + 12);
-    for (let p = start; p <= end; p++) {
-      const pgObj = pagesByNumberMap.get(p);
-      const rawUrl =
-        pgObj?.imageHighUrl ||
-        pgObj?.imageNormalUrl ||
-        `/content/books/${book.id}/pages/${p}/image`;
-      const resolved = resolveMediaOrImageUrl(rawUrl);
-      if (resolved && (resolved.startsWith('http://') || resolved.startsWith('https://'))) {
-        Image.prefetch(resolved).catch(() => {});
+    const timer = setTimeout(() => {
+      const start = Math.max(1, currentPage - 1);
+      const end = Math.min(totalPages, currentPage + 2);
+      const versionParam = (book as any).pagesVersion || (book as any).version || '';
+      const versionQuery = versionParam ? `?v=${versionParam}` : '';
+
+      for (let p = start; p <= end; p++) {
+        if (p === currentPage) continue;
+        const pgObj = pagesByNumberMap.get(p);
+        let rawUrl =
+          pgObj?.imageHighUrl ||
+          pgObj?.imageNormalUrl ||
+          `/content/books/${book.id}/pages/${p}/image`;
+        if (versionParam && !rawUrl.includes('?v=')) {
+          rawUrl = `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}v=${versionParam}`;
+        }
+        const resolved = resolveMediaOrImageUrl(rawUrl);
+        if (resolved && (resolved.startsWith('http://') || resolved.startsWith('https://'))) {
+          Image.prefetch(resolved).catch(() => {});
+        }
       }
-    }
+    }, 600);
+
+    return () => clearTimeout(timer);
   }, [currentPage, book.id, totalPages, pagesByNumberMap, resolveMediaOrImageUrl]);
 
   const activeUnitTitle = useMemo(() => {
@@ -2568,10 +2600,14 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                 const pg = idx + 1;
                 const inWindow = Math.abs(pg - currentPage) <= 6 || loadedPages.has(pg);
                 const pgObj = pagesByNumberMap.get(pg);
-                const basePgImgUrl =
+                const versionParam = (book as any).pagesVersion || (book as any).version || '';
+                let basePgImgUrl =
                   pgObj?.imageHighUrl ||
                   pgObj?.imageNormalUrl ||
                   `/content/books/${book.id}/pages/${pg}/image`;
+                if (versionParam && !basePgImgUrl.includes('?v=')) {
+                  basePgImgUrl = `${basePgImgUrl}${basePgImgUrl.includes('?') ? '&' : '?'}v=${versionParam}`;
+                }
                 const pgImgUrl = resolveMediaOrImageUrl(basePgImgUrl);
                 const hsList = getHotspotsForPage(pg);
                 const pgRatio = resolvePageAspectRatio(pgObj, pageImageRatios[pg], pdfAspectRatio);
