@@ -115,19 +115,19 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
     <>
       <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative w-full max-w-lg bg-[#FBFBF9] dark:bg-[#1E222A] border-l border-[#D9DCD5] dark:border-[#353B47] h-full shadow-2xl flex flex-col justify-between z-10 overflow-hidden">
+        <div className="relative w-full max-w-lg bg-[#FFFFFF] dark:bg-[#171C2E] border-l border-[#E6E9F2] dark:border-[#262C42] h-full shadow-2xl flex flex-col justify-between z-10 overflow-hidden">
           {/* Header */}
-          <div className="p-5 pb-3 border-b border-[#D9DCD5] dark:border-[#353B47] space-y-3">
+          <div className="p-5 pb-3 border-b border-[#E6E9F2] dark:border-[#262C42] space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-[#F4F0FD] dark:bg-[#6D3FD1]/25 text-[#6D3FD1] dark:text-[#B69CFF] flex items-center justify-center border border-[#E6DCFA] dark:border-[#6D3FD1]/40 shadow-xs">
                   <KeyRound className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-base text-[#142452] dark:text-[#E6E8EC]">
+                  <h3 className="font-black text-base text-[#1B2238] dark:text-[#E9ECF7]">
                     {currentItem?.studentExerciseLabel || t('reader.answerKeysTitle')}
                   </h3>
-                  <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0]">
+                  <p className="text-xs text-[#7A8299] dark:text-[#8B93AD]">
                     {currentPage}-bet • Listening & Javoblar
                   </p>
                 </div>
@@ -136,7 +136,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="p-2 rounded-xl text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-[#E6E8EC] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] transition"
+                className="p-2 rounded-xl text-[#7A8299] hover:text-[#1B2238] dark:text-[#8B93AD] dark:hover:text-[#E9ECF7] hover:bg-[#EEF1F8] dark:hover:bg-[#10152A] transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -155,7 +155,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                       className={`px-3 py-1.5 rounded-xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
                         isSelected
                           ? 'bg-[#6D3FD1] text-white shadow-xs'
-                          : 'bg-[#ECEEEA] dark:bg-[#272C36] text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#D9DCD5]'
+                          : 'bg-[#EEF1F8] dark:bg-[#10152A] text-[#7A8299] dark:text-[#8B93AD] hover:bg-[#E4E9F7]'
                       }`}
                     >
                       <KeyRound className="w-3.5 h-3.5" />
@@ -167,14 +167,14 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
             )}
 
             {/* Segmented Dual Tabs: [ 🔑 Javoblar Kaliti ] and [ 📜 Audio Transkript ] */}
-            <div className="grid grid-cols-2 gap-1 bg-[#ECEEEA] dark:bg-[#272C36] p-1 rounded-2xl border border-[#D9DCD5] dark:border-[#353B47]">
+            <div className="grid grid-cols-2 gap-1 bg-[#EEF1F8] dark:bg-[#10152A] p-1 rounded-2xl border border-[#E6E9F2] dark:border-[#262C42]">
               <button
                 type="button"
                 onClick={() => setActiveTab('ANSWERS')}
                 className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
                   activeTab === 'ANSWERS'
-                    ? 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#6D3FD1] dark:text-[#B69CFF] shadow-sm'
-                    : 'text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933]'
+                    ? 'bg-[#FFFFFF] dark:bg-[#171C2E] text-[#6D3FD1] dark:text-[#B69CFF] shadow-sm'
+                    : 'text-[#7A8299] dark:text-[#8B93AD] hover:text-[#1B2238] dark:hover:text-[#E9ECF7]'
                 }`}
               >
                 <KeyRound className="w-4 h-4" />
@@ -185,8 +185,8 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                 onClick={() => setActiveTab('TRANSCRIPT')}
                 className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
                   activeTab === 'TRANSCRIPT'
-                    ? 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#0369A1] dark:text-[#7DD3FC] shadow-sm'
-                    : 'text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933]'
+                    ? 'bg-[#FFFFFF] dark:bg-[#171C2E] text-[#0369A1] dark:text-[#7DD3FC] shadow-sm'
+                    : 'text-[#7A8299] dark:text-[#8B93AD] hover:text-[#1B2238] dark:hover:text-[#E9ECF7]'
                 }`}
               >
                 <FileText className="w-4 h-4" />
@@ -201,12 +201,12 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
           {/* Main Body Content */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4 pr-3 custom-scrollbar">
             {!currentItem ? (
-              <div className="p-12 text-center text-xs text-[#5B6672] dark:text-[#9AA3B0] space-y-2">
+              <div className="p-12 text-center text-xs text-[#7A8299] dark:text-[#8B93AD] space-y-2">
                 <HelpCircle className="w-10 h-10 mx-auto opacity-40 text-[#6D3FD1]" />
-                <p className="font-extrabold text-[#142452] dark:text-[#E6E8EC]">
+                <p className="font-extrabold text-[#1B2238] dark:text-[#E9ECF7]">
                   Uşbu sahifa uçun javoblar kiritilmagan
                 </p>
-                <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0]">
+                <p className="text-[11px] text-[#7A8299] dark:text-[#8B93AD]">
                   Visual Hotspot Editor orqali sahifaga javoblar yoki transkript biriktiring.
                 </p>
               </div>
@@ -227,7 +227,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                           {parsedPills.map((pill, idx) => (
                             <span
                               key={idx}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FBFBF9] dark:bg-[#1E222A] text-[#6D3FD1] dark:text-[#B69CFF] border border-[#E6DCFA] dark:border-[#6D3FD1]/50 font-black text-sm shadow-xs"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFFFFF] dark:bg-[#171C2E] text-[#6D3FD1] dark:text-[#B69CFF] border border-[#E6DCFA] dark:border-[#6D3FD1]/50 font-black text-sm shadow-xs"
                             >
                               <span className="text-[#8557E6] font-semibold">{pill.num}.</span>
                               <span>{pill.ans}</span>
@@ -239,11 +239,11 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
 
                     {/* Free-form Solution Text */}
                     {currentItem.solutionKey && (
-                      <div className="p-4 rounded-2xl bg-[#F4F5F2] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] space-y-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-[#5B6672] dark:text-[#9AA3B0] block">
+                      <div className="p-4 rounded-2xl bg-[#EEF1F8] dark:bg-[#10152A] border border-[#E6E9F2] dark:border-[#262C42] space-y-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#7A8299] dark:text-[#8B93AD] block">
                           Yeçim & Tuşuntiriş:
                         </span>
-                        <p className="text-sm font-semibold text-[#1F2933] dark:text-[#E6E8EC] leading-relaxed whitespace-pre-wrap">
+                        <p className="text-sm font-semibold text-[#1B2238] dark:text-[#E9ECF7] leading-relaxed whitespace-pre-wrap">
                           {currentItem.solutionKey}
                         </p>
                       </div>
@@ -256,7 +256,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                       return (
                         <div className="space-y-2">
                           <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                            Javob Skrinshotlari ({list.length} ta):
+                            Javob Skrinşotlari ({list.length} ta):
                           </span>
                           <div className="grid grid-cols-2 gap-2.5">
                             {list.map((url, idx) => (
@@ -359,7 +359,7 @@ export const AnswerKeyDrawer: React.FC<AnswerKeyDrawerProps> = ({
                       return (
                         <div className="space-y-2">
                           <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                            Transkript Skrinshotlari ({list.length} ta):
+                            Transkript Skrinşotlari ({list.length} ta):
                           </span>
                           <div className="grid grid-cols-2 gap-2.5">
                             {list.map((url, idx) => (

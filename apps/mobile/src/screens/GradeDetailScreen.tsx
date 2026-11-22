@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   AppState,
   BackHandler,
@@ -8,13 +8,13 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   Image,
   ActivityIndicator,
   RefreshControl,
   Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Book, Grade, getBookContentTotalPages } from '@smartteacherbook/shared';
 import { DownloadsManager } from '../services/storage/downloadsManager';
@@ -66,6 +66,14 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
   const [viewMode, setViewMode] = useState<'CATALOG' | 'PLANS'>('CATALOG');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const [selectedPlan, setSelectedPlan] = useState<'MONTHLY' | 'THREE_MONTHS' | 'YEARLY'>('THREE_MONTHS');
   const [selectedBookTypeTab, setSelectedBookTypeTab] = useState<'STUDENT_BOOK' | 'TEACHER_BOOK' | 'WORKBOOK'>('STUDENT_BOOK');
@@ -266,25 +274,28 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
     [subjects, formatSubject],
   );
 
-  const filteredBooks = liveBooks.filter((b) => {
-    if (Number(b.gradeId) !== selectedGrade) return false;
-    if (selectedSubject !== 'ALL') {
-      const sObj = subjects.find((s) => s.code === selectedSubject || s.id === selectedSubject);
-      const bSubj = (b.subjectId || '').toLowerCase();
-      const sCode = (sObj?.code || selectedSubject).toLowerCase();
-      const sId = (sObj?.id || '').toLowerCase();
-      const sName = (sObj?.name || '').toLowerCase();
-      const match =
-        (sId && bSubj === sId) ||
-        bSubj.includes(sCode) ||
-        (sName && bSubj.includes(sName.slice(0, 4)));
-      if (!match) return false;
-    }
-    if (searchQuery.trim()) {
-      return matchesBookSearch(b, searchQuery, subjects);
-    }
-    return true;
-  });
+  const filteredBooks = useMemo<Book[]>(() => {
+    const trimmed = debouncedSearch.trim();
+    return liveBooks.filter((b: Book) => {
+      if (Number(b.gradeId) !== selectedGrade) return false;
+      if (selectedSubject !== 'ALL') {
+        const sObj = subjects.find((s) => s.code === selectedSubject || s.id === selectedSubject);
+        const bSubj = (b.subjectId || '').toLowerCase();
+        const sCode = (sObj?.code || selectedSubject).toLowerCase();
+        const sId = (sObj?.id || '').toLowerCase();
+        const sName = (sObj?.name || '').toLowerCase();
+        const match =
+          (sId && bSubj === sId) ||
+          bSubj.includes(sCode) ||
+          (sName && bSubj.includes(sName.slice(0, 4)));
+        if (!match) return false;
+      }
+      if (trimmed) {
+        return matchesBookSearch(b, trimmed, subjects);
+      }
+      return true;
+    });
+  }, [liveBooks, selectedGrade, selectedSubject, debouncedSearch, subjects]);
 
   const isGradeActive = SubscriptionManager.isAccessValid(gradeAccess);
 
@@ -330,13 +341,28 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
       book.subjectId,
       book.id,
     );
+
+    let online = !isOfflineMode;
+    if (online) {
+      online = await mobileApi.checkConnectivity();
+      if (!online) setIsOfflineMode(true);
+    }
+
+    if (!online && !isDl) {
+      notify.warning(
+        strings.modals.offlineTitle || 'Oflayn rejim',
+        'Bu kitob qurilmaga yuklanmagan. Oflayn rejimda faqat yuklab olingan darsliklarni öqişingiz mumkin.',
+      );
+      return;
+    }
+
     const { allowed, access } = await SubscriptionManager.checkBookAccess({
       bookId: book.id,
       gradeId: book.gradeId || selectedGrade,
       subjectId: book.subjectId,
     });
     setGradeAccess(access);
-    if (allowed || (isOfflineMode && isDl && access.status !== 'EXPIRED')) {
+    if (allowed || (!online && isDl && access.status !== 'EXPIRED')) {
       onOpenReader({
         id: book.id,
         title: book.title,
@@ -355,9 +381,18 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
     }
   };
 
-  const formatSizeMb = (bytes?: number) => {
-    if (!bytes) return '— MB';
-    return `${Math.max(1, (bytes / (1024 * 1024)).toFixed(1) as any)} MB`;
+  const getBookDisplaySizeMb = (book: any) => {
+    const dlItem = DownloadsManager.listDownloadedBundles().find((d) => d.bookId === book.id);
+    if (dlItem?.sizeBytes && dlItem.sizeBytes > 0) {
+      return `${(dlItem.sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    const rawBytes = book.totalSizeBytes || book.sizeBytes || book.fileSizeBytes;
+    if (rawBytes && rawBytes > 0) {
+      return `${(rawBytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    const pages = Number(book.totalPages || 40);
+    const estimated = Math.max(12, Math.round((pages * 380 * 1024) / (1024 * 1024)));
+    return `~${estimated} MB`;
   };
 
   const getPlanLabel = (plan: any) => {
@@ -368,13 +403,13 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, { backgroundColor: colors.background }]}>
       {/* TOP BAR */}
       <View style={styles.topBar}>
         <TouchableOpacity
           style={[
             styles.backPillBtn,
-            { backgroundColor: colors.primarySoft, borderColor: colors.primary + '44' },
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
           onPress={viewMode === 'PLANS' ? () => setViewMode('CATALOG') : onBack}
           activeOpacity={0.75}
@@ -383,13 +418,13 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
           <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
             <Path
               d="M15 18l-6-6 6-6"
-              stroke={colors.primaryText}
+              stroke={colors.textPrimary}
               strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </Svg>
-          <Text style={[styles.backPillText, { color: colors.primaryText }]}>{strings.common.back}</Text>
+          <Text style={[styles.backPillText, { color: colors.textPrimary }]}>{strings.common.back}</Text>
         </TouchableOpacity>
         <Text style={[styles.screenTitle, { color: colors.textPrimary }]} numberOfLines={1}>
           {viewMode === 'CATALOG'
@@ -402,8 +437,8 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
               style={[
                 styles.searchToggleBtn,
                 {
-                  backgroundColor: searchOpen ? colors.primarySoft : colors.surface,
-                  borderColor: searchOpen ? colors.primary + '55' : colors.border,
+                  backgroundColor: searchOpen ? colors.accentSoft : colors.card,
+                  borderColor: searchOpen ? colors.accentSoftBorder : colors.border,
                 },
               ]}
               onPress={() =>
@@ -419,12 +454,12 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                   cx={11}
                   cy={11}
                   r={7}
-                  stroke={searchOpen ? colors.primaryText : colors.textPrimary}
+                  stroke={searchOpen ? colors.accentText : colors.textPrimary}
                   strokeWidth={2}
                 />
                 <Path
                   d="M20 20l-3.5-3.5"
-                  stroke={searchOpen ? colors.primaryText : colors.textPrimary}
+                  stroke={searchOpen ? colors.accentText : colors.textPrimary}
                   strokeWidth={2}
                   strokeLinecap="round"
                 />
@@ -501,7 +536,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                 key={g}
                 style={[
                   styles.gradeNumPill,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  { backgroundColor: colors.card, borderColor: colors.border },
                   active && { backgroundColor: colors.primary, borderColor: colors.primary },
                 ]}
                 onPress={() => setSelectedGrade(g)}
@@ -529,10 +564,10 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
           <TouchableOpacity
             style={[
               styles.subjectChip,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               selectedSubject === 'ALL' && {
-                backgroundColor: colors.primary,
-                borderColor: colors.primary,
+                backgroundColor: colors.accentSoft,
+                borderColor: colors.accentSoftBorder,
               },
             ]}
             onPress={() => setSelectedSubject('ALL')}
@@ -540,7 +575,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
             <Text
               style={[
                 styles.subjectChipText,
-                { color: selectedSubject === 'ALL' ? colors.onPrimary : colors.textSecondary },
+                { color: selectedSubject === 'ALL' ? colors.accentSoftText : colors.textSecondary },
               ]}
             >
               {strings.common.all}
@@ -554,8 +589,11 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                 key={sub.id || sub.code}
                 style={[
                   styles.subjectChip,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                  active && { backgroundColor: colors.primary, borderColor: colors.primary },
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  active && {
+                    backgroundColor: colors.accentSoft,
+                    borderColor: colors.accentSoftBorder,
+                  },
                 ]}
                 onPress={() => setSelectedSubject(sub.code)}
                 activeOpacity={0.75}
@@ -564,7 +602,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                 <Text
                   style={[
                     styles.subjectChipText,
-                    { color: active ? colors.onPrimary : colors.textSecondary },
+                    { color: active ? colors.accentSoftText : colors.textSecondary },
                   ]}
                 >
                   {formatSubject(sub.name, sub.id)}
@@ -622,7 +660,17 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                   </Text>
                   <TouchableOpacity
                     style={[styles.subscribePromptBtn, { backgroundColor: colors.primarySoft }]}
-                    onPress={() => setViewMode('PLANS')}
+                    onPress={() => {
+                      if (onRequestAccess) {
+                        const targetSub =
+                          selectedSubject !== 'ALL'
+                            ? selectedSubject
+                            : subjects[0]?.code || 'math';
+                        onRequestAccess(selectedGrade, targetSub, 'THREE_MONTHS');
+                      } else {
+                        setViewMode('PLANS');
+                      }
+                    }}
                   >
                     <Text style={[styles.subscribePromptText, { color: colors.primary }]}>
                       {strings.home.upgradeBannerBtn}
@@ -631,7 +679,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                 </View>
               )
             ) : (
-              filteredBooks.map((book) => {
+              filteredBooks.map((book: Book) => {
                 const isDl =
                   DownloadsManager.isBundleDownloaded(selectedGrade, selectedSubject, book.id) ||
                   downloadedTick < 0;
@@ -693,7 +741,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                           {formatGrade(book.gradeId)} • {resolveSubjectName(book.subjectId)}
                         </Text>
                         <Text style={[styles.bookCardStats, { color: colors.textMuted }]}>
-                          {contentTotal} {strings.common.pages} • {formatSizeMb(book.totalSizeBytes)}
+                          {contentTotal} {strings.common.pages} • {getBookDisplaySizeMb(book)}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -703,7 +751,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                         style={[
                           styles.openBookBtn,
                           {
-                            backgroundColor: canOpenBook ? colors.primarySoft : colors.surfaceAlt,
+                            backgroundColor: canOpenBook ? colors.primary : colors.accentSoft,
                           },
                         ]}
                         onPress={() => handleBookOpenPress(book)}
@@ -711,7 +759,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                         <Text
                           style={[
                             styles.openBookBtnText,
-                            { color: canOpenBook ? colors.primaryText : colors.textSecondary },
+                            { color: canOpenBook ? colors.onPrimary : colors.accentSoftText },
                           ]}
                         >
                           {canOpenBook
@@ -723,14 +771,20 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={styles.dlMiniBtn}
+                        style={[
+                          styles.dlMiniBtn,
+                          {
+                            backgroundColor: isDl ? colors.successSoft : colors.accentSoft,
+                            borderRadius: 8,
+                          },
+                        ]}
                         onPress={() => handleDownloadBook(book)}
                         disabled={isDownloadingThis}
                       >
                         <Text
                           style={[
                             styles.dlMiniText,
-                            { color: isDl ? colors.accent : colors.primaryText },
+                            { color: isDl ? colors.successText : colors.accentSoftText },
                           ]}
                         >
                           {isDownloadingThis
@@ -757,7 +811,17 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
                   },
                 ]}
                 activeOpacity={0.88}
-                onPress={() => setViewMode('PLANS')}
+                onPress={() => {
+                  if (onRequestAccess) {
+                    const targetSub =
+                      selectedSubject !== 'ALL'
+                        ? selectedSubject
+                        : subjects[0]?.code || 'math';
+                    onRequestAccess(selectedGrade, targetSub, 'THREE_MONTHS');
+                  } else {
+                    setViewMode('PLANS');
+                  }
+                }}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.bannerTitle}>
@@ -841,9 +905,9 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
             </View>
 
             {filteredBooks
-              .filter((b) => b.type === selectedBookTypeTab)
+              .filter((b: Book) => b.type === selectedBookTypeTab)
               .slice(0, 1)
-              .map((b) => (
+              .map((b: Book) => (
                 <TouchableOpacity
                   key={b.id}
                   style={[
@@ -1025,6 +1089,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 18,
     paddingTop: 6,
+    paddingBottom: 96,
   },
   gradeStrip: {
     gap: 8,
@@ -1066,13 +1131,13 @@ const styles = StyleSheet.create({
   catalogBookCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: DS.radius.lg,
+    borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 1,
   },
   catalogCardMain: {
     flex: 1,

@@ -4,21 +4,19 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
   BackHandler,
   Platform,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path, Rect } from 'react-native-svg';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { secureStorage } from '../services/storage/secureStorage';
-import { UserAvatar } from '../components/common/UserAvatar';
 import { notify } from '../services/notifications/notificationService';
-import { DS } from '../theme/designSystem';
 import { useTheme } from '../theme/ThemeContext';
 import { useI18n } from '../i18n/I18nContext';
 
-const BiometricIcon = ({ color, size = 26 }: { color: string; size?: number }) => (
+const BiometricIcon = ({ color, size = 24 }: { color: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 11c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"
@@ -56,19 +54,12 @@ interface PinLockScreenProps {
 
 type PinMode = 'LOADING' | 'VERIFY' | 'CREATE' | 'CONFIRM';
 
-/**
- * PIN Lock Screen (supports Light/Dark mode and uz/ru/en i18n)
- */
 export const PinLockScreen: React.FC<PinLockScreenProps> = ({
-  userEmail,
-  userName,
-  photoUrl,
   onUnlockSuccess,
   onResetPin,
 }) => {
   const { colors, isDark } = useTheme();
   const { strings } = useI18n();
-  const displayName = userName?.trim() || strings.common.userFallback;
 
   const [mode, setMode] = useState<PinMode>('LOADING');
   const [pin, setPin] = useState<string>('');
@@ -112,7 +103,6 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
 
           if (active && hasHw && isEnrolled && enabled) {
             setBiometricsAvailable(true);
-            // Automatic biometric prompt on launch for instant unlock
             setTimeout(() => {
               if (active) promptBiometricAuth();
             }, 350);
@@ -150,54 +140,43 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
     setPin(newPin);
 
     if (newPin.length === 4) {
-      if (mode === 'CREATE') {
-        setDraftPin(newPin);
-        setTimeout(() => {
-          setPin('');
-          setMode('CONFIRM');
-        }, 160);
-        return;
-      }
-
-      if (mode === 'CONFIRM') {
-        if (newPin !== draftPin) {
-          setErrorMsg(strings.pin.mismatchPin);
-          notify.error(strings.common.error, strings.pin.mismatchPin);
-          setTimeout(() => {
-            setPin('');
-            setDraftPin('');
-            setMode('CREATE');
-          }, 420);
-          return;
-        }
+      if (mode === 'VERIFY') {
         setVerifying(true);
-        await secureStorage.savePinCode(newPin);
+        const valid = await secureStorage.verifyPinCode(newPin);
         setVerifying(false);
-        notify.success(strings.common.success, strings.pin.pinSaved);
-        onUnlockSuccess();
-        return;
-      }
 
-      setVerifying(true);
-      const isValid = await secureStorage.verifyPinCode(newPin);
-      setVerifying(false);
-
-      if (isValid) {
-        onUnlockSuccess();
-      } else {
-        setErrorMsg(strings.pin.wrongPin);
-        notify.error(strings.common.error, strings.pin.wrongPin);
-        setTimeout(() => {
+        if (valid) {
+          onUnlockSuccess();
+        } else {
+          setErrorMsg(strings.pin.wrongPin);
           setPin('');
-        }, 420);
+        }
+      } else if (mode === 'CREATE') {
+        setDraftPin(newPin);
+        setPin('');
+        setMode('CONFIRM');
+      } else if (mode === 'CONFIRM') {
+        if (newPin === draftPin) {
+          setVerifying(true);
+          await secureStorage.savePinCode(newPin);
+          setVerifying(false);
+          notify.success(strings.common.success, strings.pin.pinSaved);
+          onUnlockSuccess();
+        } else {
+          setErrorMsg(strings.pin.mismatchPin);
+          setPin('');
+          setMode('CREATE');
+          setDraftPin('');
+        }
       }
     }
   };
 
   const handleDelete = () => {
-    if (verifying || pin.length === 0) return;
-    setErrorMsg(null);
-    setPin(pin.slice(0, -1));
+    if (pin.length > 0) {
+      setErrorMsg(null);
+      setPin(pin.slice(0, -1));
+    }
   };
 
   const titleLabel =
@@ -219,29 +198,43 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
       : strings.common.loading;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.glowTop,
-          { backgroundColor: isDark ? 'rgba(42, 79, 184, 0.22)' : 'rgba(42, 79, 184, 0.08)' },
-        ]}
-      />
-      <View
-        style={[
-          styles.glowBottom,
-          { backgroundColor: isDark ? 'rgba(14, 124, 112, 0.16)' : 'rgba(14, 124, 112, 0.08)' },
-        ]}
-      />
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Top Header / Back Button */}
+      <View style={styles.topHeader}>
+        <TouchableOpacity
+          style={[styles.topBackBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => {
+            if (mode === 'CONFIRM') {
+              setMode('CREATE');
+              setDraftPin('');
+              setPin('');
+            } else {
+              onResetPin();
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M15 18l-6-6 6-6"
+              stroke={colors.textPrimary}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </TouchableOpacity>
+      </View>
 
+      {/* Center Icon, Title, Subtitle, and PIN Dots */}
       <View style={styles.centerContent}>
-        <View style={[styles.avatarRing, { borderColor: colors.primary + '55' }]}>
-          <UserAvatar name={displayName} email={userEmail} photoUrl={photoUrl} size={74} />
+        <View style={[styles.lockIconBox, { backgroundColor: colors.accentSoft }]}>
+          <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
+            <Rect x="5" y="11" width="14" height="10" rx="2" stroke={colors.primary} strokeWidth={2} />
+            <Path d="M8 11V7a4 4 0 0 1 8 0v4" stroke={colors.primary} strokeWidth={2} strokeLinecap="round" />
+          </Svg>
         </View>
 
-        <Text style={[styles.userNameText, { color: colors.textPrimary }]}>{displayName}</Text>
-        {userEmail ? (
-          <Text style={[styles.userEmailText, { color: colors.primary }]}>{userEmail}</Text>
-        ) : null}
         <Text style={[styles.lockTitle, { color: colors.textPrimary }]}>{titleLabel}</Text>
         <Text style={[styles.lockSubtitle, { color: colors.textSecondary }]}>{subtitleLabel}</Text>
 
@@ -249,24 +242,20 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
         <View style={styles.dotsRow}>
           {[0, 1, 2, 3].map((index) => {
             const isFilled = pin.length > index;
-            const isError = !!errorMsg;
+            const isError = Boolean(errorMsg);
             return (
               <View
                 key={index}
                 style={[
                   styles.dot,
-                  { borderColor: colors.borderStrong },
-                  isFilled && {
-                    backgroundColor: colors.primary,
-                    borderColor: colors.primary,
-                    shadowColor: colors.primary,
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 8,
-                  },
-                  isError && {
-                    borderColor: colors.danger,
-                    backgroundColor: colors.danger,
+                  {
+                    backgroundColor: isError
+                      ? colors.danger
+                      : isFilled
+                      ? colors.primary
+                      : isDark
+                      ? '#262C42'
+                      : '#DCE5F8',
                   },
                 ]}
               />
@@ -278,30 +267,16 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
           <View style={[styles.errorPill, { backgroundColor: colors.dangerSoft }]}>
             <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {errorMsg}</Text>
           </View>
-        ) : biometricsAvailable && mode === 'VERIFY' ? (
-          <TouchableOpacity
-            style={[
-              styles.quickBiometricPill,
-              { backgroundColor: colors.primarySoft, borderColor: colors.primary + '33' },
-            ]}
-            onPress={promptBiometricAuth}
-            activeOpacity={0.75}
-          >
-            <BiometricIcon color={colors.primary} size={15} />
-            <Text style={[styles.quickBiometricText, { color: colors.primary }]}>
-              {strings.pin.biometricButton}
-            </Text>
-          </TouchableOpacity>
         ) : (
-          <View style={{ height: 28 }} />
+          <View style={{ height: 26 }} />
         )}
 
         {(verifying || biometricLoading) && (
-          <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 4 }} />
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 2 }} />
         )}
       </View>
 
-      {/* Translucent Circular NumPad */}
+      {/* Number Keypad with Rounded Card Buttons */}
       <View style={styles.keypad}>
         {[
           ['1', '2', '3'],
@@ -315,9 +290,8 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
                 style={[
                   styles.keyBtn,
                   {
-                    backgroundColor: colors.surface,
+                    backgroundColor: colors.card,
                     borderColor: colors.border,
-                    shadowColor: colors.shadowColor,
                   },
                 ]}
                 onPress={() => handleKeyPress(num)}
@@ -335,9 +309,8 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
               style={[
                 styles.keyBtn,
                 {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.primary + '55',
-                  shadowColor: colors.primary,
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
                 },
               ]}
               onPress={promptBiometricAuth}
@@ -347,19 +320,19 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
               {biometricLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <BiometricIcon color={colors.primary} size={28} />
+                <BiometricIcon color={colors.primary} size={24} />
               )}
             </TouchableOpacity>
           ) : (
-            <View style={styles.keyBtnGhost} />
+            <View style={styles.keyBtnEmpty} />
           )}
+
           <TouchableOpacity
             style={[
               styles.keyBtn,
               {
-                backgroundColor: colors.surface,
+                backgroundColor: colors.card,
                 borderColor: colors.border,
-                shadowColor: colors.shadowColor,
               },
             ]}
             onPress={() => handleKeyPress('0')}
@@ -367,12 +340,39 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
           >
             <Text style={[styles.keyNumberText, { color: colors.textPrimary }]}>0</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.keyBtnGhost} onPress={handleDelete} activeOpacity={0.65}>
-            <Text style={[styles.deleteKeyText, { color: colors.textSecondary }]}>⌫</Text>
+
+          <TouchableOpacity
+            style={[
+              styles.keyBtn,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+            onPress={handleDelete}
+            activeOpacity={0.65}
+          >
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"
+                stroke={colors.textPrimary}
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M18 9l-6 6M12 9l6 6"
+                stroke={colors.textPrimary}
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* Forgot PIN / Reset option */}
       <TouchableOpacity style={styles.forgotBtn} onPress={onResetPin} activeOpacity={0.75}>
         <Text style={[styles.forgotText, { color: colors.primary }]}>
           {strings.pin.forgotPinLogout}
@@ -386,138 +386,102 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingBottom: 26,
-    position: 'relative',
-    overflow: 'hidden',
+    paddingBottom: 24,
   },
-  glowTop: {
-    position: 'absolute',
-    top: -120,
-    left: -80,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
+  topHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
-  glowBottom: {
-    position: 'absolute',
-    bottom: -140,
-    right: -100,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
+  topBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   centerContent: {
     alignItems: 'center',
-    paddingTop: 44,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
   },
-  avatarRing: {
-    padding: 4,
-    borderRadius: 44,
-    borderWidth: 2,
-    marginBottom: 12,
-  },
-  userNameText: {
-    fontSize: 20,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  userEmailText: {
-    fontSize: 13,
-    marginTop: 3,
-    marginBottom: 8,
-    fontWeight: '600',
+  lockIconBox: {
+    width: 62,
+    height: 62,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   lockTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 21,
+    fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   lockSubtitle: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 24,
+    lineHeight: 18,
+    paddingHorizontal: 16,
   },
   dotsRow: {
     flexDirection: 'row',
-    gap: 18,
+    gap: 16,
+    marginTop: 22,
+    marginBottom: 8,
   },
   dot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    backgroundColor: 'transparent',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   errorPill: {
-    marginTop: 14,
+    marginTop: 8,
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: DS.radius.pill,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
   errorText: {
     fontSize: 12,
     fontWeight: '700',
   },
-  quickBiometricPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: DS.radius.pill,
-    borderWidth: 1,
-    marginTop: 8,
-  },
-  quickBiometricText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
   keypad: {
-    paddingHorizontal: 42,
-    gap: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    gap: 12,
   },
   keypadRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
   },
   keyBtn: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    flex: 1,
+    height: 58,
+    borderRadius: 18,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
     shadowRadius: 6,
-    elevation: 2,
+    elevation: 1,
   },
-  keyBtnGhost: {
-    width: 68,
-    height: 68,
-    justifyContent: 'center',
-    alignItems: 'center',
+  keyBtnEmpty: {
+    flex: 1,
+    height: 58,
   },
   keyNumberText: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  biometricGlyph: {
     fontSize: 22,
-    opacity: 0.65,
-  },
-  deleteKeyText: {
-    fontSize: 22,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   forgotBtn: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   forgotText: {
     fontSize: 13,

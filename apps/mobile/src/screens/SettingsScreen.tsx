@@ -12,7 +12,10 @@ import {
   BackHandler,
   RefreshControl,
   Switch,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { DS } from '../theme/designSystem';
@@ -48,7 +51,7 @@ interface SettingsScreenProps {
 }
 
 const LANGUAGE_CHOICES: Array<{ code: AppLanguage; label: string; badge: string }> = [
-  { code: 'uz', label: 'O‘zbek', badge: 'UZ' },
+  { code: 'uz', label: 'Özbek', badge: 'UZ' },
   { code: 'ru', label: 'Русский', badge: 'RU' },
   { code: 'en', label: 'English', badge: 'EN' },
 ];
@@ -64,6 +67,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onResetPin,
   onLogout,
 }) => {
+  const insets = useSafeAreaInsets();
   const { themeMode, setThemeMode, colors, isDark } = useTheme();
   const { language, setLanguage, strings, t, formatGrade, formatSubject } = useI18n();
 
@@ -92,6 +96,26 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [pinSavedMsg, setPinSavedMsg] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      },
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      },
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -301,7 +325,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setNewPin('');
     setPinSavedMsg(strings.pin.pinSaved);
     notify.success(strings.common.success, strings.pin.pinSaved);
-    setTimeout(() => setPinSavedMsg(''), 2500);
+    setTimeout(() => {
+      setPinSavedMsg('');
+      setSecurityModalOpen(false);
+    }, 900);
   };
 
   const handleDisconnectConfirmed = async () => {
@@ -335,14 +362,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <View
         style={[
           styles.header,
-          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+          {
+            backgroundColor: colors.background,
+            borderBottomColor: colors.border,
+            paddingTop: Math.max(insets.top, 14),
+          },
         ]}
       >
         <View style={styles.headerLeft}>
           {onBack && (
             <TouchableOpacity
-              style={[styles.headerIconBtn, { backgroundColor: colors.backgroundSecondary }]}
+              style={[styles.headerIconBtn, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
               onPress={onBack}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                 <Path
@@ -362,9 +394,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         </View>
         <TouchableOpacity
-          style={[styles.headerIconBtn, { backgroundColor: colors.backgroundSecondary }]}
+          style={[styles.headerIconBtn, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
           onPress={() => setSecurityModalOpen(true)}
           accessibilityLabel={strings.settings.securityTitle}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
             <Path
@@ -380,7 +413,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 96 + Math.max(insets.bottom, 12) },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -409,18 +445,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               {userEmail}
             </Text>
             <View style={styles.verifiedBadgeRow}>
-              <View style={[styles.verifiedDot, { backgroundColor: colors.accent }]}>
+              <View style={[styles.verifiedDot, { backgroundColor: colors.successSoft }]}>
                 <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M5 13l4 4L19 7"
-                    stroke="#FFFFFF"
+                    stroke={colors.successText}
                     strokeWidth={3}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 </Svg>
               </View>
-              <Text style={[styles.verifiedText, { color: colors.accent }]}>
+              <Text style={[styles.verifiedText, { color: colors.successText }]}>
                 {strings.settings.accountCardTitle}
               </Text>
             </View>
@@ -429,9 +465,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 setEditNameInput(displayName);
                 setEditProfileOpen(true);
               }}
-              style={[styles.editProfileLink, { backgroundColor: colors.primarySoft }]}
+              style={[styles.editProfileLink, { backgroundColor: colors.accentSoft }]}
             >
-              <Text style={[styles.editProfileLinkText, { color: colors.primaryText }]}>
+              <Text style={[styles.editProfileLinkText, { color: colors.accentText }]}>
                 {strings.settings.editProfileBtn}
               </Text>
             </TouchableOpacity>
@@ -463,7 +499,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <View
               style={[
                 styles.segmentedTrack,
-                { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                { backgroundColor: colors.segmentFill, borderColor: colors.border },
               ]}
             >
               <TouchableOpacity
@@ -530,7 +566,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <View
               style={[
                 styles.segmentedTrack,
-                { backgroundColor: colors.surfaceAlt, borderColor: colors.border },
+                { backgroundColor: colors.segmentFill, borderColor: colors.border },
               ]}
             >
               {LANGUAGE_CHOICES.map((item) => {
@@ -591,7 +627,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   {strings.requests.noActiveSubscriptions}
                 </Text>
                 <Text style={[styles.emptySubDesc, { color: colors.textSecondary }]}>
-                  {t('dashboard.noSubscriptionsDesc') || 'Darsliklarni to‘liq o‘qish uchun fan tarifiga obuna bo‘ling.'}
+                  {t('dashboard.noSubscriptionsDesc') || 'Darsliklarni töliq öqiş uçun fan tarifiga obuna böling.'}
                 </Text>
                 {onOpenRequests && (
                   <TouchableOpacity
@@ -600,7 +636,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     activeOpacity={0.85}
                   >
                     <Text style={[styles.emptySubBtnText, { color: colors.onPrimary }]}>
-                      {t('dashboard.goToPlansBtn') || 'Tariflarga o‘tish'}
+                      {t('dashboard.goToPlansBtn') || 'Tariflarga ötiş'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -621,14 +657,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                         style={[
                           styles.subItemCard,
                           {
-                            backgroundColor: colors.surfaceAlt,
-                            borderColor: isExpiringSoon ? colors.warning : colors.border,
+                            backgroundColor: colors.subscriptionCard,
+                            borderColor: isExpiringSoon ? colors.warning : colors.accentSoftBorder,
                           },
                         ]}
                       >
                         <View style={styles.subItemTopRow}>
-                          <View style={styles.subItemGradeBadge}>
-                            <Text style={[styles.subItemGradeText, { color: colors.primaryText }]}>
+                          <View style={[styles.subItemGradeBadge, { backgroundColor: colors.primary }]}>
+                            <Text style={[styles.subItemGradeText, { color: colors.onPrimary }]}>
                               {formatGrade(sub.gradeId)}
                             </Text>
                           </View>
@@ -642,8 +678,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               </Text>
                             </View>
                           ) : (
-                            <View style={[styles.activePillSmall, { backgroundColor: colors.accent }]}>
-                              <Text style={styles.activePillSmallText}>{strings.common.active}</Text>
+                            <View style={[styles.activePillSmall, { backgroundColor: colors.successSoft }]}>
+                              <Text style={[styles.activePillSmallText, { color: colors.successText }]}>{strings.common.active}</Text>
                             </View>
                           )}
                         </View>
@@ -658,11 +694,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                           <View style={styles.subItemActionRow}>
                             <TouchableOpacity
                               onPress={() => onOpenRequests(sub.gradeId, sub.subjectId || undefined)}
-                              style={[styles.renewActionBtn, { backgroundColor: colors.primarySoft }]}
+                              style={[styles.renewActionBtn, { backgroundColor: colors.accentSoft }]}
                               activeOpacity={0.8}
                             >
-                              <Text style={[styles.renewActionBtnText, { color: colors.primaryText }]}>
-                                {t('dashboard.extendSubscriptionBtn') || 'Obunani uzaytirish →'}
+                              <Text style={[styles.renewActionBtnText, { color: colors.accentText }]}>
+                                {t('dashboard.extendSubscriptionBtn') || 'Obunani uzaytiriş →'}
                               </Text>
                             </TouchableOpacity>
                           </View>
@@ -861,13 +897,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         animationType="fade"
         onRequestClose={() => setEditProfileOpen(false)}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
-          <View
-            style={[
-              styles.modalCard,
-              { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
-            ]}
-          >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+            <View
+              style={[
+                styles.modalCard,
+                { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
+              ]}
+            >
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
               {strings.settings.editProfileTitle}
             </Text>
@@ -913,6 +953,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal 2: Offline Bundles */}
@@ -1096,13 +1137,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         animationType="fade"
         onRequestClose={() => setSecurityModalOpen(false)}
       >
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
-          <View
-            style={[
-              styles.modalCard,
-              { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
-            ]}
-          >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+            <View
+              style={[
+                styles.modalCard,
+                { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
+              ]}
+            >
             <View style={styles.modalHeaderRow}>
               <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
                 {strings.settings.securityTitle}
@@ -1175,19 +1220,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             )}
 
             <View style={styles.modalActions}>
-              {onResetPin && (
-                <TouchableOpacity
-                  style={[styles.modalCancelBtn, { backgroundColor: colors.surfaceAlt }]}
-                  onPress={() => {
-                    setSecurityModalOpen(false);
-                    onResetPin();
-                  }}
-                >
-                  <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>
-                    {strings.common.delete} PIN
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, { backgroundColor: colors.surfaceAlt }]}
+                onPress={async () => {
+                  await secureStorage.clearPinCode();
+                  setSecurityModalOpen(false);
+                  notify.info(strings.common.success, strings.settings.profileSaved);
+                }}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>
+                  {strings.common.delete} PIN
+                </Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalSaveBtn, { backgroundColor: colors.primary }]}
                 onPress={handleSaveNewPin}
@@ -1199,6 +1243,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal 4: Connected Devices */}
@@ -1402,7 +1447,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   profileCard: {
-    borderRadius: DS.radius.lg,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     flexDirection: 'row',
@@ -1450,7 +1495,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   prefCard: {
-    borderRadius: DS.radius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 14,
     overflow: 'hidden',
@@ -1599,7 +1644,7 @@ const styles = StyleSheet.create({
     height: 1,
   },
   menuCard: {
-    borderRadius: DS.radius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -1637,7 +1682,7 @@ const styles = StyleSheet.create({
   },
   logoutBtn: {
     marginTop: 18,
-    borderRadius: DS.radius.md,
+    borderRadius: 16,
     paddingVertical: 14,
     borderWidth: 1,
     flexDirection: 'row',

@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserAvatar } from './common/UserAvatar';
 import { useTheme } from '../theme/ThemeContext';
 import { useI18n } from '../i18n/I18nContext';
@@ -95,7 +95,7 @@ export const SideMenuDrawer: React.FC<SideMenuDrawerProps> = ({
       <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
         <TouchableOpacity style={styles.backdropTouch} activeOpacity={1} onPress={onClose} />
 
-        <SafeAreaView style={[styles.drawerSheet, { backgroundColor: colors.surface }]}>
+        <SafeAreaView edges={['top', 'bottom', 'left']} style={[styles.drawerSheet, { backgroundColor: colors.surface }]}>
           <ScrollView contentContainerStyle={styles.drawerScroll} showsVerticalScrollIndicator={false}>
             {/* Header Card */}
             <View

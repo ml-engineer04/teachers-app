@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 declare global {
   interface Window {
@@ -54,12 +55,24 @@ export function generateOidcNonce(length = 24): string {
   return out;
 }
 
+export const PRODUCTION_GOOGLE_WEB_CLIENT_ID =
+  '541312544893-favcmb2v7c257r2n7mlslu0e37dilrm1.apps.googleusercontent.com';
+
 export function getWebGoogleClientId(): string {
-  const raw = (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '').trim();
-  if (!raw || raw.includes('YOUR_GOOGLE') || raw.includes('your_google')) {
-    return '';
+  const envVal = (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '').trim();
+  if (envVal && !envVal.includes('YOUR_GOOGLE') && !envVal.includes('your_google')) {
+    return envVal;
   }
-  return raw;
+  const configVal = (
+    Constants?.expoConfig?.extra?.googleWebClientId ||
+    (Constants as any)?.manifest2?.extra?.expoConfig?.extra?.googleWebClientId ||
+    (Constants as any)?.manifest?.extra?.googleWebClientId ||
+    ''
+  ).trim();
+  if (configVal && !configVal.includes('YOUR_GOOGLE') && !configVal.includes('your_google')) {
+    return configVal;
+  }
+  return PRODUCTION_GOOGLE_WEB_CLIENT_ID;
 }
 
 export async function loadGoogleGisScript(): Promise<void> {
@@ -152,7 +165,7 @@ export async function mountGoogleGisButton(params: {
       cancel_on_tap_outside: true,
       callback: (response) => {
         if (!response?.credential) {
-          params.onError('Google orqali kirish bekor qilindi.');
+          params.onError('Google orqali kiriş bekor qilindi.');
           return;
         }
         params.onCredential(response.credential, params.nonce);

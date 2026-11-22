@@ -48,6 +48,10 @@ const CYRILLIC_TO_LATIN: Record<string, string> = {
   ң: 'ng',
   ү: 'u',
   ұ: 'u',
+  ö: 'o',
+  ğ: 'g',
+  ş: 'sh',
+  ç: 'ch',
 };
 
 const SUBJECT_SYNONYMS: Record<string, string[]> = {

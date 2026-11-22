@@ -10,12 +10,13 @@ import {
   ScrollView,
   Image,
   Modal,
-  SafeAreaView,
   Pressable,
   AppState,
   BackHandler,
   RefreshControl,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { Hotspot, HotspotType } from '@smartteacherbook/shared';
 import { DS } from '../theme/designSystem';
@@ -251,6 +252,156 @@ const PdfVerticalPageCanvas: React.FC<{
   );
 });
 
+interface ReaderVerticalPageCardProps {
+  pageNumber: number;
+  inWindow: boolean;
+  isLoaded: boolean;
+  pageWidth: number;
+  cardHeight: number;
+  pageImgUrl?: string;
+  hasPdf: boolean;
+  pdfDoc: any;
+  hotspots: Hotspot[];
+  activeDrawTool: DrawTool;
+  drawColor: string;
+  drawSize: DrawStrokeSize;
+  pageStrokes?: DrawStroke[];
+  pageBadgeText: string;
+  borderColor: string;
+  cardBg: string;
+  placeholderBg: string;
+  onMarkLoaded: (pg: number) => void;
+  onImageDimensionLoaded: (pg: number, e: any) => void;
+  onHotspotPress: (h: Hotspot) => void;
+  onStrokesChange: (pg: number, next: DrawStroke[]) => void;
+  renderCustomFallback?: (pg: number, size: { width: number; height: number }) => React.ReactNode;
+}
+
+const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
+  pageNumber,
+  inWindow,
+  isLoaded,
+  pageWidth,
+  cardHeight,
+  pageImgUrl,
+  hasPdf,
+  pdfDoc,
+  hotspots,
+  activeDrawTool,
+  drawColor,
+  drawSize,
+  pageStrokes,
+  pageBadgeText,
+  borderColor,
+  cardBg,
+  placeholderBg,
+  onMarkLoaded,
+  onImageDimensionLoaded,
+  onHotspotPress,
+  onStrokesChange,
+  renderCustomFallback,
+}) => {
+  const handleLoad = useCallback(
+    (e: any) => {
+      onMarkLoaded(pageNumber);
+      onImageDimensionLoaded(pageNumber, e);
+    },
+    [onMarkLoaded, onImageDimensionLoaded, pageNumber],
+  );
+
+  const handleError = useCallback(() => {
+    onMarkLoaded(pageNumber);
+  }, [onMarkLoaded, pageNumber]);
+
+  const handleStrokes = useCallback(
+    (next: DrawStroke[]) => {
+      onStrokesChange(pageNumber, next);
+    },
+    [onStrokesChange, pageNumber],
+  );
+
+  return (
+    <View
+      style={[
+        styles.verticalPageCard,
+        {
+          width: pageWidth,
+          height: cardHeight,
+          marginBottom: 14,
+          borderColor,
+          backgroundColor: cardBg,
+        },
+      ]}
+    >
+      {inWindow ? (
+        <View style={{ width: pageWidth, height: cardHeight, position: 'relative' }}>
+          {!isLoaded && (
+            <View style={[StyleSheet.absoluteFill, { zIndex: 1 }]}>
+              <ReaderPageSkeleton style={{ width: '100%', height: '100%', marginTop: 0 }} />
+            </View>
+          )}
+          {pageImgUrl ? (
+            <Image
+              source={{ uri: pageImgUrl }}
+              style={styles.pageImageFull}
+              resizeMode="contain"
+              fadeDuration={0}
+              progressiveRenderingEnabled={true}
+              onLoad={handleLoad}
+              onError={handleError}
+            />
+          ) : hasPdf && Platform.OS === 'web' && pdfDoc ? (
+            <PdfVerticalPageCanvas
+              pdfDoc={pdfDoc}
+              pageNumber={pageNumber}
+              width={pageWidth}
+              height={cardHeight}
+            />
+          ) : renderCustomFallback ? (
+            renderCustomFallback(pageNumber, { width: pageWidth, height: cardHeight })
+          ) : null}
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.verticalPlaceholder,
+            {
+              width: pageWidth,
+              height: cardHeight,
+              backgroundColor: placeholderBg,
+            },
+          ]}
+        />
+      )}
+
+      {inWindow && hotspots.length > 0 && (
+        <HotspotLayer
+          hotspots={hotspots}
+          pageWidth={pageWidth}
+          pageHeight={cardHeight}
+          onHotspotPress={onHotspotPress}
+        />
+      )}
+
+      {inWindow && (activeDrawTool !== null || (pageStrokes && pageStrokes.length > 0)) && (
+        <DrawingHighlighterLayer
+          activeTool={activeDrawTool}
+          activeColor={drawColor}
+          strokeSize={drawSize}
+          width={pageWidth}
+          height={cardHeight}
+          initialStrokes={pageStrokes}
+          onStrokesChange={handleStrokes}
+        />
+      )}
+
+      <View style={styles.verticalPageBadge}>
+        <Text style={styles.verticalPageBadgeText}>{pageBadgeText}</Text>
+      </View>
+    </View>
+  );
+});
+
 export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   book = DEFAULT_BOOK,
   initialPage,
@@ -260,6 +411,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   onOpenSettings,
   onRenewSubscription,
 }) => {
+  const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { strings, formatGrade } = useI18n();
   const progressUserKey = useMemo(
@@ -284,9 +436,12 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   const [zoomLocked, setZoomLocked] = useState<boolean>(false);
   const [pdfAspectRatio, setPdfAspectRatio] = useState<number>(1.414);
   const [pageImageRatios, setPageImageRatios] = useState<Record<number, number>>({});
-  const [canvasAreaSize, setCanvasAreaSize] = useState<{ width: number; height: number }>({
-    width: 375,
-    height: 580,
+  const [canvasAreaSize, setCanvasAreaSize] = useState<{ width: number; height: number }>(() => {
+    const win = Dimensions.get('window');
+    return {
+      width: Math.max(320, win.width || 375),
+      height: Math.max(480, (win.height || 640) - 120),
+    };
   });
 
   const [loadedPages, setLoadedPages] = useState<Set<number>>(
@@ -294,8 +449,11 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   );
   const markPageLoaded = useCallback((pageNum: number) => {
     setLoadedPages((prev) => {
-      if (prev.has(pageNum)) return prev;
-      const next = new Set(prev);
+      const cur = currentPageRef.current;
+      const next = new Set<number>();
+      for (const p of prev) {
+        if (Math.abs(p - cur) <= 6) next.add(p);
+      }
       next.add(pageNum);
       return next;
     });
@@ -357,6 +515,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     subtitle?: string;
     url?: string;
     transcriptImageUrl?: string;
+    transcriptText?: string;
   }>({ visible: false, title: book.title });
 
   // Floating Zero-Overlay Image Popups (matching Web)
@@ -412,12 +571,13 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   const restoredBookRef = useRef<string | null>(null);
   const currentPageRef = useRef<number>(currentPage);
   const totalPagesRef = useRef<number>(totalPages);
+  const remoteProgressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   currentPageRef.current = currentPage;
   totalPagesRef.current = totalPages;
 
   const persistCurrentProgress = useCallback(
-    (explicitPage?: number) => {
+    (explicitPage?: number, immediate = false) => {
       if (!book.id || restoredBookRef.current !== book.id) return;
       const targetPage = clampBookPage(
         explicitPage ?? currentPageRef.current,
@@ -429,13 +589,25 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         targetPage,
         totalPagesRef.current,
       );
-      mobileApi.saveReadingProgress(book.id, targetPage);
+
+      if (remoteProgressTimerRef.current) {
+        clearTimeout(remoteProgressTimerRef.current);
+        remoteProgressTimerRef.current = null;
+      }
+
+      if (immediate) {
+        mobileApi.saveReadingProgress(book.id, targetPage).catch(() => {});
+      } else {
+        remoteProgressTimerRef.current = setTimeout(() => {
+          mobileApi.saveReadingProgress(book.id, targetPage).catch(() => {});
+        }, 1500);
+      }
     },
     [book.id, progressUserKey],
   );
 
   const handleExit = useCallback(() => {
-    persistCurrentProgress();
+    persistCurrentProgress(undefined, true);
     onExit();
   }, [persistCurrentProgress, onExit]);
 
@@ -533,6 +705,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             bookId: book.id,
             gradeId: book.gradeId || 11,
             subjectId: book.subjectId,
+            forceSync: false,
           }),
           DownloadsManager.init().catch(() => {}),
           readingProgressStore.getBookProgress(progressUserKey, book.id).catch(() => localSyncEntry),
@@ -550,114 +723,173 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         setSubscriptionLocked(false);
 
         const offlinePkg = await DownloadsManager.getOfflineBookPackage(book.id);
-
-        let pdfInfo: { hasPdf: boolean; totalPages: number };
-        let bookPages: any[];
-        let bookHotspots: any[];
-        let rawMedia: any[];
-        let mappings: any[];
-        let keys: any[];
-        let toc: any[];
-        let bmList: any[];
-        let noteList: any[];
-        let drawList: any[];
-        let remoteProgressList: any[] = [];
+        const online = await mobileApi.checkConnectivity();
+        if (online) {
+          SubscriptionManager.syncFromBackend().catch(() => {});
+        }
 
         setOfflineMissing(false);
-        const online = await mobileApi.checkConnectivity();
-        if (!online && offlinePkg) {
-          const resolveUrlList = async (url?: string | null) =>
-            (await DownloadsManager.resolveOfflineAssetUri(book.id, url, offlinePkg)) || url;
 
-          const [resolvedPages, resolvedMedia, resolvedHotspots, resolvedMappings, resolvedKeys] =
-            await Promise.all([
-              Promise.all(
-                (offlinePkg.pages || []).map(async (pg) => ({
-                  ...pg,
-                  imageHighUrl: await resolveUrlList(pg.imageHighUrl),
-                  imageNormalUrl: await resolveUrlList(pg.imageNormalUrl),
-                })),
-              ),
-              Promise.all(
-                (offlinePkg.media || []).map(async (m) => ({
-                  ...m,
-                  url: await resolveUrlList(m.url),
-                  thumbnailUrl: await resolveUrlList(m.thumbnailUrl),
-                })),
-              ),
-              Promise.all(
-                (offlinePkg.hotspots || []).map(async (h) => ({
-                  ...h,
-                  targetUrl: await resolveUrlList(h.targetUrl),
-                  imageUrl: await resolveUrlList(h.imageUrl),
-                })),
-              ),
-              Promise.all(
-                (offlinePkg.answerMappings || []).map(async (m) => ({
-                  ...m,
-                  imageUrl: await resolveUrlList(m.imageUrl),
-                })),
-              ),
-              Promise.all(
-                (offlinePkg.answerKeys || []).map(async (k) => ({
-                  ...k,
-                  imageUrl: await resolveUrlList(k.imageUrl),
-                })),
-              ),
-            ]);
+        // CASE 1: Book is already downloaded to local storage (Offline or Online Fast-Path)
+        if (offlinePkg) {
+          setIsOfflineSession(!online);
+          if (!online) {
+            notify.info(strings.common.offlineMode, strings.reader.offlineBanner);
+          }
 
-          pdfInfo = offlinePkg.pdfInfo;
-          bookPages = resolvedPages;
-          bookHotspots = resolvedHotspots;
-          rawMedia = resolvedMedia;
-          mappings = resolvedMappings;
-          keys = resolvedKeys;
-          toc = offlinePkg.toc || [];
-          bmList = offlinePkg.bookmarks || [];
-          noteList = offlinePkg.notes || [];
-          drawList = offlinePkg.drawings || [];
+          const pdfInfo = offlinePkg.pdfInfo || { hasPdf: false, totalPages: offlinePkg.pages?.length || book.totalPages || 96 };
+          const bookPages = offlinePkg.pages || [];
+          const bookHotspots = offlinePkg.hotspots || [];
+          const rawMedia = offlinePkg.media || [];
+          const mappings = offlinePkg.answerMappings || [];
+          const keys = offlinePkg.answerKeys || [];
+          const toc = offlinePkg.toc || [];
 
-          notify.info(strings.common.offlineMode, strings.reader.offlineBanner);
-        } else if (!online && !offlinePkg) {
+          const resolvedOffline = await DownloadsManager.resolveBookOfflineAssets(book.id, offlinePkg).catch(() => ({
+            pkg: offlinePkg,
+            urlToLocalUri: {},
+          }));
+          if (!active) return;
+          setOfflineAssetUrlMap(resolvedOffline.urlToLocalUri || {});
+
+          const computedTotal = Math.max(
+            1,
+            pdfInfo?.totalPages || 0,
+            bookPages?.length || 0,
+            book.totalPages || 96,
+          );
+          const resolvedStartPage = normalizeContentStartPage(
+            (pdfInfo as any)?.contentStartPdfPage ??
+              offlinePkg?.book?.contentStartPdfPage ??
+              book.contentStartPdfPage,
+            computedTotal,
+          );
+          setContentStartPdfPage(resolvedStartPage);
+
+          const restoredPage = resolveInitialBookPage({
+            explicitInitialPage: initialPage ?? book.initialPage,
+            localEntry: localAsyncEntry,
+            remoteEntry: null,
+            totalPages: computedTotal,
+          });
+
+          currentPageRef.current = restoredPage;
+          totalPagesRef.current = computedTotal;
+          pendingVerticalScrollPageRef.current = restoredPage > 1 ? restoredPage : null;
+
+          setTotalPages(computedTotal);
+          setCurrentPage(restoredPage);
+          setActiveAnswerPage(restoredPage);
+          setHasPdf(!!pdfInfo?.hasPdf);
+          setPages(bookPages);
+          setPdfAspectRatio((prev) => extractInitialBookAspectRatio(bookPages, prev));
+          setHotspots(bookHotspots);
+
+          setMediaList((rawMedia || []).map((m: any) => ({
+            id: m.id,
+            type: m.type === 'VIDEO' ? 'VIDEO' : 'AUDIO',
+            title: m.title || m.filename || 'Media',
+            filename: m.filename,
+            subtitle: m.unitLabel || (m.pageNumber ? `${m.pageNumber}` : undefined),
+            durationSeconds: m.durationSeconds,
+            pageNumber: m.pageNumber,
+            url: m.url,
+          })));
+
+          setAnswerMappings(mappings);
+          setAnswerKeys(keys);
+          setTocItems(toc);
+          setBookmarks(
+            resolveMergedBookmarks({
+              localPayload: localAnnotations,
+              offlineBookmarks: offlinePkg.bookmarks,
+              remoteBookmarks: [],
+            }),
+          );
+          setNotes(
+            resolveMergedNotes({
+              localPayload: localAnnotations,
+              offlineNotes: offlinePkg.notes,
+              remoteNotes: [],
+            }),
+          );
+          setDrawingsMap(
+            mergeBookDrawings({
+              localPayload: localAnnotations,
+              offlineDrawList: offlinePkg.drawings,
+              remoteDrawList: [],
+            }) as Record<number, DrawStroke[]>,
+          );
+
+          restoredBookRef.current = book.id;
+          setLoadingBook(false); // First page ready in <25ms!
+
+          readingProgressStore.saveBookProgress(
+            progressUserKey,
+            book.id,
+            restoredPage,
+            computedTotal,
+          );
+
+          if (online) {
+            mobileApi.saveReadingProgress(book.id, restoredPage);
+            Promise.all([
+              mobileApi.getBookmarks(book.id).catch(() => []),
+              mobileApi.getNotes(book.id).catch(() => []),
+              mobileApi.getDrawings(book.id).catch(() => []),
+              mobileApi.getReadingProgress().catch(() => []),
+            ]).then(([bmList, noteList, drawList]) => {
+              if (!active) return;
+              if (bmList?.length) {
+                setBookmarks(
+                  resolveMergedBookmarks({
+                    localPayload: localAnnotations,
+                    offlineBookmarks: offlinePkg.bookmarks,
+                    remoteBookmarks: bmList,
+                  }),
+                );
+              }
+              if (noteList?.length) {
+                setNotes(
+                  resolveMergedNotes({
+                    localPayload: localAnnotations,
+                    offlineNotes: offlinePkg.notes,
+                    remoteNotes: noteList,
+                  }),
+                );
+              }
+              if (drawList?.length) {
+                setDrawingsMap(
+                  mergeBookDrawings({
+                    localPayload: localAnnotations,
+                    offlineDrawList: offlinePkg.drawings,
+                    remoteDrawList: drawList,
+                  }) as Record<number, DrawStroke[]>,
+                );
+              }
+            }).catch(() => {});
+          }
+          return;
+        }
+
+        // CASE 2: Offline and not downloaded
+        if (!online) {
           setOfflineMissing(true);
           notify.error(strings.modals.offlineTitle, strings.modals.offlineDesc);
-          pdfInfo = { hasPdf: false, totalPages: book.totalPages || 6 };
-          bookPages = [];
-          bookHotspots = [];
-          rawMedia = [];
-          mappings = [];
-          keys = [];
-          toc = [];
-          bmList = [];
-          noteList = [];
-          drawList = [];
-        } else {
-          [
-            pdfInfo,
-            bookPages,
-            bookHotspots,
-            rawMedia,
-            mappings,
-            keys,
-            toc,
-            bmList,
-            noteList,
-            drawList,
-            remoteProgressList,
-          ] = await Promise.all([
-            mobileApi.getBookPdfInfo(book.id),
-            mobileApi.getBookPages(book.id),
-            mobileApi.getBookHotspots(book.id),
-            mobileApi.getMedia(book.id),
-            mobileApi.getAnswerMappings(book.gradeId, book.subjectId),
-            mobileApi.getAnswerKeys(book.id),
-            mobileApi.getBookToc(book.id),
-            mobileApi.getBookmarks(book.id),
-            mobileApi.getNotes(book.id),
-            mobileApi.getDrawings(book.id),
-            mobileApi.getReadingProgress().catch(() => []),
-          ]);
+          setTotalPages(book.totalPages || 6);
+          setPages([]);
+          setHotspots([]);
+          setLoadingBook(false);
+          return;
         }
+
+        // CASE 3: Online Book — Priority Stage 1 Core Rendering
+        setIsOfflineSession(false);
+        const [pdfInfo, bookPages, bookHotspots] = await Promise.all([
+          mobileApi.getBookPdfInfo(book.id),
+          mobileApi.getBookPages(book.id),
+          mobileApi.getBookHotspots(book.id),
+        ]);
 
         if (!active) return;
 
@@ -668,30 +900,15 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
           book.totalPages || 96,
         );
         const resolvedStartPage = normalizeContentStartPage(
-          (pdfInfo as any)?.contentStartPdfPage ??
-            offlinePkg?.book?.contentStartPdfPage ??
-            (offlinePkg?.pdfInfo as any)?.contentStartPdfPage ??
-            book.contentStartPdfPage,
+          (pdfInfo as any)?.contentStartPdfPage ?? book.contentStartPdfPage,
           computedTotal,
         );
         setContentStartPdfPage(resolvedStartPage);
-        setIsOfflineSession(!online && Boolean(offlinePkg));
 
-        // Resolve pre-downloaded offline local URIs (page images, audio, video)
-        const resolvedOffline = await DownloadsManager.resolveBookOfflineAssets(
-          book.id,
-          offlinePkg,
-        ).catch(() => ({ pkg: offlinePkg || null, urlToLocalUri: {} }));
-        if (!active) return;
-        setOfflineAssetUrlMap(resolvedOffline.urlToLocalUri || {});
-
-        const remoteEntry = Array.isArray(remoteProgressList)
-          ? remoteProgressList.find((p: any) => p?.bookId === book.id) || null
-          : null;
         const restoredPage = resolveInitialBookPage({
           explicitInitialPage: initialPage ?? book.initialPage,
           localEntry: localAsyncEntry,
-          remoteEntry,
+          remoteEntry: null,
           totalPages: computedTotal,
         });
 
@@ -707,53 +924,92 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         setPdfAspectRatio((prev) => extractInitialBookAspectRatio(bookPages, prev));
         setHotspots(bookHotspots || []);
 
-        const normalizedMedia: ExtendedMediaItem[] = (rawMedia || []).map((m: any) => ({
-          id: m.id,
-          type: m.type === 'VIDEO' ? 'VIDEO' : 'AUDIO',
-          title: m.title || m.filename || 'Media',
-          filename: m.filename,
-          subtitle: m.unitLabel || (m.pageNumber ? `${m.pageNumber}` : undefined),
-          durationSeconds: m.durationSeconds,
-          pageNumber: m.pageNumber,
-          url: m.url,
-        }));
-        setMediaList(normalizedMedia);
-
-        setAnswerMappings(mappings || []);
-        setAnswerKeys(keys || []);
-        setTocItems(toc || []);
         setBookmarks(
           resolveMergedBookmarks({
             localPayload: localAnnotations,
-            offlineBookmarks: offlinePkg?.bookmarks,
-            remoteBookmarks: bmList,
+            remoteBookmarks: [],
           }),
         );
         setNotes(
           resolveMergedNotes({
             localPayload: localAnnotations,
-            offlineNotes: offlinePkg?.notes,
-            remoteNotes: noteList,
+            remoteNotes: [],
           }),
         );
-
-        const mergedDrawings = mergeBookDrawings({
-          localPayload: localAnnotations,
-          offlineDrawList: offlinePkg?.drawings,
-          remoteDrawList: drawList,
-        });
-        setDrawingsMap(mergedDrawings as Record<number, DrawStroke[]>);
+        setDrawingsMap(
+          mergeBookDrawings({
+            localPayload: localAnnotations,
+            remoteDrawList: [],
+          }) as Record<number, DrawStroke[]>,
+        );
 
         restoredBookRef.current = book.id;
-        await readingProgressStore.saveBookProgress(
+        setLoadingBook(false); // Online First Page ready!
+
+        readingProgressStore.saveBookProgress(
           progressUserKey,
           book.id,
           restoredPage,
           computedTotal,
         );
-        if (online) {
-          mobileApi.saveReadingProgress(book.id, restoredPage);
-        }
+        mobileApi.saveReadingProgress(book.id, restoredPage);
+
+        // Background Stage 2: Non-blocking secondary metadata hydration
+        Promise.all([
+          mobileApi.getMedia(book.id).catch(() => []),
+          mobileApi.getAnswerMappings(book.gradeId, book.subjectId).catch(() => []),
+          mobileApi.getAnswerKeys(book.id).catch(() => []),
+          mobileApi.getBookToc(book.id).catch(() => []),
+          mobileApi.getBookmarks(book.id).catch(() => []),
+          mobileApi.getNotes(book.id).catch(() => []),
+          mobileApi.getDrawings(book.id).catch(() => []),
+          mobileApi.getReadingProgress().catch(() => []),
+        ]).then(
+          ([rawMedia, mappings, keys, toc, bmList, noteList, drawList, remoteProgressList]) => {
+            if (!active) return;
+            if (rawMedia && rawMedia.length > 0) {
+              setMediaList(
+                (rawMedia || []).map((m: any) => ({
+                  id: m.id,
+                  type: m.type === 'VIDEO' ? 'VIDEO' : 'AUDIO',
+                  title: m.title || m.filename || 'Media',
+                  filename: m.filename,
+                  subtitle: m.unitLabel || (m.pageNumber ? `${m.pageNumber}` : undefined),
+                  durationSeconds: m.durationSeconds,
+                  pageNumber: m.pageNumber,
+                  url: m.url,
+                })),
+              );
+            }
+            if (mappings && mappings.length > 0) setAnswerMappings(mappings);
+            if (keys && keys.length > 0) setAnswerKeys(keys);
+            if (toc && toc.length > 0) setTocItems(toc);
+            if (bmList && bmList.length > 0) {
+              setBookmarks(
+                resolveMergedBookmarks({
+                  localPayload: localAnnotations,
+                  remoteBookmarks: bmList,
+                }),
+              );
+            }
+            if (noteList && noteList.length > 0) {
+              setNotes(
+                resolveMergedNotes({
+                  localPayload: localAnnotations,
+                  remoteNotes: noteList,
+                }),
+              );
+            }
+            if (drawList && drawList.length > 0) {
+              setDrawingsMap(
+                mergeBookDrawings({
+                  localPayload: localAnnotations,
+                  remoteDrawList: drawList,
+                }) as Record<number, DrawStroke[]>,
+              );
+            }
+          },
+        ).catch(() => {});
       } catch {
         if (active && restoredBookRef.current !== book.id) {
           pendingVerticalScrollPageRef.current = startPage > 1 ? startPage : null;
@@ -885,7 +1141,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   // Flush reading progress on app background, tab hide/close, or reader unmount
   // and re-verify monthly subscription status when returning to active foreground.
   useEffect(() => {
-    const flush = () => persistCurrentProgress();
+    const flush = () => persistCurrentProgress(undefined, true);
     const recheckSubscription = () => {
       SubscriptionManager.checkBookAccess({
         bookId: book.id,
@@ -1051,9 +1307,61 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   const vPageWidth = Math.max(220, Math.floor(canvasAreaSize.width - 14));
   const vPageHeight = Math.max(180, Math.round(vPageWidth * pdfAspectRatio));
 
+  const initialScrollOffset = useMemo(
+    () => ({
+      x: 0,
+      y: Math.max(0, (initialRestoredPage - 1) * (vPageHeight + VERTICAL_GAP)),
+    }),
+    [initialRestoredPage, vPageHeight],
+  );
+
+  // Pre-index pages and hotspots into O(1) Map caches to eliminate O(N^2) search overhead on scroll
+  const pagesByNumberMap = useMemo(() => {
+    const map = new Map<number, any>();
+    for (const p of pages) {
+      map.set(Number(p.pageNumber), p);
+    }
+    return map;
+  }, [pages]);
+
+  const hotspotsByPageMap = useMemo(() => {
+    const map = new Map<number, Hotspot[]>();
+    for (const h of hotspots) {
+      const pgNum = Number(h.pageNumber);
+      if (!Number.isNaN(pgNum)) {
+        let list = map.get(pgNum);
+        if (!list) {
+          list = [];
+          map.set(pgNum, list);
+        }
+        list.push(h);
+      }
+    }
+    for (const [pgNum, pObj] of pagesByNumberMap.entries()) {
+      if (!pObj?.id) continue;
+      for (const h of hotspots) {
+        if (
+          h.pageId === pObj.id ||
+          h.pageId === `${book.id}_p${pgNum}` ||
+          h.pageId === `page_${pgNum}`
+        ) {
+          let list = map.get(pgNum);
+          if (!list) {
+            list = [];
+            map.set(pgNum, list);
+          }
+          if (!list.includes(h)) {
+            list.push(h);
+          }
+        }
+      }
+    }
+    return map;
+  }, [hotspots, pagesByNumberMap, book.id]);
+
   const currentPageObj = useMemo(
-    () => pages.find((p) => Number(p.pageNumber) === currentPage),
-    [pages, currentPage],
+    () => pagesByNumberMap.get(currentPage),
+    [pagesByNumberMap, currentPage],
   );
 
   // Active unit subtitle from TOC (real custom units only)
@@ -1097,7 +1405,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     const start = Math.max(1, currentPage - 3);
     const end = Math.min(totalPages, currentPage + 8);
     for (let p = start; p <= end; p++) {
-      const pgObj = pages.find((pg) => Number(pg.pageNumber) === p);
+      const pgObj = pagesByNumberMap.get(p);
       const rawUrl =
         pgObj?.imageHighUrl ||
         pgObj?.imageNormalUrl ||
@@ -1107,7 +1415,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         Image.prefetch(resolved).catch(() => {});
       }
     }
-  }, [currentPage, book.id, totalPages, pages, resolveMediaOrImageUrl]);
+  }, [currentPage, book.id, totalPages, pagesByNumberMap, resolveMediaOrImageUrl]);
 
   const activeUnitTitle = useMemo(() => {
     const customToc = [...tocItems]
@@ -1122,16 +1430,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
 
   const getHotspotsForPage = useCallback(
     (pageNum: number): Hotspot[] => {
-      const pgObj = pages.find((p) => Number(p.pageNumber) === pageNum);
-      return hotspots.filter(
-        (h) =>
-          h.pageNumber === pageNum ||
-          (pgObj && h.pageId === pgObj.id) ||
-          h.pageId === `${book.id}_p${pageNum}` ||
-          h.pageId === `page_${pageNum}`,
-      );
+      return hotspotsByPageMap.get(pageNum) || [];
     },
-    [hotspots, pages, book.id],
+    [hotspotsByPageMap],
   );
 
   const pageHotspots: Hotspot[] = useMemo(
@@ -1200,7 +1501,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     [getAnswersForPage, activeAnswerPage],
   );
 
-  const isCurrentBookmarked = bookmarks.some((b) => b.pageNumber === currentPage);
+  const isCurrentBookmarked = bookmarks.some((b) => Number(b.pageNumber) === currentPage);
 
   const scrollVerticalToPage = useCallback(
     (targetPage: number, animated: boolean) => {
@@ -1253,14 +1554,8 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
       return;
     }
 
-    programmaticScrollRef.current = true;
-    const timer = setTimeout(() => {
-      pendingVerticalScrollPageRef.current = null;
-      scrollVerticalToPage(targetPage, false);
-      programmaticScrollRef.current = false;
-    }, 60);
-
-    return () => clearTimeout(timer);
+    pendingVerticalScrollPageRef.current = null;
+    scrollVerticalToPage(targetPage, false);
   }, [loadingBook, scrollVerticalToPage]);
 
   const handleToggleBookmark = async (pageNum: number) => {
@@ -1402,81 +1697,103 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
           (m.filename === hotspot.targetFile || m.title === hotspot.targetFile)),
     );
 
-  const handleHotspotPress = async (hotspot: Hotspot) => {
-    const linkedMedia = resolveLinkedMedia(hotspot);
-    const rawTargetUrl = hotspot.targetUrl || linkedMedia?.url;
-    const resolvedUrl =
-      resolveMediaOrImageUrl(rawTargetUrl) ||
-      (await DownloadsManager.resolveOfflineAssetUri(book.id, rawTargetUrl)) ||
-      mobileApi.resolveAssetUrl(rawTargetUrl);
-    const hsPage = Number((hotspot as any).pageNumber) || currentPage;
-    const hsPageLabel = formatPdfPageBadge(hsPage);
+  const handleHotspotPress = useCallback(
+    async (hotspot: Hotspot) => {
+      const linkedMedia = resolveLinkedMedia(hotspot);
+      const rawTargetUrl = hotspot.targetUrl || linkedMedia?.url;
+      const resolvedUrl =
+        resolveMediaOrImageUrl(rawTargetUrl) ||
+        (await DownloadsManager.resolveOfflineAssetUri(book.id, rawTargetUrl)) ||
+        mobileApi.resolveAssetUrl(rawTargetUrl);
+      const hsPage = Number((hotspot as any).pageNumber) || currentPage;
+      const hsPageLabel = formatPdfPageBadge(hsPage);
 
-    if (hotspot.type === HotspotType.AUDIO) {
-      if (!resolvedUrl) {
-        notify.warning(strings.common.warning, strings.reader.mediaLoadFailed);
+      if (hotspot.type === HotspotType.AUDIO) {
+        if (!resolvedUrl) {
+          notify.warning(strings.common.warning, strings.reader.mediaLoadFailed);
+        }
+        const rawTranscript =
+          (hotspot as any).transcriptImageUrl ||
+          (hotspot as any).transcriptImages?.[0] ||
+          (linkedMedia as any)?.transcriptImageUrl ||
+          (linkedMedia as any)?.transcriptImages?.[0];
+        const transcriptUrl = rawTranscript ? resolveMediaOrImageUrl(rawTranscript) || rawTranscript : undefined;
+        const rawTranscriptText = (hotspot as any).transcriptText || (linkedMedia as any)?.transcriptText;
+
+        setAudioModal({
+          visible: true,
+          title: linkedMedia?.title || (hotspot as any).label || hotspot.exerciseLabel || activeUnitTitle,
+          subtitle: `${strings.common.page} ${hsPageLabel} • ${strings.reader.playAudio}`,
+          url: resolvedUrl,
+          transcriptImageUrl: transcriptUrl,
+          transcriptText: rawTranscriptText,
+        });
+      } else if (hotspot.type === HotspotType.VIDEO) {
+        if (!resolvedUrl) {
+          notify.warning(strings.common.warning, strings.reader.mediaLoadFailed);
+        }
+        setVideoModal({
+          visible: true,
+          title: linkedMedia?.title || (hotspot as any).label || hotspot.exerciseLabel || book.title,
+          subtitle: `${strings.common.page} ${hsPageLabel} • ${strings.reader.playVideo}`,
+          url: resolvedUrl,
+          notes: hotspot.methodologyNotes || (hotspot as any).description || undefined,
+        });
+      } else if (hotspot.type === HotspotType.ANSWER_LINK) {
+        const matchingAnswer = answerKeys.find(
+          (a) =>
+            a.id === hotspot.id ||
+            (Number(a.studentPageNumber) === hsPage && a.studentExerciseLabel === hotspot.exerciseLabel) ||
+            Number(a.studentPageNumber) === hsPage,
+        );
+        const rawImg =
+          (hotspot as any).imageUrl ||
+          (hotspot as any).answerImages?.[0] ||
+          matchingAnswer?.imageUrl ||
+          matchingAnswer?.answerImages?.[0];
+        const answerImgUrl = rawImg ? resolveMediaOrImageUrl(rawImg) || rawImg : null;
+
+        if (answerImgUrl) {
+          setFloatingAnswerImage({
+            isOpen: true,
+            title: hotspot.exerciseLabel || (hotspot as any).label || `${strings.reader.answerKeysTitle} • ${hsPageLabel}`,
+            subtitle: `${book.title} • ${strings.common.page} ${hsPageLabel}`,
+            imageUrl: answerImgUrl,
+          });
+        } else {
+          setAnswerTab('ANSWERS');
+          setActiveAnswerPage(hsPage);
+          setSelectedAnswerHotspotId(hotspot.id);
+          setAnswerModalVisible(true);
+        }
+
+        setAnswerTab('ANSWERS');
+        setActiveAnswerPage(hsPage);
+        setSelectedAnswerHotspotId(hotspot.id);
+      } else if (hotspot.type === HotspotType.INTERNAL_PAGE && hotspot.targetPageNumber) {
+        goToPage(hotspot.targetPageNumber);
+      } else {
+        const hs = hotspot as any;
+        setNotePopup({
+          visible: true,
+          title: hs.tooltipText || hs.label || strings.reader.notes,
+          body: hs.noteText || hs.description || hs.methodologyNotes || '',
+        });
       }
-      const rawTranscript =
-        (hotspot as any).transcriptImageUrl ||
-        (hotspot as any).transcriptImages?.[0] ||
-        (linkedMedia as any)?.transcriptImageUrl ||
-        (linkedMedia as any)?.transcriptImages?.[0];
-      const transcriptUrl = rawTranscript ? resolveMediaOrImageUrl(rawTranscript) || rawTranscript : undefined;
-
-      setAudioModal({
-        visible: true,
-        title: linkedMedia?.title || (hotspot as any).label || hotspot.exerciseLabel || activeUnitTitle,
-        subtitle: `${strings.common.page} ${hsPageLabel} • ${strings.reader.playAudio}`,
-        url: resolvedUrl,
-        transcriptImageUrl: transcriptUrl,
-      });
-    } else if (hotspot.type === HotspotType.VIDEO) {
-      if (!resolvedUrl) {
-        notify.warning(strings.common.warning, strings.reader.mediaLoadFailed);
-      }
-      setVideoModal({
-        visible: true,
-        title: linkedMedia?.title || (hotspot as any).label || hotspot.exerciseLabel || book.title,
-        subtitle: `${strings.common.page} ${hsPageLabel} • ${strings.reader.playVideo}`,
-        url: resolvedUrl,
-        notes: hotspot.methodologyNotes || (hotspot as any).description || undefined,
-      });
-    } else if (hotspot.type === HotspotType.ANSWER_LINK) {
-      const matchingAnswer = answerKeys.find(
-        (a) =>
-          a.id === hotspot.id ||
-          (Number(a.studentPageNumber) === hsPage && a.studentExerciseLabel === hotspot.exerciseLabel) ||
-          Number(a.studentPageNumber) === hsPage,
-      );
-      const rawImg =
-        (hotspot as any).imageUrl ||
-        (hotspot as any).answerImages?.[0] ||
-        matchingAnswer?.imageUrl ||
-        matchingAnswer?.answerImages?.[0];
-      const answerImgUrl = rawImg ? resolveMediaOrImageUrl(rawImg) || rawImg : null;
-
-      // Zero-overlay floating draggable popup matching Web
-      setFloatingAnswerImage({
-        isOpen: true,
-        title: hotspot.exerciseLabel || (hotspot as any).label || `${strings.reader.answerKeysTitle} • ${hsPageLabel}`,
-        subtitle: `${book.title} • ${strings.common.page} ${hsPageLabel}`,
-        imageUrl: answerImgUrl,
-      });
-
-      setAnswerTab('ANSWERS');
-      setActiveAnswerPage(hsPage);
-      setSelectedAnswerHotspotId(hotspot.id);
-    } else if (hotspot.type === HotspotType.INTERNAL_PAGE && hotspot.targetPageNumber) {
-      goToPage(hotspot.targetPageNumber);
-    } else {
-      const hs = hotspot as any;
-      setNotePopup({
-        visible: true,
-        title: hs.tooltipText || hs.label || strings.reader.notes,
-        body: hs.noteText || hs.description || hs.methodologyNotes || '',
-      });
-    }
-  };
+    },
+    [
+      mediaList,
+      resolveMediaOrImageUrl,
+      book.id,
+      book.title,
+      currentPage,
+      formatPdfPageBadge,
+      strings,
+      activeUnitTitle,
+      answerKeys,
+      goToPage,
+    ],
+  );
 
   const handleQuickAudioBar = async (customTitle?: string) => {
     const pageAudioHs = pageHotspots.find((h) => h.type === HotspotType.AUDIO);
@@ -1979,13 +2296,14 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.readerBg }]}>
+    <SafeAreaView edges={['left', 'right']} style={[styles.root, { backgroundColor: colors.readerBg }]}>
       <View
         style={[
           styles.topHeader,
           {
             backgroundColor: colors.readerChrome,
             borderBottomColor: colors.border,
+            paddingTop: Math.max(insets.top, 8),
           },
         ]}
       >
@@ -2132,6 +2450,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             <ScrollView
               ref={verticalScrollRef}
               scrollEnabled={activeDrawTool === null && !zoomLocked}
+              contentOffset={initialScrollOffset}
               refreshControl={
                 <RefreshControl refreshing={refreshingBook} onRefresh={handlePullRefreshBook} />
               }
@@ -2165,8 +2484,8 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             >
               {Array.from({ length: totalPages }, (_, idx) => {
                 const pg = idx + 1;
-                const inWindow = Math.abs(pg - currentPage) <= 5 || loadedPages.has(pg);
-                const pgObj = pages.find((p) => Number(p.pageNumber) === pg);
+                const inWindow = Math.abs(pg - currentPage) <= 2;
+                const pgObj = pagesByNumberMap.get(pg);
                 const basePgImgUrl =
                   pgObj?.imageHighUrl ||
                   pgObj?.imageNormalUrl ||
@@ -2178,82 +2497,31 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                 const pageBadgeText = formatPdfPageBadge(pg);
 
                 return (
-                  <View
+                  <ReaderVerticalPageCard
                     key={`vpage_${pg}`}
-                    style={[
-                      styles.verticalPageCard,
-                      {
-                        width: vPageWidth,
-                        height: cardHeight,
-                        marginBottom: VERTICAL_GAP,
-                        borderColor: colors.border,
-                        backgroundColor: isDark ? colors.surface : '#FFFFFF',
-                      },
-                    ]}
-                  >
-                    {inWindow ? (
-                      <View style={{ width: vPageWidth, height: cardHeight, position: 'relative' }}>
-                        {!loadedPages.has(pg) && (
-                          <View style={[StyleSheet.absoluteFill, { zIndex: 1 }]}>
-                            <ReaderPageSkeleton style={{ width: '100%', height: '100%', marginTop: 0 }} />
-                          </View>
-                        )}
-                        {pgImgUrl ? (
-                          <Image
-                            source={{ uri: pgImgUrl }}
-                            style={styles.pageImageFull}
-                            resizeMode="contain"
-                            fadeDuration={0}
-                            progressiveRenderingEnabled={true}
-                            onLoad={(e) => {
-                              markPageLoaded(pg);
-                              handleImageDimensionLoaded(pg, e);
-                            }}
-                            onError={() => {
-                              markPageLoaded(pg);
-                            }}
-                          />
-                        ) : hasPdf && Platform.OS === 'web' && pdfDocRef.current ? (
-                          <PdfVerticalPageCanvas
-                            pdfDoc={pdfDocRef.current}
-                            pageNumber={pg}
-                            width={vPageWidth}
-                            height={cardHeight}
-                          />
-                        ) : (
-                          renderPageContent(pg, { width: vPageWidth, height: cardHeight })
-                        )}
-                      </View>
-                    ) : (
-                      <View style={[styles.verticalPlaceholder, { backgroundColor: isDark ? colors.surfaceAlt : colors.backgroundSecondary }]}>
-                        <ReaderPageSkeleton style={{ width: '100%', height: '100%', marginTop: 0 }} />
-                      </View>
-                    )}
-
-                    {inWindow && (
-                      <>
-                        <HotspotLayer
-                          hotspots={hsList}
-                          pageWidth={vPageWidth}
-                          pageHeight={cardHeight}
-                          onHotspotPress={handleHotspotPress}
-                        />
-                        <DrawingHighlighterLayer
-                          activeTool={activeDrawTool}
-                          activeColor={drawColor}
-                          strokeSize={drawSize}
-                          width={vPageWidth}
-                          height={cardHeight}
-                          initialStrokes={drawingsMap[pg]}
-                          onStrokesChange={(next) => handleStrokesChangeForPage(pg, next)}
-                        />
-                      </>
-                    )}
-
-                    <View style={styles.verticalPageBadge}>
-                      <Text style={styles.verticalPageBadgeText}>{pageBadgeText}</Text>
-                    </View>
-                  </View>
+                    pageNumber={pg}
+                    inWindow={inWindow}
+                    isLoaded={loadedPages.has(pg)}
+                    pageWidth={vPageWidth}
+                    cardHeight={cardHeight}
+                    pageImgUrl={pgImgUrl}
+                    hasPdf={hasPdf}
+                    pdfDoc={pdfDocRef.current}
+                    hotspots={hsList}
+                    activeDrawTool={activeDrawTool}
+                    drawColor={drawColor}
+                    drawSize={drawSize}
+                    pageStrokes={drawingsMap[pg]}
+                    pageBadgeText={pageBadgeText}
+                    borderColor={colors.border}
+                    cardBg={isDark ? colors.surface : '#FFFFFF'}
+                    placeholderBg={isDark ? colors.surfaceAlt : colors.backgroundSecondary}
+                    onMarkLoaded={markPageLoaded}
+                    onImageDimensionLoaded={handleImageDimensionLoaded}
+                    onHotspotPress={handleHotspotPress}
+                    onStrokesChange={handleStrokesChangeForPage}
+                    renderCustomFallback={renderPageContent}
+                  />
                 );
               })}
             </ScrollView>
@@ -2279,7 +2547,12 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             onSaveAndClose={handleCloseDrawTool}
           />
         ) : (
-        <View style={styles.floatingDockContainer}>
+        <View
+          style={[
+            styles.floatingDockContainer,
+            { bottom: Math.max(insets.bottom, 6) + 6 },
+          ]}
+        >
           <View
             style={[
               styles.floatingPillDock,
@@ -2399,7 +2672,11 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
       <View
         style={[
           styles.paginationFooter,
-          { backgroundColor: colors.surface, borderTopColor: colors.border },
+          {
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+            paddingBottom: Math.max(insets.bottom + 8, Platform.OS === 'ios' ? 24 : 18),
+          },
         ]}
       >
         <TouchableOpacity
@@ -2585,14 +2862,24 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         trackTitle={audioModal.title}
         trackSubtitle={audioModal.subtitle}
         trackUrl={audioModal.url}
-        hasTranscript={Boolean(audioModal.transcriptImageUrl)}
+        hasTranscript={Boolean(
+          audioModal.transcriptImageUrl ||
+          audioModal.transcriptText ||
+          activeAnswers.some((a: any) => a.transcriptText || a.transcriptImages?.length)
+        )}
         onOpenTranscript={() => {
-          setFloatingTranscriptImage({
-            isOpen: true,
-            title: `Transkript • ${audioModal.title}`,
-            subtitle: `${book.title} • ${strings.common.page} ${currentPage}`,
-            imageUrl: audioModal.transcriptImageUrl,
-          });
+          if (audioModal.transcriptImageUrl) {
+            setFloatingTranscriptImage({
+              isOpen: true,
+              title: `Transkript • ${audioModal.title}`,
+              subtitle: `${book.title} • ${strings.common.page} ${currentPage}`,
+              imageUrl: audioModal.transcriptImageUrl,
+            });
+          } else {
+            setAnswerTab('TRANSCRIPT');
+            setActiveAnswerPage(currentPage);
+            setAnswerModalVisible(true);
+          }
         }}
       />
 
@@ -3387,8 +3674,8 @@ const styles = StyleSheet.create({
   },
   verticalPageBadge: {
     position: 'absolute',
-    top: 10,
-    left: 10,
+    bottom: 12,
+    right: 12,
     backgroundColor: 'rgba(15, 23, 42, 0.82)',
     paddingHorizontal: 9,
     paddingVertical: 3,

@@ -176,7 +176,7 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
         }
         handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
       }}
-      className={`fixed z-50 select-none animate-in slide-in-from-bottom-2 duration-150 max-w-[calc(100vw-16px)] rounded-full bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 backdrop-blur-xl border border-[#D9DCD5] dark:border-[#0E7C70]/40 shadow-[0_15px_40px_rgba(14,124,112,0.18)] dark:shadow-[0_15px_40px_rgba(14,124,112,0.35)] text-[#1F2933] dark:text-[#E6E8EC] px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 sm:gap-2.5 ${
+      className={`fixed z-50 select-none animate-in slide-in-from-bottom-2 duration-150 max-w-[calc(100vw-16px)] rounded-full bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-xl border border-[#E6E9F2] dark:border-[#262C42] shadow-[0_15px_40px_rgba(42,79,184,0.18)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] text-[#1B2238] dark:text-[#E9ECF7] px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 sm:gap-2.5 ${
         !position ? 'bottom-4 left-1/2 -translate-x-1/2' : ''
       } cursor-grab active:cursor-grabbing`}
     >

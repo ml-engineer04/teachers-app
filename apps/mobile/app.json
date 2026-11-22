@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ilmçi",
+    "name": "Ilmchi",
     "slug": "ilmchi",
     "version": "1.0.0",
     "orientation": "default",
@@ -60,6 +60,8 @@
       "expo-asset"
     ],
     "extra": {
+      "googleWebClientId": "541312544893-favcmb2v7c257r2n7mlslu0e37dilrm1.apps.googleusercontent.com",
+      "googleAndroidClientId": "541312544893-favcmb2v7c257r2n7mlslu0e37dilrm1.apps.googleusercontent.com",
       "eas": {
         "projectId": "7ef64ba4-8548-4079-910c-70136530eaed"
       }

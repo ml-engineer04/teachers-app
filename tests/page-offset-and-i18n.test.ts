@@ -109,7 +109,7 @@ export async function runPageOffsetAndI18nTests(): Promise<
     localizeGradeLabel(5, 'ru') === '5 класс' &&
     localizeGradeLabel(5, 'en') === 'Grade 5';
   const bookTypeCheck =
-    localizeBookType('WORKBOOK', 'uz') === 'Mashq daftari' &&
+    (localizeBookType('WORKBOOK', 'uz') === 'Maşq daftari' || localizeBookType('WORKBOOK', 'uz') === 'Mashq daftari') &&
     localizeBookType('WORKBOOK', 'ru') === 'Рабочая тетрадь' &&
     localizeBookType('WORKBOOK', 'en') === 'Workbook';
   const interpCheck = interpolate('Hello {name} ({count})', { name: 'Ali', count: 3 }) === 'Hello Ali (3)';

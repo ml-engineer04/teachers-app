@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AppState, BackHandler, Keyboard, Platform, StyleSheet, View, StatusBar } from 'react-native';
+import {
+  AppState,
+  BackHandler,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  View,
+  StatusBar,
+  Animated,
+} from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { I18nProvider, useI18n } from './src/i18n/I18nContext';
 import { SplashScreen } from './src/screens/SplashScreen';
@@ -91,7 +101,7 @@ function AppShell() {
     lastActivityAtRef.current = now;
     if (isUnlockedAppScreen(currentScreenRef.current)) {
       scheduleIdleTimer(AUTO_LOCK_MS);
-      if (now - lastPersistedActivityRef.current >= 5000) {
+      if (now - lastPersistedActivityRef.current >= 60000) {
         lastPersistedActivityRef.current = now;
         secureStorage.saveLastActivityAt(now).catch(() => {});
       }
@@ -268,7 +278,6 @@ function AppShell() {
     let mounted = true;
 
     const bootstrapSession = async () => {
-      const minSplashDelay = new Promise((res) => setTimeout(res, 750));
       try {
         const [token, profile, hasPin, lastActiveAt] = await Promise.all([
           secureStorage.getAccessToken(),
@@ -278,28 +287,9 @@ function AppShell() {
         ]);
 
         if (token && profile?.email) {
-          let resolvedName = profile.fullName || profile.name || profile.email.split('@')[0];
-          let resolvedPhoto = profile.avatarUrl || profile.photoUrl;
+          const resolvedName = profile.fullName || profile.name || profile.email.split('@')[0];
+          const resolvedPhoto = profile.avatarUrl || profile.photoUrl;
 
-          try {
-            const remote = await mobileApi.getProfile();
-            const remoteUser = remote?.user || remote;
-            if (remoteUser?.email) {
-              resolvedName = remoteUser.fullName || resolvedName;
-              resolvedPhoto = remoteUser.avatarUrl || resolvedPhoto;
-              await secureStorage.saveUserProfile({
-                ...profile,
-                ...remoteUser,
-                name: resolvedName,
-              });
-            }
-          } catch {}
-
-          await Promise.all([
-            refreshSubscriptionSummary(),
-            DownloadsManager.init().catch(() => {}),
-          ]);
-          await minSplashDelay;
           if (!mounted) return;
 
           setUserProfile({
@@ -307,6 +297,7 @@ function AppShell() {
             email: profile.email,
             photoUrl: resolvedPhoto,
           });
+
           const elapsedSinceExit = lastActiveAt ? Date.now() - lastActiveAt : 0;
           const shouldLockOnBoot = Boolean(hasPin && (!lastActiveAt || elapsedSinceExit >= AUTO_LOCK_MS));
           if (!shouldLockOnBoot) {
@@ -314,12 +305,34 @@ function AppShell() {
             lastActivityAtRef.current = now;
             secureStorage.saveLastActivityAt(now).catch(() => {});
           }
+
           setCurrentScreen(shouldLockOnBoot ? 'PIN_LOCK' : 'HOME');
+
+          // Non-blocking background sync and initialization
+          refreshSubscriptionSummary().catch(() => {});
+          DownloadsManager.init().catch(() => {});
+          mobileApi.getProfile().then(async (remote) => {
+            const remoteUser = remote?.user || remote;
+            if (remoteUser?.email && mounted) {
+              const updatedName = remoteUser.fullName || resolvedName;
+              const updatedPhoto = remoteUser.avatarUrl || resolvedPhoto;
+              setUserProfile((prev) => ({
+                ...prev,
+                name: updatedName,
+                photoUrl: updatedPhoto,
+              }));
+              await secureStorage.saveUserProfile({
+                ...profile,
+                ...remoteUser,
+                name: updatedName,
+              });
+            }
+          }).catch(() => {});
+
           return;
         }
       } catch {}
 
-      await minSplashDelay;
       if (mounted) setCurrentScreen('WELCOME');
     };
 
@@ -411,6 +424,19 @@ function AppShell() {
       ? 'SETTINGS'
       : 'HOME';
 
+  const tabFadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (showBottomDock) {
+      tabFadeAnim.setValue(0.72);
+      Animated.timing(tabFadeAnim, {
+        toValue: 1,
+        duration: 170,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [currentScreen, showBottomDock]);
+
   return (
     <View
       style={[
@@ -421,17 +447,19 @@ function AppShell() {
         recordUserActivity();
         return false;
       }}
-      onMoveShouldSetResponderCapture={() => {
-        recordUserActivity();
-        return false;
-      }}
     >
       <StatusBar
         barStyle={isSplash ? 'light-content' : colors.statusBarStyle}
         backgroundColor={isSplash ? '#070B19' : colors.background}
       />
 
-      {currentScreen === 'SPLASH' && <SplashScreen />}
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: showBottomDock ? tabFadeAnim : 1,
+        }}
+      >
+        {currentScreen === 'SPLASH' && <SplashScreen />}
 
       {currentScreen === 'WELCOME' && (
         <WelcomeScreen onGoogleSignIn={handleSignInSuccess} />
@@ -449,7 +477,12 @@ function AppShell() {
             backgroundedAtRef.current = null;
             secureStorage.saveLastActivityAt(now).catch(() => {});
             refreshSubscriptionSummary();
-            const targetScreen = preLockScreenRef.current || 'HOME';
+            const targetScreen =
+              preLockScreenRef.current &&
+              preLockScreenRef.current !== 'PIN_LOCK' &&
+              preLockScreenRef.current !== 'SPLASH'
+                ? preLockScreenRef.current
+                : 'HOME';
             preLockScreenRef.current = null;
             setCurrentScreen(targetScreen);
           }}
@@ -548,19 +581,21 @@ function AppShell() {
           onLogout={handleLogout}
         />
       )}
+      </Animated.View>
 
       {showBottomDock && (
         <BottomNavigationDock
           currentTab={activeNavTab}
-          onSelectTab={async (tab) => {
-            const resolvedActiveGrade = await refreshSubscriptionSummary();
-            if (tab === 'GRADE_DETAIL' && resolvedActiveGrade) {
-              setActiveGrade(resolvedActiveGrade);
-            }
+          onSelectTab={(tab) => {
             if (tab === 'HOME') navigateTo('HOME', { reset: true });
             if (tab === 'GRADE_DETAIL') navigateTo('GRADE_DETAIL');
             if (tab === 'REQUESTS') navigateTo('REQUESTS');
             if (tab === 'SETTINGS') navigateTo('SETTINGS');
+            refreshSubscriptionSummary().then((resolvedActiveGrade) => {
+              if (tab === 'GRADE_DETAIL' && resolvedActiveGrade) {
+                setActiveGrade(resolvedActiveGrade);
+              }
+            }).catch(() => {});
           }}
         />
       )}
@@ -588,11 +623,13 @@ function AppShell() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <I18nProvider>
-        <AppShell />
-      </I18nProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <I18nProvider>
+          <AppShell />
+        </I18nProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 

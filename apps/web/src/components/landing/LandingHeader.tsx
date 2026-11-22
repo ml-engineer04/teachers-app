@@ -35,7 +35,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   return (
     <header className="sticky top-2.5 sm:top-3 z-40 w-full px-3 sm:px-6 max-w-7xl mx-auto transition-all duration-200">
       <div className="relative">
-        <div className="h-14 sm:h-16 px-3.5 sm:px-5 flex items-center justify-between rounded-2xl bg-[#FBFBF9]/90 dark:bg-[#1E222A]/90 backdrop-blur-xl border border-[#D9DCD5]/80 dark:border-[#353B47]/80 shadow-lg shadow-[#1F2933]/5 dark:shadow-black/40 transition-all">
+        <div className="h-14 sm:h-16 px-3.5 sm:px-5 flex items-center justify-between rounded-2xl bg-[#FFFFFF]/90 dark:bg-[#171C2E]/90 backdrop-blur-xl border border-[#E6E9F2]/80 dark:border-[#262C42]/80 shadow-lg shadow-[#1B2238]/5 dark:shadow-black/40 transition-all">
           {/* Brand / Logo */}
           <a
             href="#"
@@ -56,35 +56,35 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             <button
               type="button"
               onClick={() => scrollToSection('features')}
-              className="text-xs sm:text-sm font-semibold text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors cursor-pointer"
+              className="text-xs sm:text-sm font-semibold text-[#7A8299] dark:text-[#8B93AD] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors cursor-pointer"
             >
               {t('landing.navFeatures')}
             </button>
             <button
               type="button"
               onClick={() => scrollToSection('grades')}
-              className="text-xs sm:text-sm font-semibold text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors cursor-pointer"
+              className="text-xs sm:text-sm font-semibold text-[#7A8299] dark:text-[#8B93AD] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors cursor-pointer"
             >
               {t('landing.navGrades')}
             </button>
             <button
               type="button"
               onClick={() => scrollToSection('workflow')}
-              className="text-xs sm:text-sm font-semibold text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors cursor-pointer"
+              className="text-xs sm:text-sm font-semibold text-[#7A8299] dark:text-[#8B93AD] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors cursor-pointer"
             >
               {t('landing.navWorkflow')}
             </button>
             <button
               type="button"
               onClick={() => scrollToSection('pricing')}
-              className="text-xs sm:text-sm font-semibold text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors cursor-pointer"
+              className="text-xs sm:text-sm font-semibold text-[#7A8299] dark:text-[#8B93AD] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors cursor-pointer"
             >
               {t('landing.navPricing')}
             </button>
             <button
               type="button"
               onClick={() => scrollToSection('faq')}
-              className="text-xs sm:text-sm font-semibold text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors cursor-pointer"
+              className="text-xs sm:text-sm font-semibold text-[#7A8299] dark:text-[#8B93AD] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors cursor-pointer"
             >
               {t('landing.navFaq') || 'Savollar'}
             </button>
@@ -97,40 +97,40 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as WebLanguage)}
-                className="appearance-none bg-[#ECEEEA] dark:bg-[#272C36] hover:bg-[#D9DCD5] dark:hover:bg-[#353B47] text-[#1F2933] dark:text-[#E6E8EC] text-xs font-bold pl-2.5 pr-7 py-1.5 rounded-xl border border-[#D9DCD5] dark:border-[#353B47] focus:outline-none focus:ring-2 focus:ring-[#2A4FB8] cursor-pointer transition-all"
-                aria-label="Tilni tanlash"
+                className="appearance-none bg-[#EEF1F8] dark:bg-[#10152A] hover:bg-[#E4E9F7] dark:hover:bg-[#262C42] text-[#1B2238] dark:text-[#E9ECF7] text-xs font-bold pl-2.5 pr-7 py-1.5 rounded-xl border border-[#E6E9F2] dark:border-[#262C42] focus:outline-none focus:ring-2 focus:ring-[#2A4FB8] cursor-pointer transition-all"
+                aria-label="Tilni tanlaş"
               >
-                <option value="uz" className="bg-[#FBFBF9] dark:bg-[#1E222A] text-[#1F2933] dark:text-[#E6E8EC]">
-                  🇺🇿 O'zbekcha
+                <option value="uz" className="bg-[#FFFFFF] dark:bg-[#171C2E] text-[#1B2238] dark:text-[#E9ECF7]">
+                  🇺🇿 Özbekça
                 </option>
-                <option value="ru" className="bg-[#FBFBF9] dark:bg-[#1E222A] text-[#1F2933] dark:text-[#E6E8EC]">
+                <option value="ru" className="bg-[#FFFFFF] dark:bg-[#171C2E] text-[#1B2238] dark:text-[#E9ECF7]">
                   🇷🇺 Русский
                 </option>
-                <option value="en" className="bg-[#FBFBF9] dark:bg-[#1E222A] text-[#1F2933] dark:text-[#E6E8EC]">
+                <option value="en" className="bg-[#FFFFFF] dark:bg-[#171C2E] text-[#1B2238] dark:text-[#E9ECF7]">
                   🇬🇧 English
                 </option>
               </select>
-              <ChevronDown className="w-3.5 h-3.5 absolute right-2 text-[#5B6672] dark:text-[#9AA3B0] pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 absolute right-2 text-[#7A8299] dark:text-[#8B93AD] pointer-events-none" />
             </div>
 
             {/* Theme Toggle */}
             <button
               type="button"
               onClick={toggleTheme}
-              className="p-2 rounded-xl bg-[#ECEEEA] dark:bg-[#272C36] text-[#1F2933] dark:text-[#E6E8EC] hover:bg-[#D9DCD5] dark:hover:bg-[#353B47] border border-[#D9DCD5] dark:border-[#353B47] transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-[#EEF1F8] dark:bg-[#10152A] text-[#1B2238] dark:text-[#E9ECF7] hover:bg-[#E4E9F7] dark:hover:bg-[#262C42] border border-[#E6E9F2] dark:border-[#262C42] transition-colors cursor-pointer"
               aria-label="Toggle dark/light mode"
               title={themeMode === 'dark' ? 'Light mode' : 'Dark mode'}
             >
               {isDark ? <Sun className="w-3.5 h-3.5 text-[#F5B82E]" /> : <Moon className="w-3.5 h-3.5 text-[#2A4FB8]" />}
             </button>
 
-            <div className="h-5 w-px bg-[#D9DCD5] dark:bg-[#353B47] mx-0.5" />
+            <div className="h-5 w-px bg-[#E6E9F2] dark:bg-[#262C42] mx-0.5" />
 
             {/* Login Button */}
             <button
               type="button"
               onClick={onOpenLogin}
-              className="px-4 py-1.5 sm:py-2 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white font-bold text-xs sm:text-sm shadow-md shadow-[#2A4FB8]/25 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-1.5 sm:py-2 rounded-xl bg-[#2A4FB8] hover:bg-[#234399] dark:bg-[#4F72EE] dark:hover:bg-[#6384F1] text-white font-bold text-xs sm:text-sm shadow-md shadow-[#2A4FB8]/25 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>{t('auth.loginTab')}</span>
@@ -144,26 +144,26 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as WebLanguage)}
-                className="appearance-none bg-[#ECEEEA] dark:bg-[#272C36] text-[#1F2933] dark:text-[#E6E8EC] text-[11px] font-bold pl-2 pr-5 py-1 rounded-lg border border-[#D9DCD5] dark:border-[#353B47] focus:outline-none cursor-pointer"
-                aria-label="Tilni tanlash"
+                className="appearance-none bg-[#EEF1F8] dark:bg-[#10152A] text-[#1B2238] dark:text-[#E9ECF7] text-[11px] font-bold pl-2 pr-5 py-1 rounded-lg border border-[#E6E9F2] dark:border-[#262C42] focus:outline-none cursor-pointer"
+                aria-label="Tilni tanlaş"
               >
-                <option value="uz" className="bg-[#FBFBF9] dark:bg-[#1E222A] text-[#1F2933] dark:text-[#E6E8EC]">
+                <option value="uz" className="bg-[#FFFFFF] dark:bg-[#171C2E] text-[#1B2238] dark:text-[#E9ECF7]">
                   🇺🇿 UZ
                 </option>
-                <option value="ru" className="bg-[#FBFBF9] dark:bg-[#1E222A] text-[#1F2933] dark:text-[#E6E8EC]">
+                <option value="ru" className="bg-[#FFFFFF] dark:bg-[#171C2E] text-[#1B2238] dark:text-[#E9ECF7]">
                   🇷🇺 RU
                 </option>
-                <option value="en" className="bg-[#FBFBF9] dark:bg-[#1E222A] text-[#1F2933] dark:text-[#E6E8EC]">
+                <option value="en" className="bg-[#FFFFFF] dark:bg-[#171C2E] text-[#1B2238] dark:text-[#E9ECF7]">
                   🇬🇧 EN
                 </option>
               </select>
-              <ChevronDown className="w-3 h-3 absolute right-1 text-[#5B6672] dark:text-[#9AA3B0] pointer-events-none" />
+              <ChevronDown className="w-3 h-3 absolute right-1 text-[#7A8299] dark:text-[#8B93AD] pointer-events-none" />
             </div>
 
             <button
               type="button"
               onClick={toggleTheme}
-              className="p-1.5 rounded-lg bg-[#ECEEEA] dark:bg-[#272C36] text-[#1F2933] dark:text-[#E6E8EC] hover:bg-[#D9DCD5] dark:hover:bg-[#353B47] transition cursor-pointer"
+              className="p-1.5 rounded-lg bg-[#EEF1F8] dark:bg-[#10152A] text-[#1B2238] dark:text-[#E9ECF7] hover:bg-[#E4E9F7] dark:hover:bg-[#262C42] transition cursor-pointer"
               aria-label="Toggle dark/light mode"
             >
               {isDark ? <Sun className="w-3.5 h-3.5 text-[#F5B82E]" /> : <Moon className="w-3.5 h-3.5 text-[#2A4FB8]" />}
@@ -172,10 +172,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 rounded-lg bg-[#ECEEEA] dark:bg-[#272C36] text-[#1F2933] dark:text-[#E6E8EC] hover:bg-[#D9DCD5] dark:hover:bg-[#353B47] transition active:scale-95 cursor-pointer"
+              className="p-1.5 rounded-lg bg-[#EEF1F8] dark:bg-[#10152A] text-[#1B2238] dark:text-[#E9ECF7] hover:bg-[#E4E9F7] dark:hover:bg-[#262C42] transition active:scale-95 cursor-pointer"
               aria-label="Navigatsiya menyusi"
             >
-              {mobileMenuOpen ? <X className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" /> : <Menu className="w-4 h-4" />}
+              {mobileMenuOpen ? <X className="w-4 h-4 text-[#2A4FB8] dark:text-[#8FA8F7]" /> : <Menu className="w-4 h-4" />}
             </button>
           </div>
         </div>
@@ -190,51 +190,51 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 
         {/* Mobile Menu Dropdown - Absolute Positioned (never pushes content down) */}
         {mobileMenuOpen && (
-          <div className="absolute top-[calc(100%+8px)] inset-x-0 sm:hidden z-50 rounded-2xl border border-[#D9DCD5]/90 dark:border-[#353B47]/90 bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 backdrop-blur-2xl p-4 shadow-2xl shadow-[#1F2933]/15 dark:shadow-black/60 flex flex-col gap-1.5 animate-menu-slide-down">
+          <div className="absolute top-[calc(100%+8px)] inset-x-0 sm:hidden z-50 rounded-2xl border border-[#E6E9F2]/90 dark:border-[#262C42]/90 bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-2xl p-4 shadow-2xl shadow-[#1B2238]/15 dark:shadow-black/60 flex flex-col gap-1.5 animate-menu-slide-down">
             <button
               type="button"
               onClick={() => scrollToSection('features')}
-              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1F2933] dark:text-[#E6E8EC] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition cursor-pointer"
+              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1B2238] dark:text-[#E9ECF7] hover:bg-[#EEF1F8] dark:hover:bg-[#10152A] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition cursor-pointer"
             >
               {t('landing.navFeatures')}
             </button>
             <button
               type="button"
               onClick={() => scrollToSection('grades')}
-              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1F2933] dark:text-[#E6E8EC] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition cursor-pointer"
+              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1B2238] dark:text-[#E9ECF7] hover:bg-[#EEF1F8] dark:hover:bg-[#10152A] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition cursor-pointer"
             >
               {t('landing.navGrades')}
             </button>
             <button
               type="button"
               onClick={() => scrollToSection('workflow')}
-              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1F2933] dark:text-[#E6E8EC] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition cursor-pointer"
+              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1B2238] dark:text-[#E9ECF7] hover:bg-[#EEF1F8] dark:hover:bg-[#10152A] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition cursor-pointer"
             >
               {t('landing.navWorkflow')}
             </button>
             <button
               type="button"
               onClick={() => scrollToSection('pricing')}
-              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1F2933] dark:text-[#E6E8EC] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition cursor-pointer"
+              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1B2238] dark:text-[#E9ECF7] hover:bg-[#EEF1F8] dark:hover:bg-[#10152A] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition cursor-pointer"
             >
               {t('landing.navPricing')}
             </button>
             <button
               type="button"
               onClick={() => scrollToSection('faq')}
-              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1F2933] dark:text-[#E6E8EC] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition cursor-pointer"
+              className="text-left py-2 px-3 rounded-xl font-semibold text-xs text-[#1B2238] dark:text-[#E9ECF7] hover:bg-[#EEF1F8] dark:hover:bg-[#10152A] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition cursor-pointer"
             >
               {t('landing.navFaq') || 'Savollar'}
             </button>
 
-            <div className="pt-2.5 mt-1 border-t border-[#D9DCD5] dark:border-[#353B47]">
+            <div className="pt-2.5 mt-1 border-t border-[#E6E9F2] dark:border-[#262C42]">
               <button
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen(false);
                   onOpenLogin();
                 }}
-                className="w-full py-2.5 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white font-bold text-xs text-center shadow-md shadow-[#2A4FB8]/25 flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#2A4FB8] hover:bg-[#234399] dark:bg-[#4F72EE] dark:hover:bg-[#6384F1] text-white font-bold text-xs text-center shadow-md shadow-[#2A4FB8]/25 flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>{t('auth.loginTab')}</span>

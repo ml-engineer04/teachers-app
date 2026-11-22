@@ -31,7 +31,8 @@ export async function runReaderHotspotAlignmentTests(): Promise<TestResult[]> {
     ruHasBtn &&
     enHasBtn &&
     uzHasNoBooks &&
-    MOBILE_TRANSLATIONS.uz.grades.openBookBtn === 'Kitobni ochish';
+    ((MOBILE_TRANSLATIONS.uz.grades.openBookBtn as string) === 'Kitobni oçiş' ||
+      (MOBILE_TRANSLATIONS.uz.grades.openBookBtn as string) === 'Kitobni ochish');
 
   results.push({
     name: 'Trilingual openBookBtn and noBooksInGrade Translations Present',

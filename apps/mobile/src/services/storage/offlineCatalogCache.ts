@@ -8,44 +8,72 @@ const KEY_BOOKS = 'catalog:books_v1';
 const KEY_PROGRESS = 'catalog:progress_v1';
 
 class OfflineCatalogCache {
+  private memGrades: Grade[] | null = null;
+  private memSubjects: any[] | null = null;
+  private memBooks: Book[] | null = null;
+  private memProgress: any[] | null = null;
+
   async saveGrades(grades: Grade[]): Promise<void> {
     if (Array.isArray(grades) && grades.length > 0) {
+      this.memGrades = grades;
       await offlineStore.putJson(KEY_GRADES, grades).catch(() => {});
     }
   }
 
   async getGrades(): Promise<Grade[] | null> {
-    return offlineStore.getJson<Grade[]>(KEY_GRADES);
+    if (this.memGrades !== null) return this.memGrades;
+    const data = await offlineStore.getJson<Grade[]>(KEY_GRADES);
+    if (data) this.memGrades = data;
+    return data;
   }
 
   async saveSubjects(subjects: any[]): Promise<void> {
     if (Array.isArray(subjects) && subjects.length > 0) {
+      this.memSubjects = subjects;
       await offlineStore.putJson(KEY_SUBJECTS, subjects).catch(() => {});
     }
   }
 
   async getSubjects(): Promise<any[] | null> {
-    return offlineStore.getJson<any[]>(KEY_SUBJECTS);
+    if (this.memSubjects !== null) return this.memSubjects;
+    const data = await offlineStore.getJson<any[]>(KEY_SUBJECTS);
+    if (data) this.memSubjects = data;
+    return data;
   }
 
   async saveBooks(books: Book[]): Promise<void> {
     if (Array.isArray(books) && books.length > 0) {
+      this.memBooks = books;
       await offlineStore.putJson(KEY_BOOKS, books).catch(() => {});
     }
   }
 
   async getBooks(): Promise<Book[] | null> {
-    return offlineStore.getJson<Book[]>(KEY_BOOKS);
+    if (this.memBooks !== null) return this.memBooks;
+    const data = await offlineStore.getJson<Book[]>(KEY_BOOKS);
+    if (data) this.memBooks = data;
+    return data;
   }
 
   async saveProgress(progress: any[]): Promise<void> {
     if (Array.isArray(progress)) {
+      this.memProgress = progress;
       await offlineStore.putJson(KEY_PROGRESS, progress).catch(() => {});
     }
   }
 
   async getProgress(): Promise<any[] | null> {
-    return offlineStore.getJson<any[]>(KEY_PROGRESS);
+    if (this.memProgress !== null) return this.memProgress;
+    const data = await offlineStore.getJson<any[]>(KEY_PROGRESS);
+    if (data) this.memProgress = data;
+    return data;
+  }
+
+  clearMemoryCache(): void {
+    this.memGrades = null;
+    this.memSubjects = null;
+    this.memBooks = null;
+    this.memProgress = null;
   }
 
   mergeBooksWithDownloads(cachedBooks: Book[] | null | undefined, downloaded: DownloadedItem[]): Book[] {

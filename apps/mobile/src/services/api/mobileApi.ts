@@ -85,16 +85,28 @@ export const API_ORIGIN = API_BASE.replace(/\/api\/v1\/?$/, '');
 
 export function resolveAssetUrl(url?: string | null): string | undefined {
   if (!url) return undefined;
-  if (/^https?:\/\/(localhost|127\.0\.0\.1):4000/i.test(url)) {
-    return url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):4000/i, API_ORIGIN);
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+
+  // Replace any loopback / local IP or localhost (with any port) with API_ORIGIN
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?/i.test(trimmed)) {
+    return trimmed.replace(/^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?/i, API_ORIGIN);
   }
-  if (url.startsWith('/')) {
-    if (url.startsWith('/api/v1')) {
-      return `${API_ORIGIN}${url}`;
+
+  // Handle relative paths
+  if (trimmed.startsWith('/')) {
+    if (trimmed.startsWith('/api/v1')) {
+      return `${API_ORIGIN}${trimmed}`;
     }
-    return `${API_BASE}${url}`;
+    return `${API_BASE}${trimmed}`;
   }
-  return url;
+
+  return trimmed;
+}
+
+export function resolveAssetUrls(urls?: (string | null | undefined)[] | null): string[] {
+  if (!Array.isArray(urls)) return [];
+  return urls.map((u) => resolveAssetUrl(u)).filter((u): u is string => Boolean(u));
 }
 
 export interface ApiError extends Error {
@@ -116,10 +128,13 @@ const onRefreshed = (newToken: string) => {
   refreshSubscribers = [];
 };
 
+// In-flight GET request deduplication cache to prevent duplicate concurrent network calls
+const inFlightGetRequests = new Map<string, Promise<any>>();
+
 /**
- * Robust HTTP client with Automatic 401 Access Token Refresh Interceptor
+ * Robust HTTP client with Automatic 401 Access Token Refresh Interceptor and In-Flight Deduplication
  */
-async function request<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
+async function executeRequest<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
   const token = await secureStorage.getAccessToken();
 
   const headers: Record<string, string> = {
@@ -224,6 +239,21 @@ async function request<T>(endpoint: string, options?: RequestInit, isRetry = fal
   }
 
   return json as T;
+}
+
+async function request<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
+  const method = (options?.method || 'GET').toUpperCase();
+  if (method === 'GET' && !isRetry) {
+    const existing = inFlightGetRequests.get(endpoint);
+    if (existing) return existing as Promise<T>;
+
+    const p = executeRequest<T>(endpoint, options, isRetry).finally(() => {
+      inFlightGetRequests.delete(endpoint);
+    });
+    inFlightGetRequests.set(endpoint, p);
+    return p;
+  }
+  return executeRequest<T>(endpoint, options, isRetry);
 }
 
 export const mobileApi = {
@@ -585,8 +615,17 @@ export const mobileApi = {
 
   async getBookHotspots(bookId: string): Promise<any[]> {
     try {
-      return await request<any[]>(`/content/books/${bookId}/hotspots`);
-    } catch {
+      const list = await request<any[]>(`/content/books/${bookId}/hotspots`);
+      return (list || []).map((h) => ({
+        ...h,
+        targetUrl: resolveAssetUrl(h.targetUrl) || h.targetUrl,
+        imageUrl: resolveAssetUrl(h.imageUrl) || h.imageUrl,
+        transcriptImageUrl: resolveAssetUrl(h.transcriptImageUrl) || h.transcriptImageUrl,
+        answerImages: resolveAssetUrls(h.answerImages),
+        transcriptImages: resolveAssetUrls(h.transcriptImages),
+      }));
+    } catch (err) {
+      console.warn(`[mobileApi] getBookHotspots(${bookId}) failed:`, err);
       return [];
     }
   },
@@ -599,8 +638,11 @@ export const mobileApi = {
         ...m,
         url: resolveAssetUrl(m.url) || m.url,
         thumbnailUrl: resolveAssetUrl(m.thumbnailUrl) || m.thumbnailUrl,
+        transcriptImageUrl: resolveAssetUrl(m.transcriptImageUrl) || m.transcriptImageUrl,
+        transcriptImages: resolveAssetUrls(m.transcriptImages),
       }));
-    } catch {
+    } catch (err) {
+      console.warn(`[mobileApi] getMedia(${bookId}) failed:`, err);
       return [];
     }
   },
@@ -615,8 +657,12 @@ export const mobileApi = {
       return (list || []).map((a) => ({
         ...a,
         imageUrl: resolveAssetUrl(a.imageUrl),
+        answerImages: resolveAssetUrls(a.answerImages),
+        transcriptImageUrl: resolveAssetUrl(a.transcriptImageUrl),
+        transcriptImages: resolveAssetUrls(a.transcriptImages),
       }));
-    } catch {
+    } catch (err) {
+      console.warn(`[mobileApi] getAnswerMappings failed:`, err);
       return [];
     }
   },
@@ -631,8 +677,12 @@ export const mobileApi = {
       return (list || []).map((a) => ({
         ...a,
         imageUrl: resolveAssetUrl(a.imageUrl),
+        answerImages: resolveAssetUrls(a.answerImages),
+        transcriptImageUrl: resolveAssetUrl(a.transcriptImageUrl),
+        transcriptImages: resolveAssetUrls(a.transcriptImages),
       }));
-    } catch {
+    } catch (err) {
+      console.warn(`[mobileApi] getAnswerKeys failed:`, err);
       return [];
     }
   },

@@ -443,11 +443,11 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     setIsDeletingUser(true);
     try {
       await api.deleteUser(userToDelete.id);
-      showToast(`O‘qituvchi (${userToDelete.fullName || userToDelete.email}) bazadan butunlay o‘chirildi`);
+      showToast(`Öqituvçi (${userToDelete.fullName || userToDelete.email}) bazadan butunlay öçirildi`);
       setUserToDelete(null);
       await loadUsers();
     } catch (err: any) {
-      showToast(`Xatolik: ${err?.message || 'O‘chirib bo‘lmadi'}`);
+      showToast(`Xatolik: ${err?.message || 'Öçirib bölmadi'}`);
     } finally {
       setIsDeletingUser(false);
     }
@@ -462,7 +462,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setSubToCancel(null);
       await loadUsers();
     } catch (err: any) {
-      showToast(`Xatolik: ${err?.message || 'Obunani bekor qilib bo‘lmadi'}`);
+      showToast(`Xatolik: ${err?.message || 'Obunani bekor qilib bölmadi'}`);
     } finally {
       setIsCancellingSub(false);
     }
@@ -638,7 +638,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           description: newBookDesc,
         });
         createdBookId = res?.id;
-        showToast(`🎉 Yangi darslik yaratildi va katalogga qo‘shildi!`);
+        showToast(`🎉 Yangi darslik yaratildi va katalogga qöşildi!`);
       }
 
       // If user also attached a cover image, upload it
@@ -671,7 +671,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setNewBookStartPdfPage('1');
       setActiveNav('my_books');
     } catch (err: any) {
-      alert('Kitobni saqlashda xatolik yuz berdi: ' + err.message);
+      alert('Kitobni saqlaşda xatolik yuz berdi: ' + err.message);
     } finally {
       setIsUploadingPdf(false);
     }
@@ -683,20 +683,20 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       await loadCatalogBooks();
       showToast('📸 Muqova rasmi muvaffaqiyatli yangilandi!');
     } catch (err: any) {
-      alert('Muqovani yuklashda xatolik: ' + err.message);
+      alert('Muqovani yuklaşda xatolik: ' + err.message);
     }
   };
 
   const handleDeleteBook = async (bookId: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu darslikni va barcha sahifalarini o'chirib tashlamoqchimisiz?")) {
+    if (!window.confirm("Haqiqatan ham ushbu darslikni va barcha sahifalarini öçirib taşlamoqçimisiz?")) {
       return;
     }
     try {
       await api.deleteBook(bookId);
       await loadCatalogBooks();
-      showToast("Darslik bazadan to'liq o'chirildi!");
+      showToast("Darslik bazadan töliq öçirildi!");
     } catch (err: any) {
-      alert("O'chirishda xatolik: " + err.message);
+      alert("Öçirişda xatolik: " + err.message);
     }
   };
 
@@ -705,9 +705,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     try {
       await api.updateBook(book.id, { status: newStatus });
       await loadCatalogBooks();
-      showToast(newStatus === 'PUBLISHED' ? '✅ Kitob nashr qilindi (faol)' : 'Kitob qoralama holatiga o‘tkazildi');
+      showToast(newStatus === 'PUBLISHED' ? '✅ Kitob nashr qilindi (faol)' : 'Kitob qoralama holatiga ötkazildi');
     } catch (err: any) {
-      alert('Holatni o‘zgartirishda xatolik: ' + err.message);
+      alert('Holatni özgartirişda xatolik: ' + err.message);
     }
   };
 
@@ -738,14 +738,14 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setMediaFileTitle('');
       showToast('🎉 Yangi audio/video fayl muvaffaqiyatli yuklandi va saqlandi!');
     } catch (err: any) {
-      alert('Media yuklashda xatolik: ' + err.message);
+      alert('Media yuklaşda xatolik: ' + err.message);
     } finally {
       setIsUploadingMedia(false);
     }
   };
 
   const handleDeleteMedia = async (id: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu media faylni o'chirmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu media faylni öçirmoqçimisiz?")) return;
     try {
       await api.deleteMedia(id);
       if (playingAudioId === id) {
@@ -753,9 +753,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         setPlayingAudioId(null);
       }
       await loadMedia();
-      showToast("Media fayl o'chirildi!");
+      showToast("Media fayl öçirildi!");
     } catch (err: any) {
-      alert("O'chirishda xatolik: " + err.message);
+      alert("Öçirişda xatolik: " + err.message);
     }
   };
 
@@ -780,15 +780,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // ==========================================
   const handleSaveNewAnswerMapping = async () => {
     if (!answerExercise.trim()) {
-      alert('Iltimos, mashq nomini kiriting!');
+      alert('Iltimos, maşq nomini kiriting!');
       return;
     }
     if (answerFormat === 'TEXT' && !answerSolutionKey.trim()) {
-      alert('Iltimos, matnli yechimni kiriting!');
+      alert('Iltimos, matnli yeçimni kiriting!');
       return;
     }
     if (answerFormat === 'IMAGE' && !answerScreenshotFile) {
-      alert('Iltimos, javoblar skrinshot fotosuratini yuklang!');
+      alert('Iltimos, javoblar skrinşot fotosuratini yuklang!');
       return;
     }
 
@@ -796,7 +796,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     try {
       const solutionText =
         answerSolutionKey.trim() ||
-        (answerScreenshotFile ? 'Ko‘rish uchun skrinshot fotosurati biriktirilgan' : 'Yechim');
+        (answerScreenshotFile ? 'Ko‘rish uçun skrinshot fotosurati biriktirilgan' : 'Yechim');
 
       const matchedSub = subjectsList.find(
         (s: any) =>
@@ -826,22 +826,22 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setAnswerNotes('');
       setAnswerScreenshotFile(null);
       setAnswerScreenshotPreview(null);
-      showToast("🎉 Javoblar kaliti muvaffaqiyatli bog'landi!");
+      showToast("🎉 Javoblar kaliti muvaffaqiyatli boğlandi!");
     } catch (err: any) {
-      alert('Javob saqlashda xatolik: ' + err.message);
+      alert('Javob saqlaşda xatolik: ' + err.message);
     } finally {
       setIsSavingAnswer(false);
     }
   };
 
   const handleDeleteAnswerMapping = async (id: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu javoblar kalitini o'chirmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu javoblar kalitini öçirmoqçimisiz?")) return;
     try {
       await api.deleteAnswerMapping(id);
       await loadAnswerMappings();
-      showToast("Javoblar kaliti o'chirildi!");
+      showToast("Javoblar kaliti öçirildi!");
     } catch (err: any) {
-      alert("O'chirishda xatolik: " + err.message);
+      alert("Öçirişda xatolik: " + err.message);
     }
   };
 
@@ -855,7 +855,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       await loadAnswerMappings();
       setIsCsvImportModalOpen(false);
       setCsvImportContent('');
-      showToast('🎉 CSV fayldagi barcha javoblar muvaffaqiyatli yuklandi!');
+      showToast('🎉 CSV fayldagi barça javoblar muvaffaqiyatli yuklandi!');
     } catch (err: any) {
       alert('CSV import xatolik: ' + err.message);
     }
@@ -874,7 +874,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         prev.map((r) => (r.id === requestId ? { ...r, status: 'PAID_APPROVED' } : r)),
       );
       await Promise.all([loadRequests(), loadUsers()]);
-      showToast(`✅ So‘rov qabul qilindi va ${durationDays} kunlik obuna faollashtirildi!`);
+      showToast(`✅ Sörov qabul qilindi va ${durationDays} kunlik obuna faollaştirildi!`);
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -889,7 +889,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         prev.map((r) => (r.id === requestId ? { ...r, status: 'REJECTED' } : r)),
       );
       await loadRequests();
-      showToast("So'rov rad etildi.");
+      showToast("Sörov rad etildi.");
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -897,7 +897,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
   const handleCreateManualSubscription = async () => {
     if (!manualTeacherName.trim()) {
-      alert("Iltimos, o'qituvchi ismi yoki emailini kiriting!");
+      alert("Iltimos, öqituvçi ismi yoki emailini kiriting!");
       return;
     }
     try {
@@ -914,7 +914,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         durationDays: Number(manualDurationDays),
       });
       await Promise.all([loadRequests(), loadUsers()]);
-      showToast(`✅ ${manualTeacherName} uchun ${manualDurationDays} kunlik litsenziya faollashtirildi!`);
+      showToast(`✅ ${manualTeacherName} uçun ${manualDurationDays} kunlik litsenziya faollaştirildi!`);
       setIsManualSubscriptionModalOpen(false);
       setManualTeacherName('');
       setManualTeacherPhone('+998 ');
@@ -924,11 +924,11 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   };
 
   const handleDisconnectDevice = async (userId: string, deviceId: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu qurilmani uzib, slotni bo'shatmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu qurilmani uzib, slotni böşatmoqçimisiz?")) return;
     try {
       await api.disconnectDevice(userId, deviceId);
       await loadUsers();
-      showToast('Qurilma uzildi, slot bo‘shatildi!');
+      showToast('Qurilma uzildi, slot böşatildi!');
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -951,18 +951,18 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setIsAddSubjectModalOpen(false);
       setNewSubjName('');
       setNewSubjCode('');
-      showToast('🎉 Yangi fan muvaffaqiyatli qo‘shildi!');
+      showToast('🎉 Yangi fan muvaffaqiyatli qöşildi!');
     } catch (err: any) {
-      alert('Fanni qo‘shishda xatolik: ' + err.message);
+      alert('Fanni qöşişda xatolik: ' + err.message);
     }
   };
 
   const handleDeleteSubject = async (id: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu fanni o'chirmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu fanni öçirmoqçimisiz?")) return;
     try {
       await api.deleteSubject(id);
       await loadSubjects();
-      showToast('Fan o‘chirildi!');
+      showToast('Fan öçirildi!');
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -990,9 +990,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setIsAddGradeModalOpen(false);
       setNewGradeTitle('');
       setNewGradeDesc('');
-      showToast(`✅ ${gradeNum}-sinf muvaffaqiyatli qo‘shildi!`);
+      showToast(`✅ ${gradeNum}-sinf muvaffaqiyatli qöşildi!`);
     } catch (err: any) {
-      alert('Sinf qo‘shishda xatolik: ' + err.message);
+      alert('Sinf qöşişda xatolik: ' + err.message);
     } finally {
       setIsSavingGrade(false);
     }
@@ -1010,15 +1010,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   };
 
   const handleDeleteGrade = async (gradeNumber: number) => {
-    if (!window.confirm(`${gradeNumber}-sinfni o‘chirmoqchimisiz? Mobil ilovada ushbu sinf ko‘rinmaydi.`)) {
+    if (!window.confirm(`${gradeNumber}-sinfni öçirmoqçimisiz? Mobil ilovada uşbu sinf körinmaydi.`)) {
       return;
     }
     try {
       await api.deleteGrade(gradeNumber);
       await Promise.all([loadGrades(), loadPricingMatrix()]);
-      showToast(`${gradeNumber}-sinf o‘chirildi!`);
+      showToast(`${gradeNumber}-sinf öçirildi!`);
     } catch (err: any) {
-      alert('Sinfni o‘chirishda xatolik: ' + err.message);
+      alert('Sinfni öçirişda xatolik: ' + err.message);
     }
   };
 
@@ -1087,9 +1087,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         matrixEntries.length > 0 ? api.upsertPricingMatrix(matrixEntries) : Promise.resolve(),
       ]);
       await Promise.all([loadPricingPlans(), loadPricingMatrix()]);
-      showToast('✅ Global tariflar va barcha sinf×fan narxlari saqlandi!');
+      showToast('✅ Global tariflar va barça sinf×fan narxlari saqlandi!');
     } catch (err: any) {
-      alert('Narxlarni saqlashda xatolik: ' + err.message);
+      alert('Narxlarni saqlaşda xatolik: ' + err.message);
     } finally {
       setIsSavingPricing(false);
     }
@@ -1124,14 +1124,14 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
   const handleDeleteAdmin = async (id: string) => {
     if (id === 'admin_super_mlrahmonjon') {
-      alert('Asosiy Super Admin hisobini o‘chirib bo‘lmaydi!');
+      alert('Asosiy Super Admin hisobini öçirib bölmaydi!');
       return;
     }
-    if (!window.confirm("Haqiqatan ham ushbu administratorni o'chirmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu administratorni öçirmoqçimisiz?")) return;
     try {
       await api.deleteAdmin(id);
       await loadAdmins();
-      showToast('Administrator hisobi o‘chirildi!');
+      showToast('Administrator hisobi öçirildi!');
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -1146,10 +1146,10 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       await api.resetDatabase();
       await loadAllPortalData();
       setIsResetConfirmOpen(false);
-      showToast("🎉 Barcha ma'lumotlar bazasi to'liq tozalandi!");
+      showToast("🎉 Barça ma'lumotlar bazasi töliq tozalandi!");
       setActiveNav('my_books');
     } catch (err: any) {
-      alert('Tozalashda xatolik: ' + err.message);
+      alert('Tozalaşda xatolik: ' + err.message);
     } finally {
       setIsResetting(false);
     }
@@ -1753,7 +1753,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 >
                   <div>
                     <h4 className="font-extrabold text-sm text-slate-900">Sinf × Fan Narxlari</h4>
-                    <p className="text-xs text-slate-500 mt-1">Har bir sinf va fan uchun alohida tarif belgilash</p>
+                    <p className="text-xs text-slate-500 mt-1">Har bir sinf va fan uçun alohida tarif belgilash</p>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                     <CreditCard className="w-5 h-5" />
@@ -1984,7 +1984,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                             <Camera className="w-5 h-5" />
                           </div>
                           <p className="text-xs font-bold text-slate-700">
-                            Muqova rasmini tanlash uchun bosing yoki bu yerga tashlang
+                            Muqova rasmini tanlash uçun bosing yoki bu yerga tashlang
                           </p>
                           <p className="text-[10px] text-slate-400 mt-0.5">
                             Darslikning haqiqiy muqova fotosurati mobil ilovada ham aynan shu rasmda chiqadi
@@ -2013,7 +2013,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                         <UploadCloud className="w-6 h-6" />
                       </div>
                       <p className="text-xs font-bold text-slate-800">
-                        {selectedPdfFile ? selectedPdfFile.name : 'PDF faylni tanlash uchun bosing yoki bu yerga tashlang'}
+                        {selectedPdfFile ? selectedPdfFile.name : 'PDF faylni tanlash uçun bosing yoki bu yerga tashlang'}
                       </p>
                       <p className="text-[10px] text-slate-400 mt-1">
                         {selectedPdfFile
@@ -2044,7 +2044,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   {/* 6. Optional Audio Attachment directly during creation */}
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
                     <label className="block text-xs font-extrabold text-slate-700">
-                      🎧 Ushbu kitob uchun audio fayl biriktirish (Ixtiyoriy)
+                      🎧 Ushbu kitob uçun audio fayl biriktirish (Ixtiyoriy)
                     </label>
                     <p className="text-[11px] text-slate-500">
                       Kitob yaratish bilan birga uning birinchi audio trekini (MP3) ham yuklashingiz mumkin:
@@ -2343,7 +2343,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       <BookOpen className="w-12 h-12 mx-auto opacity-30 text-slate-400" />
                       <p className="text-sm font-bold text-slate-600">Hozircha hech qanday kitob mavjud emas</p>
                       <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                        Baza tozalangan. Yangi kitob qo‘shish uchun quyidagi tugmani bosing.
+                        Baza tozalangan. Yangi kitob qo‘shish uçun quyidagi tugmani bosing.
                       </p>
                       <button
                         onClick={() => setActiveNav('add_book')}
@@ -2772,7 +2772,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       type="button"
                       onClick={() => {
                         loadUsers();
-                        showToast('O‘qituvchilar ro‘yxati yangilandi');
+                        showToast('Öqituvçilar röyxati yangilandi');
                       }}
                       className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold shadow-sm flex items-center space-x-1.5 transition-all"
                     >
@@ -2983,7 +2983,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                                   );
                                   loadUsers();
                                 } catch {
-                                  showToast('Holatni o‘zgartirib bo‘lmadi');
+                                  showToast('Holatni özgartirib bölmadi');
                                 }
                               }}
                               className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
@@ -3359,7 +3359,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     Tariflar & Sinf × Fan Narxlari
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Har bir sinf va har bir fan uchun alohida obuna narxlarini (masalan, 1-sinf Matematika vs 11-sinf Kimyo) belgilang
+                    Har bir sinf va har bir fan uçun alohida obuna narxlarini (masalan, 1-sinf Matematika vs 11-sinf Kimyo) belgilang
                   </p>
                 </div>
                 <button
@@ -4078,7 +4078,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Email (Login uchun) <span className="text-red-500">*</span>
+                      Email (Login uçun) <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
@@ -4168,7 +4168,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between p-3 border-b border-slate-100">
-                  <span className="text-xs font-bold text-slate-700">📸 O‘qituvchi kitobi javoblar skrinshoti</span>
+                  <span className="text-xs font-bold text-slate-700">📸 O‘qituvchi kitobi javoblar skrinşoti</span>
                   <button
                     onClick={() => setPreviewImageModalUrl(null)}
                     className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all"
@@ -4202,7 +4202,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
                 <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-100 text-xs text-slate-700 space-y-2">
                   <p>
-                    Haqiqatan ham <strong className="text-slate-900">{userToDelete.fullName || userToDelete.email}</strong> hisobini ma’lumotlar bazasidan butunlay o‘chirib tashlamoqchimisiz?
+                    Haqiqatan ham <strong className="text-slate-900">{userToDelete.fullName || userToDelete.email}</strong> hisobini ma’lumotlar bazasidan butunlay öçirib taşlamoqçimisiz?
                   </p>
                   <p className="text-[11px] text-slate-500">
                     • Foydalanuvchining barcha aktiv qurilmalari uziladi.<br />

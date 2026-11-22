@@ -37,6 +37,7 @@ class OfflineStoreEngine {
   private dbPromise: Promise<IDBDatabase> | null = null;
   private nativeDirsReady = false;
   private blobUrlCache = new Map<string, string>();
+  private verifiedNativeFiles = new Set<string>();
 
   private getNativeBaseDir(): string {
     return `${FileSystem.documentDirectory || ''}stb_offline/`;
@@ -230,6 +231,7 @@ class OfflineStoreEngine {
     await FileSystem.writeAsStringAsync(targetPath, base64, {
       encoding: FileSystem.EncodingType.Base64,
     });
+    this.verifiedNativeFiles.add(targetPath);
     return sizeBytes;
   }
 
@@ -376,14 +378,35 @@ class OfflineStoreEngine {
       if (!asset) return null;
       const blob = new Blob([asset.data], { type: asset.mimeType });
       const blobUrl = URL.createObjectURL(blob);
+
+      // Keep blob cache bounded to 50 URLs to prevent unbounded memory growth
+      if (this.blobUrlCache.size >= 50) {
+        const oldestKey = this.blobUrlCache.keys().next().value;
+        if (oldestKey) {
+          const oldUrl = this.blobUrlCache.get(oldestKey);
+          if (oldUrl) {
+            try {
+              URL.revokeObjectURL(oldUrl);
+            } catch {}
+          }
+          this.blobUrlCache.delete(oldestKey);
+        }
+      }
       this.blobUrlCache.set(key, blobUrl);
       return blobUrl;
     }
 
     await this.ensureNativeDirs();
     const targetPath = `${this.getNativeBaseDir()}assets/${sanitizeKey(key)}`;
+    if (this.verifiedNativeFiles.has(targetPath)) {
+      return targetPath;
+    }
     const info = await FileSystem.getInfoAsync(targetPath).catch(() => null);
-    return info?.exists ? targetPath : null;
+    if (info?.exists) {
+      this.verifiedNativeFiles.add(targetPath);
+      return targetPath;
+    }
+    return null;
   }
 
   async deleteBinary(key: string): Promise<void> {
@@ -395,6 +418,7 @@ class OfflineStoreEngine {
       return;
     }
     const targetPath = `${this.getNativeBaseDir()}assets/${sanitizeKey(key)}`;
+    this.verifiedNativeFiles.delete(targetPath);
     await FileSystem.deleteAsync(targetPath, { idempotent: true }).catch(() => {});
   }
 
@@ -466,19 +490,26 @@ class OfflineStoreEngine {
   }
 
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const Buf = (globalThis as any).Buffer;
+    if (typeof Buf !== 'undefined') {
+      return Buf.from(buffer).toString('base64');
+    }
     const bytes = new Uint8Array(buffer);
     let binary = '';
     const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode.apply(
-        null,
-        Array.from(bytes.subarray(i, i + chunkSize)),
-      );
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk as any);
     }
     return btoa(binary);
   }
 
   private base64ToArrayBuffer(base64: string): ArrayBuffer {
+    const Buf = (globalThis as any).Buffer;
+    if (typeof Buf !== 'undefined') {
+      const buf = Buf.from(base64, 'base64');
+      return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    }
     const binary = atob(base64);
     const len = binary.length;
     const bytes = new Uint8Array(len);

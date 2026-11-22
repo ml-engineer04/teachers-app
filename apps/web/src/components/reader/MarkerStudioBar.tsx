@@ -125,12 +125,12 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
         if ((e.target as HTMLElement).closest('button')) return;
         handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
       }}
-      className={`fixed z-40 select-none max-w-[calc(100vw-16px)] rounded-full bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 backdrop-blur-xl border border-[#D9DCD5] dark:border-[#353B47] shadow-[0_15px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.6)] text-[#1F2933] dark:text-[#E6E8EC] px-2 sm:px-2.5 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5 ${
+      className={`fixed z-40 select-none max-w-[calc(100vw-16px)] rounded-full bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-xl border border-[#E6E9F2] dark:border-[#262C42] shadow-[0_15px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.6)] text-[#1B2238] dark:text-[#E6E8EC] px-2 sm:px-2.5 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5 ${
         !position ? 'bottom-4 left-1/2 -translate-x-1/2' : ''
       } cursor-grab active:cursor-grabbing animate-in slide-in-from-bottom-2 duration-150`}
     >
       {/* Delicate Drag Handle */}
-      <div className="text-[#5B6672]/50 hover:text-[#1F2933] dark:text-white/30 dark:hover:text-white/60 transition-colors hidden sm:flex items-center -mr-1">
+      <div className="text-[#7A8299]/50 hover:text-[#1B2238] dark:text-white/30 dark:hover:text-white/60 transition-colors hidden sm:flex items-center -mr-1">
         <GripVertical className="w-3.5 h-3.5" />
       </div>
 
@@ -142,7 +142,7 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
           className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all ${
             activeTool === 'PEN'
               ? 'bg-[#2A4FB8] text-white shadow-xs'
-              : 'text-[#5B6672] hover:text-[#1F2933] hover:bg-black/5 dark:text-[#9AA3B0] dark:hover:text-white dark:hover:bg-white/10'
+              : 'text-[#7A8299] hover:text-[#1B2238] hover:bg-black/5 dark:text-[#8B93AD] dark:hover:text-white dark:hover:bg-white/10'
           }`}
           title="Qalam"
         >
@@ -154,8 +154,8 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
           onClick={() => onSelectTool('HIGHLIGHTER')}
           className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all ${
             activeTool === 'HIGHLIGHTER'
-              ? 'bg-[#F5B82E] text-[#15181E] shadow-xs'
-              : 'text-[#5B6672] hover:text-[#1F2933] hover:bg-black/5 dark:text-[#9AA3B0] dark:hover:text-white dark:hover:bg-white/10'
+              ? 'bg-[#F5B82E] text-[#10152A] shadow-xs'
+              : 'text-[#7A8299] hover:text-[#1B2238] hover:bg-black/5 dark:text-[#8B93AD] dark:hover:text-white dark:hover:bg-white/10'
           }`}
           title="Marker (Highlighter)"
         >
@@ -168,7 +168,7 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
           className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition-all ${
             activeTool === 'ERASER'
               ? 'bg-[#B91C1C] text-white shadow-xs'
-              : 'text-[#5B6672] hover:text-[#1F2933] hover:bg-black/5 dark:text-[#9AA3B0] dark:hover:text-white dark:hover:bg-white/10'
+              : 'text-[#7A8299] hover:text-[#1B2238] hover:bg-black/5 dark:text-[#8B93AD] dark:hover:text-white dark:hover:bg-white/10'
           }`}
           title="Öçirğiç"
         >
@@ -179,7 +179,7 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
       {/* Colors (when tool !== 'ERASER') */}
       {activeTool !== 'ERASER' && (
         <>
-          <div className="w-px h-3 bg-[#D9DCD5] dark:bg-[#353B47]" />
+          <div className="w-px h-3 bg-[#E6E9F2] dark:bg-[#262C42]" />
           <div className="flex items-center gap-1 sm:gap-1.5 px-0.5">
             {colors.slice(0, 4).map((c) => {
               const isSelected = activeColor.toLowerCase() === c.hex.toLowerCase();
@@ -190,7 +190,7 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
                   onClick={() => onSelectColor(c.hex)}
                   className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full transition-transform border border-black/20 ${
                     isSelected
-                      ? 'ring-2 ring-[#2A4FB8] dark:ring-white ring-offset-1 ring-offset-[#FBFBF9] dark:ring-offset-[#1E222A] scale-110'
+                      ? 'ring-2 ring-[#2A4FB8] dark:ring-white ring-offset-1 ring-offset-[#FFFFFF] dark:ring-offset-[#171C2E] scale-110'
                       : 'hover:scale-105 opacity-80 hover:opacity-100'
                   }`}
                   style={{ backgroundColor: c.hex }}
@@ -205,11 +205,11 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
       {/* Stroke Size Cycle Pill (when tool !== 'ERASER') */}
       {activeTool !== 'ERASER' && (
         <>
-          <div className="w-px h-3 bg-[#D9DCD5] dark:bg-[#353B47]" />
+          <div className="w-px h-3 bg-[#E6E9F2] dark:bg-[#262C42]" />
           <button
             type="button"
             onClick={cycleStrokeSize}
-            className="px-1.5 py-0.5 rounded-full bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] text-[9px] sm:text-[10px] font-mono font-bold transition shrink-0 active:scale-95"
+            className="px-1.5 py-0.5 rounded-full bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] text-[9px] sm:text-[10px] font-mono font-bold transition shrink-0 active:scale-95"
             title="Çiziq qalinligini özgartiriş"
           >
             {strokeSize}
@@ -218,11 +218,11 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
       )}
 
       {/* Actions: Undo & Clear */}
-      <div className="w-px h-3 bg-[#D9DCD5] dark:bg-[#353B47]" />
+      <div className="w-px h-3 bg-[#E6E9F2] dark:bg-[#262C42]" />
       <button
         type="button"
         onClick={onUndo}
-        className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[#5B6672] hover:text-[#1F2933] hover:bg-black/5 dark:text-[#9AA3B0] dark:hover:text-white dark:hover:bg-white/10 transition"
+        className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[#7A8299] hover:text-[#1B2238] hover:bg-black/5 dark:text-[#8B93AD] dark:hover:text-white dark:hover:bg-white/10 transition"
         title="Bekor qiliş (Undo)"
       >
         <RotateCcw className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
@@ -238,11 +238,11 @@ export const MarkerStudioBar: React.FC<MarkerStudioBarProps> = ({
       </button>
 
       {/* Delicate Close Button (X) */}
-      <div className="w-px h-3 bg-[#D9DCD5] dark:bg-[#353B47]" />
+      <div className="w-px h-3 bg-[#E6E9F2] dark:bg-[#262C42]" />
       <button
         type="button"
         onClick={onClose}
-        className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-white flex items-center justify-center transition active:scale-90 shrink-0"
+        className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-[#7A8299] hover:text-[#1B2238] dark:text-[#8B93AD] dark:hover:text-white flex items-center justify-center transition active:scale-90 shrink-0"
         title="Yopiş (M)"
         aria-label="Yopiş"
       >

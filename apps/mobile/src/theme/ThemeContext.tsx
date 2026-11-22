@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import {
   AppThemeMode,
   getCachedPreferences,
@@ -11,34 +11,51 @@ export interface ThemePalette {
   mode: AppThemeMode;
   isDark: boolean;
   statusBarStyle: 'dark-content' | 'light-content';
+
+  // Core Color Tokens
   background: string;
+  card: string;
+  border: string;
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  primary: string;
+  onPrimary: string;
+  accentText: string;
+  accentSoft: string;
+  accentSoftText: string;
+  accentSoftBorder: string;
+  subscriptionCard: string;
+  successSoft: string;
+  successText: string;
+  inputFill: string;
+  segmentFill: string;
+  progressTrack: string;
+  progressFill: string;
+  disabledChip: string;
+  selectedPlanFill: string;
+  danger: string;
+
+  // Extended / Legacy Tokens
   backgroundSecondary: string;
   surface: string;
   surfaceAlt: string;
   surfaceElevated: string;
   cardBg: string;
   inputBg: string;
-  textPrimary: string;
-  textSecondary: string;
-  textMuted: string;
   placeholder: string;
-  border: string;
   borderStrong: string;
-  primary: string;
   primaryDark: string;
   primaryText: string;
   primarySoft: string;
   accent: string;
-  accentSoft: string;
   warning: string;
   warningSoft: string;
-  danger: string;
   dangerSoft: string;
   readerBg: string;
   readerChrome: string;
   dockBg: string;
   overlay: string;
-  onPrimary: string;
   shadowColor: string;
   audio: string;
   audioSoft: string;
@@ -54,34 +71,51 @@ export const LIGHT_THEME: ThemePalette = {
   mode: 'light',
   isDark: false,
   statusBarStyle: 'dark-content',
-  background: '#F4F5F2', // Canvas light
-  backgroundSecondary: '#ECEEEA', // Surface muted light
-  surface: '#FBFBF9', // Surface card light
-  surfaceAlt: '#ECEEEA',
-  surfaceElevated: '#FFFFFF',
-  cardBg: '#FBFBF9',
-  inputBg: '#ECEEEA',
-  textPrimary: '#1F2933', // Text ink light
-  textSecondary: '#5B6672', // Text muted light
-  textMuted: '#9AA3B0',
-  placeholder: '#9AA3B0',
-  border: '#D9DCD5', // Line light
-  borderStrong: '#BAD2FF',
-  primary: '#2A4FB8', // Ilm ko'k (brand 600)
-  primaryDark: '#223F94', // brand 700
-  primaryText: '#2A4FB8',
-  primarySoft: '#EEF4FF', // brand 50
-  accent: '#0E7C70', // Zumrad-teal
-  accentSoft: '#E6F6F4',
-  warning: '#B45309', // Kehrabo
-  warningSoft: '#FFFBEB',
-  danger: '#B91C1C', // Qizil
-  dangerSoft: '#FEF2F2',
-  readerBg: '#F4F5F2', // Canvas light
-  readerChrome: 'rgba(251, 251, 249, 0.98)',
-  dockBg: 'rgba(251, 251, 249, 0.98)',
-  overlay: 'rgba(31, 41, 51, 0.55)',
+
+  // Core Tokens
+  background: '#F6F7FB',
+  card: '#FFFFFF',
+  border: '#E6E9F2',
+  textPrimary: '#1B2238',
+  textSecondary: '#7A8299',
+  textMuted: '#9AA1B5',
+  primary: '#2A4FB8',
   onPrimary: '#FFFFFF',
+  accentText: '#2A4FB8',
+  accentSoft: '#E8EDFB',
+  accentSoftText: '#1D3A8F',
+  accentSoftBorder: '#C9D6F5',
+  subscriptionCard: '#E8EDFB',
+  successSoft: '#E3F5EE',
+  successText: '#0F6E56',
+  inputFill: '#EEF1F8',
+  segmentFill: '#EEF1F8',
+  progressTrack: '#E4E9F7',
+  progressFill: '#2A4FB8',
+  disabledChip: '#F0F2F8',
+  selectedPlanFill: '#EEF2FD',
+  danger: '#C0392B',
+
+  // Compatibility & Extended
+  backgroundSecondary: '#EEF1F8',
+  surface: '#FFFFFF',
+  surfaceAlt: '#EEF1F8',
+  surfaceElevated: '#FFFFFF',
+  cardBg: '#FFFFFF',
+  inputBg: '#EEF1F8',
+  placeholder: '#9AA1B5',
+  borderStrong: '#C9D6F5',
+  primaryDark: '#1D3A8F',
+  primaryText: '#2A4FB8',
+  primarySoft: '#E8EDFB',
+  accent: '#2A4FB8',
+  warning: '#B45309',
+  warningSoft: '#FFFBEB',
+  dangerSoft: '#FDE8E8',
+  readerBg: '#F6F7FB',
+  readerChrome: 'rgba(255, 255, 255, 0.98)',
+  dockBg: '#FFFFFF',
+  overlay: 'rgba(27, 34, 56, 0.55)',
   shadowColor: '#142452',
   audio: '#0E7C70',
   audioSoft: '#E6F6F4',
@@ -97,34 +131,51 @@ export const DARK_THEME: ThemePalette = {
   mode: 'dark',
   isDark: true,
   statusBarStyle: 'light-content',
-  background: '#15181E', // Canvas dark
-  backgroundSecondary: '#1E222A', // Surface dark
-  surface: '#1E222A', // Surface card dark
-  surfaceAlt: '#272C36', // Surface muted dark
-  surfaceElevated: '#272C36',
-  cardBg: '#1E222A',
-  inputBg: '#272C36',
-  textPrimary: '#E6E8EC', // Text ink dark
-  textSecondary: '#9AA3B0', // Text muted dark
-  textMuted: '#5B6672',
-  placeholder: '#5B6672',
-  border: '#353B47', // Line dark
-  borderStrong: '#485265',
-  primary: '#5B93FA', // Ilm ko'k (brand 400 dark)
-  primaryDark: '#2A4FB8',
-  primaryText: '#8DB5FF',
-  primarySoft: 'rgba(42, 79, 184, 0.22)',
-  accent: '#5ED3C4', // Teal dark
-  accentSoft: 'rgba(14, 124, 112, 0.20)',
-  warning: '#FBBF24', // Warning dark
-  warningSoft: 'rgba(180, 83, 9, 0.22)',
-  danger: '#F87171', // Qizil dark
-  dangerSoft: 'rgba(185, 28, 28, 0.22)',
-  readerBg: '#15181E',
-  readerChrome: 'rgba(30, 34, 42, 0.98)',
-  dockBg: 'rgba(30, 34, 42, 0.98)',
-  overlay: 'rgba(0, 0, 0, 0.78)',
+
+  // Core Tokens
+  background: '#0E1220',
+  card: '#171C2E',
+  border: '#262C42',
+  textPrimary: '#E9ECF7',
+  textSecondary: '#8B93AD',
+  textMuted: '#69718C',
+  primary: '#4F72EE',
   onPrimary: '#FFFFFF',
+  accentText: '#8FA8F7',
+  accentSoft: '#1E2A55',
+  accentSoftText: '#B3C4FA',
+  accentSoftBorder: '#34478C',
+  subscriptionCard: '#1B2650',
+  successSoft: '#12332B',
+  successText: '#5FD1AC',
+  inputFill: '#10152A',
+  segmentFill: '#10152A',
+  progressTrack: '#262C42',
+  progressFill: '#7F9BF7',
+  disabledChip: '#262C42',
+  selectedPlanFill: '#182252',
+  danger: '#F0857A',
+
+  // Compatibility & Extended
+  backgroundSecondary: '#10152A',
+  surface: '#171C2E',
+  surfaceAlt: '#20263D',
+  surfaceElevated: '#171C2E',
+  cardBg: '#171C2E',
+  inputBg: '#10152A',
+  placeholder: '#69718C',
+  borderStrong: '#34478C',
+  primaryDark: '#385BD4',
+  primaryText: '#8FA8F7',
+  primarySoft: '#1E2A55',
+  accent: '#8FA8F7',
+  warning: '#FBBF24',
+  warningSoft: 'rgba(180, 83, 9, 0.22)',
+  dangerSoft: 'rgba(240, 133, 122, 0.16)',
+  readerBg: '#0E1220',
+  readerChrome: 'rgba(23, 28, 46, 0.98)',
+  dockBg: '#171C2E',
+  overlay: 'rgba(0, 0, 0, 0.78)',
   shadowColor: '#000000',
   audio: '#5ED3C4',
   audioSoft: 'rgba(14, 124, 112, 0.20)',
@@ -175,31 +226,38 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  const setThemeMode = async (mode: AppThemeMode) => {
+  const setThemeMode = useCallback(async (mode: AppThemeMode) => {
     setThemeModeState(mode);
     await saveThemeMode(mode);
-  };
+  }, []);
 
-  const toggleTheme = async () => {
-    await setThemeMode(themeMode === 'dark' ? 'light' : 'dark');
-  };
+  const toggleTheme = useCallback(async () => {
+    setThemeModeState((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      saveThemeMode(next).catch(() => {});
+      return next;
+    });
+  }, []);
 
   const colors = useMemo(
     () => (themeMode === 'dark' ? DARK_THEME : LIGHT_THEME),
     [themeMode],
   );
 
+  const contextValue = useMemo(
+    () => ({
+      themeMode,
+      isDark: themeMode === 'dark',
+      colors,
+      setThemeMode,
+      toggleTheme,
+      themeReady,
+    }),
+    [themeMode, colors, setThemeMode, toggleTheme, themeReady],
+  );
+
   return (
-    <ThemeContext.Provider
-      value={{
-        themeMode,
-        isDark: themeMode === 'dark',
-        colors,
-        setThemeMode,
-        toggleTheme,
-        themeReady,
-      }}
-    >
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );

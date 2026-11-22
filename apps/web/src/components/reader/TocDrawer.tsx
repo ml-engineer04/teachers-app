@@ -106,18 +106,18 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 backdrop-blur-2xl border-l border-[#D9DCD5] dark:border-[#353B47] text-[#1F2933] dark:text-[#E6E8EC] shadow-2xl animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-2xl border-l border-[#E6E9F2] dark:border-[#262C42] text-[#1B2238] dark:text-[#E9ECF7] shadow-2xl animate-in slide-in-from-right duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#D9DCD5] dark:border-[#353B47]">
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#E6E9F2] dark:border-[#262C42]">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#2A4FB8]/30 shrink-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#2A4FB8] dark:text-[#8FA8F7] border border-[#C9D6F5] dark:border-[#34478C] shrink-0">
             <List className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-[#142452] dark:text-white truncate">
+            <h2 className="text-sm font-bold text-[#1B2238] dark:text-[#E9ECF7] truncate">
               {strings.reader?.contents || 'Mundarija'}
             </h2>
-            <p className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0] truncate">
+            <p className="text-[10px] text-[#7A8299] dark:text-[#8B93AD] truncate">
               {contentTotal} asosiy darslik beti
             </p>
           </div>
@@ -125,7 +125,7 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
 
         <button
           onClick={onClose}
-          className="w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-white flex items-center justify-center transition active:scale-90"
+          className="w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-[#7A8299] hover:text-[#1B2238] dark:text-[#8B93AD] dark:hover:text-[#E9ECF7] flex items-center justify-center transition active:scale-90"
           title="Yopiş (Esc)"
         >
           <X className="h-3.5 w-3.5" />
@@ -135,10 +135,10 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
       {/* Quick Jump Bar */}
       <form
         onSubmit={handleGoToInput}
-        className="flex items-center gap-2 px-4 py-2.5 border-b border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2]/60 dark:bg-[#15181E]/40"
+        className="flex items-center gap-2 px-4 py-2.5 border-b border-[#E6E9F2] dark:border-[#262C42] bg-[#EEF1F8]/60 dark:bg-[#10152A]/40"
       >
         <div className="relative flex-1">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-[#5B6672] dark:text-[#9AA3B0]">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-[#7A8299] dark:text-[#8B93AD]">
             <Compass className="h-3.5 w-3.5" />
           </div>
           <input
@@ -148,13 +148,13 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
             placeholder={`Bet raqami (1 - ${contentTotal})...`}
             value={pageInput}
             onChange={(e) => setPageInput(e.target.value)}
-            className="w-full rounded-lg border border-[#D9DCD5] dark:border-[#353B47] bg-[#ECEEEA] dark:bg-[#15181E] pl-8 pr-2 py-1.5 text-xs text-[#1F2933] dark:text-[#E6E8EC] placeholder-[#5B6672] dark:placeholder-[#9AA3B0] focus:border-[#2A4FB8] dark:focus:border-[#5B93FA] focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full rounded-lg border border-[#E6E9F2] dark:border-[#262C42] bg-[#EEF1F8] dark:bg-[#10152A] pl-8 pr-2 py-1.5 text-xs text-[#1B2238] dark:text-[#E9ECF7] placeholder-[#9AA1B5] dark:placeholder-[#69718C] focus:border-[#2A4FB8] dark:focus:border-[#4F72EE] focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
         <button
           type="submit"
           disabled={!pageInput}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#2A4FB8] text-xs font-semibold text-white hover:bg-[#223F94] disabled:opacity-40 transition active:scale-95 shadow-xs"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#2A4FB8] text-xs font-semibold text-white hover:bg-[#234399] dark:bg-[#4F72EE] dark:hover:bg-[#6384F1] disabled:opacity-40 transition active:scale-95 shadow-xs"
         >
           <span>Ötiş</span>
           <ArrowRight className="h-3 w-3" />
@@ -174,16 +174,16 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
               }}
               className={`w-full text-left rounded-xl p-2.5 transition-all flex items-center justify-between border ${
                 isActive
-                  ? 'bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 border-[#BAD2FF] dark:border-[#5B93FA]/40 text-[#2A4FB8] dark:text-white shadow-xs'
-                  : 'bg-[#F4F5F2] hover:bg-[#ECEEEA] border-[#D9DCD5] text-[#1F2933] dark:bg-[#272C36]/50 dark:hover:bg-[#272C36] dark:border-[#353B47]/50 dark:hover:border-[#353B47] dark:text-[#E6E8EC]'
+                  ? 'bg-[#EEF2FD] dark:bg-[#182252] border-[#2A4FB8]/40 dark:border-[#4F72EE]/40 text-[#2A4FB8] dark:text-[#8FA8F7] shadow-xs'
+                  : 'bg-[#EEF1F8] hover:bg-[#E4E9F7] border-[#E6E9F2] text-[#1B2238] dark:bg-[#10152A] dark:hover:bg-[#262C42] dark:border-[#262C42] dark:text-[#E9ECF7]'
               }`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${
                     isActive
-                      ? 'bg-[#2A4FB8] text-white'
-                      : 'bg-[#ECEEEA] text-[#5B6672] dark:bg-[#15181E] dark:text-[#9AA3B0]'
+                      ? 'bg-[#2A4FB8] dark:bg-[#4F72EE] text-white'
+                      : 'bg-[#E4E9F7] text-[#7A8299] dark:bg-[#262C42] dark:text-[#8B93AD]'
                   }`}
                 >
                   <BookOpen className="h-3 w-3" />
@@ -191,22 +191,22 @@ export const TocDrawer: React.FC<TocDrawerProps> = ({
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     {item.unit && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A4FB8] dark:text-[#5B93FA]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A4FB8] dark:text-[#8FA8F7]">
                         {item.unit}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-medium truncate text-[#1F2933] dark:text-white">
+                  <h4 className="text-xs font-medium truncate text-[#1B2238] dark:text-[#E9ECF7]">
                     {item.title}
                   </h4>
                 </div>
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                <span className="rounded-md bg-[#ECEEEA] dark:bg-[#15181E] px-1.5 py-0.5 text-[10.5px] font-mono text-[#5B6672] dark:text-[#9AA3B0]">
+                <span className="rounded-md bg-[#E4E9F7] dark:bg-[#262C42] px-1.5 py-0.5 text-[10.5px] font-mono text-[#7A8299] dark:text-[#8B93AD]">
                   {formatPdfPage(item.pageNumber)}
                 </span>
-                <ChevronRight className="h-3.5 w-3.5 text-[#5B6672] dark:text-[#9AA3B0]" />
+                <ChevronRight className="h-3.5 w-3.5 text-[#7A8299] dark:text-[#8B93AD]" />
               </div>
             </button>
           );

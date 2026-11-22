@@ -109,7 +109,7 @@ async function fetchStrictJson<T>(endpoint: string): Promise<T> {
       headers: buildHeaders(token),
     });
   } catch {
-    throw new Error('Internet aloqasi yo‘q. Yuklab olish uchun tarmoqqa ulaning.');
+    throw new Error('Internet aloqasi yöq. Yuklab oliş uçun tarmoqqa ulaning.');
   }
 
   if (res.status === 401) {
@@ -169,8 +169,15 @@ export class DownloadsManager {
       } catch {}
 
       const stored = await offlineStore.getJson<DownloadedItem[]>(INDEX_KEY).catch(() => null);
-      const valid: DownloadedItem[] = [];
       if (Array.isArray(stored)) {
+        this.indexCache = stored.filter((item) => Boolean(item?.bookId));
+      }
+      this.initialized = true;
+
+      // Background integrity verification of downloaded bundles without blocking startup
+      (async () => {
+        if (!Array.isArray(stored)) return;
+        const valid: DownloadedItem[] = [];
         for (const item of stored) {
           if (!item?.bookId) continue;
           const pkg = await offlineStore.getJson<OfflineBookPackage>(`${PKG_PREFIX}${item.bookId}`).catch(() => null);
@@ -178,12 +185,11 @@ export class DownloadsManager {
             valid.push(item);
           }
         }
-      }
-      this.indexCache = valid;
-      if (Array.isArray(stored) && valid.length !== stored.length) {
-        await offlineStore.putJson(INDEX_KEY, valid).catch(() => {});
-      }
-      this.initialized = true;
+        this.indexCache = valid;
+        if (valid.length !== stored.length) {
+          await offlineStore.putJson(INDEX_KEY, valid).catch(() => {});
+        }
+      })().catch(() => {});
     })();
 
     await this.initPromise;
@@ -231,7 +237,7 @@ export class DownloadsManager {
     await this.init();
 
     if (!bookId) {
-      throw new Error('Yuklab olish uchun darslik tanlanmadi');
+      throw new Error('Yuklab oliş uçun darslik tanlanmadi');
     }
 
     const report = (pct: number) => {
@@ -384,6 +390,23 @@ export class DownloadsManager {
       enqueueUrl(h?.targetUrl, `hs_${h.id || 'target'}`, hsFallbackExt);
       enqueueUrl(h?.targetFile, `hs_file_${h.id || 'file'}`, hsFallbackExt);
       enqueueUrl(h?.imageUrl, `hs_img_${h.id || 'img'}`, '.png');
+      if (Array.isArray(h?.answerImages)) {
+        h.answerImages.forEach((imgUrl: string, idx: number) => {
+          enqueueUrl(imgUrl, `hs_ans_${h.id}_${idx}`, '.png');
+        });
+      }
+      if (Array.isArray(h?.transcriptImages)) {
+        h.transcriptImages.forEach((tImg: string, idx: number) => {
+          enqueueUrl(tImg, `hs_tr_${h.id}_${idx}`, '.png');
+        });
+      }
+      if (Array.isArray(h?.multiAnswers)) {
+        h.multiAnswers.forEach((ans: any, idx: number) => {
+          enqueueUrl(ans?.imageUrl, `hs_mans_img_${h.id}_${idx}`, '.png');
+          enqueueUrl(ans?.audioUrl, `hs_mans_aud_${h.id}_${idx}`, '.mp3');
+          enqueueUrl(ans?.targetUrl, `hs_mans_tgt_${h.id}_${idx}`, '');
+        });
+      }
     }
     for (const ak of answerKeys) {
       enqueueUrl(ak?.imageUrl, `ans_${ak.id || 'img'}`, '.png');

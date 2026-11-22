@@ -159,7 +159,13 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={{ paddingBottom: 24 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+          >
             {activeTab === 'BOOKMARKS' ? (
               <>
                 <TouchableOpacity

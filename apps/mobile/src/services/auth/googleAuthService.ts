@@ -202,6 +202,17 @@ class GoogleAuthService {
           errorMessage: 'Google Play xizmatlari mavjud emas yoki yangilashni talab qiladi.',
         };
       }
+      if (
+        error?.code === statusCodes.DEVELOPER_ERROR ||
+        error?.code === '10' ||
+        String(error?.message).includes('DEVELOPER_ERROR')
+      ) {
+        return {
+          success: false,
+          errorMessage:
+            'Google Sign-In konfiguratsiyasi kutilmoqda (SHA-1 sertifikati Google Cloud Console ga ulanishi kerak). Iltimos, hozircha email va parol orqali kiring.',
+        };
+      }
       return {
         success: false,
         errorMessage: error?.message || 'Google orqali kirishda xatolik yuz berdi.',

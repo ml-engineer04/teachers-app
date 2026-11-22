@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import Svg, { Path, Rect } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { notify } from '../../services/notifications/notificationService';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTheme } from '../../theme/ThemeContext';
@@ -48,6 +49,10 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
   const [usingRealAudio, setUsingRealAudio] = useState(false);
 
   const soundRef = useRef<Audio.Sound | null>(null);
+  const lastSecRef = useRef(-1);
+  const lastDurRef = useRef(-1);
+  const isPlayingRef = useRef(false);
+  const insets = useSafeAreaInsets();
   const { language } = useI18n();
   const { colors, isDark } = useTheme();
   const screen = Dimensions.get('window');
@@ -63,6 +68,9 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
       } catch {}
       soundRef.current = null;
     }
+    lastSecRef.current = -1;
+    lastDurRef.current = -1;
+    isPlayingRef.current = false;
     setUsingRealAudio(false);
   }, []);
 
@@ -98,12 +106,25 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
           { shouldPlay: true, rate: currentSpeed, shouldCorrectPitch: true, isMuted },
           (status: AVPlaybackStatus) => {
             if (!status.isLoaded) return;
-            setPositionSec(Math.floor((status.positionMillis || 0) / 1000));
-            if (status.durationMillis) {
-              setDurationSec(Math.max(1, Math.floor(status.durationMillis / 1000)));
+            const curSec = Math.floor((status.positionMillis || 0) / 1000);
+            if (curSec !== lastSecRef.current) {
+              lastSecRef.current = curSec;
+              setPositionSec(curSec);
             }
-            setIsPlaying(status.isPlaying);
+            if (status.durationMillis) {
+              const durSec = Math.max(1, Math.floor(status.durationMillis / 1000));
+              if (durSec !== lastDurRef.current) {
+                lastDurRef.current = durSec;
+                setDurationSec(durSec);
+              }
+            }
+            if (status.isPlaying !== isPlayingRef.current) {
+              isPlayingRef.current = status.isPlaying;
+              setIsPlaying(status.isPlaying);
+            }
             if (status.didJustFinish) {
+              isPlayingRef.current = false;
+              lastSecRef.current = 0;
               setIsPlaying(false);
               setPositionSec(0);
             }
@@ -147,17 +168,25 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
       try {
         if (isPlaying) {
           await soundRef.current.pauseAsync();
+          isPlayingRef.current = false;
+          setIsPlaying(false);
         } else {
           await soundRef.current.playAsync();
+          isPlayingRef.current = true;
+          setIsPlaying(true);
         }
       } catch {}
     } else {
-      setIsPlaying((prev) => !prev);
+      setIsPlaying((prev) => {
+        isPlayingRef.current = !prev;
+        return !prev;
+      });
     }
   };
 
   const seekBy = async (deltaSec: number) => {
     const nextSec = Math.max(0, Math.min(durationSec, positionSec + deltaSec));
+    lastSecRef.current = nextSec;
     setPositionSec(nextSec);
     if (soundRef.current && usingRealAudio) {
       try {
@@ -169,6 +198,7 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
   const seekToRatio = async (ratio: number) => {
     const clamped = Math.max(0, Math.min(1, ratio));
     const nextSec = Math.round(clamped * durationSec);
+    lastSecRef.current = nextSec;
     setPositionSec(nextSec);
     if (soundRef.current && usingRealAudio) {
       try {
@@ -239,6 +269,7 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
       style={[
         styles.floatingContainer,
         {
+          bottom: Math.max(58, insets.bottom + 48),
           transform: [{ translateX: pan.x }, { translateY: pan.y }],
         },
       ]}
@@ -339,14 +370,14 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
           <Text style={[styles.speedText, { color: colors.textPrimary }]}>{currentSpeed}x</Text>
         </TouchableOpacity>
 
-        {/* Transcript Pill Button */}
+        {/* Transcript Pill Button matching Web */}
         {hasTranscript && onOpenTranscript && (
           <TouchableOpacity
             style={[
               styles.transcriptPill,
               {
-                backgroundColor: isDark ? 'rgba(109, 63, 209, 0.25)' : colors.answerSoft,
-                borderColor: isDark ? 'rgba(109, 63, 209, 0.5)' : colors.borderStrong,
+                backgroundColor: isDark ? 'rgba(14, 124, 112, 0.25)' : '#E6F6F4',
+                borderColor: isDark ? 'rgba(14, 124, 112, 0.45)' : 'rgba(14, 124, 112, 0.3)',
               },
             ]}
             onPress={onOpenTranscript}
@@ -356,20 +387,20 @@ export const AudioPlayerModal: React.FC<AudioPlayerModalProps> = ({
             <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-                stroke={isDark ? '#B69CFF' : colors.answer}
+                stroke={isDark ? '#5ED3C4' : '#0E7C70'}
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
               <Path
                 d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
-                stroke={isDark ? '#B69CFF' : colors.answer}
+                stroke={isDark ? '#5ED3C4' : '#0E7C70'}
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </Svg>
-            <Text style={[styles.transcriptText, { color: isDark ? '#B69CFF' : colors.answer }]}>
+            <Text style={[styles.transcriptText, { color: isDark ? '#5ED3C4' : '#0E7C70' }]}>
               {language === 'ru' ? 'Транскрипт' : language === 'en' ? 'Transcript' : 'Transkript'}
             </Text>
           </TouchableOpacity>
@@ -542,19 +573,19 @@ const styles = StyleSheet.create({
   transcriptPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
+    gap: 3.5,
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
-    backgroundColor: 'rgba(109, 63, 209, 0.25)',
+    backgroundColor: '#E6F6F4',
     borderWidth: 1,
-    borderColor: 'rgba(109, 63, 209, 0.45)',
+    borderColor: 'rgba(14, 124, 112, 0.3)',
     marginHorizontal: 2,
   },
   transcriptText: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#B69CFF',
+    color: '#0E7C70',
   },
   muteBtn: {
     padding: 3,

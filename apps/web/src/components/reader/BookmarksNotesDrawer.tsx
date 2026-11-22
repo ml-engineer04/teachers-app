@@ -86,9 +86,9 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-[#FBFBF9] dark:bg-[#1E222A] border-l border-[#D9DCD5] dark:border-[#353B47] text-[#1F2933] dark:text-[#E6E8EC] shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-[#FFFFFF] dark:bg-[#171C2E] border-l border-[#E6E9F2] dark:border-[#262C42] text-[#1B2238] dark:text-[#E9ECF7] shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in slide-in-from-right duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#D9DCD5] dark:border-[#353B47]">
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#E6E9F2] dark:border-[#262C42]">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FFFBEB] dark:bg-[#F5B82E]/20 text-[#B45309] dark:text-[#F5B82E] border border-[#F5B82E]/30 shrink-0">
             {activeTab === 'BOOKMARKS' ? (
@@ -98,12 +98,12 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
             )}
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-[#142452] dark:text-white truncate">
+            <h2 className="text-sm font-bold text-[#1B2238] dark:text-[#E9ECF7] truncate">
               {activeTab === 'BOOKMARKS'
                 ? strings.reader?.bookmark || 'Xatçöplar'
                 : strings.reader?.notes || 'Izohlar va eslatmalar'}
             </h2>
-            <p className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0] truncate">
+            <p className="text-[10px] text-[#7A8299] dark:text-[#8B93AD] truncate">
               Joriy sahifa: {formatPageBadge(currentPage)}
             </p>
           </div>
@@ -111,7 +111,7 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
 
         <button
           onClick={onClose}
-          className="w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-[#5B6672] hover:text-[#1F2933] dark:text-white/70 dark:hover:text-white flex items-center justify-center transition active:scale-90"
+          className="w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-[#7A8299] hover:text-[#1B2238] dark:text-[#8B93AD] dark:hover:text-[#E9ECF7] flex items-center justify-center transition active:scale-90"
           title="Yopiş (Esc)"
         >
           <X className="h-3.5 w-3.5" />
@@ -119,13 +119,13 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-[#ECEEEA] dark:bg-[#15181E] p-1 m-3 rounded-xl gap-1 border border-[#D9DCD5] dark:border-[#353B47]">
+      <div className="flex bg-[#EEF1F8] dark:bg-[#10152A] p-1 m-3 rounded-xl gap-1 border border-[#E6E9F2] dark:border-[#262C42]">
         <button
           onClick={() => setActiveTab('BOOKMARKS')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'BOOKMARKS'
               ? 'bg-[#2A4FB8] text-white shadow-xs'
-              : 'text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-[#E6E8EC]'
+              : 'text-[#7A8299] hover:text-[#1B2238] dark:text-[#8B93AD] dark:hover:text-[#E9ECF7]'
           }`}
         >
           <Bookmark className="h-3 w-3" />
@@ -136,7 +136,7 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'NOTES'
               ? 'bg-[#2A4FB8] text-white shadow-xs'
-              : 'text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-[#E6E8EC]'
+              : 'text-[#7A8299] hover:text-[#1B2238] dark:text-[#8B93AD] dark:hover:text-[#E9ECF7]'
           }`}
         >
           <FileText className="h-3 w-3" />
@@ -154,7 +154,7 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
               className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
                 isCurrentBookmarked
                   ? 'border-[#F5B82E]/40 bg-[#FFFBEB] dark:bg-[#F5B82E]/20 text-[#B45309] dark:text-[#F5B82E]'
-                  : 'border-[#D9DCD5] bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:border-[#353B47] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC]'
+                  : 'border-[#E6E9F2] bg-[#EEF1F8] hover:bg-[#E4E9F7] text-[#1B2238] dark:border-[#262C42] dark:bg-[#10152A] dark:hover:bg-[#262C42] dark:text-[#E9ECF7]'
               }`}
             >
               {isCurrentBookmarked ? (
@@ -172,13 +172,13 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
 
             {bookmarks.length === 0 ? (
               <div className="text-center py-10 px-4">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/5 dark:bg-white/5 text-[#5B6672] dark:text-[#9AA3B0] mb-2">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/5 dark:bg-white/5 text-[#7A8299] dark:text-[#8B93AD] mb-2">
                   <Bookmark className="h-5 w-5" />
                 </div>
-                <h4 className="text-xs font-semibold text-[#1F2933] dark:text-[#E6E8EC] mb-0.5">
+                <h4 className="text-xs font-semibold text-[#1B2238] dark:text-[#E9ECF7] mb-0.5">
                   Xatçöplar mavjud emas
                 </h4>
-                <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0] max-w-xs mx-auto">
+                <p className="text-[11px] text-[#7A8299] dark:text-[#8B93AD] max-w-xs mx-auto">
                   Muhim sahifalarni tezda topiş uçun ularni xatçöp qilib saqlang.
                 </p>
               </div>
@@ -187,7 +187,7 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
                 {bookmarks.map((bm) => (
                   <div
                     key={bm.pageNumber}
-                    className="flex items-center justify-between p-2.5 rounded-xl border border-[#D9DCD5] hover:border-[#2A4FB8]/40 bg-[#F4F5F2] hover:bg-[#ECEEEA] text-[#1F2933] dark:border-[#353B47] dark:hover:border-[#5B93FA]/40 dark:bg-[#272C36]/60 dark:hover:bg-[#272C36] dark:text-white transition-all"
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-[#E6E9F2] hover:border-[#2A4FB8]/40 bg-[#EEF1F8] hover:bg-[#E4E9F7] text-[#1B2238] dark:border-[#262C42] dark:hover:border-[#4F72EE]/40 dark:bg-[#10152A] dark:hover:bg-[#262C42] dark:text-[#E9ECF7] transition-all"
                   >
                     <button
                       onClick={() => {
@@ -200,17 +200,17 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
                         <BookOpen className="h-3 w-3" />
                       </div>
                       <div className="min-w-0">
-                        <h5 className="text-xs font-medium text-[#1F2933] dark:text-white truncate">
+                        <h5 className="text-xs font-medium text-[#1B2238] dark:text-[#E9ECF7] truncate">
                           {formatPageBadge(bm.pageNumber)}
                         </h5>
-                        <p className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0] truncate">
+                        <p className="text-[10px] text-[#7A8299] dark:text-[#8B93AD] truncate">
                           {bm.title || `PDF sahifa ${bm.pageNumber}`}
                         </p>
                       </div>
                     </button>
                     <button
                       onClick={() => onToggleBookmark(bm.pageNumber)}
-                      className="p-1 text-[#5B6672] hover:text-[#B91C1C] dark:text-[#9AA3B0] dark:hover:text-[#F87171] rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                      className="p-1 text-[#7A8299] hover:text-[#B3322A] dark:text-[#8B93AD] dark:hover:text-[#F0857A] rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                       title="Öçiriş"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -226,7 +226,7 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
           <>
             {/* Note creation form */}
             <form onSubmit={handleCreateNote} className="space-y-2">
-              <label className="text-[11px] font-medium text-[#1F2933] dark:text-[#E6E8EC] block">
+              <label className="text-[11px] font-medium text-[#1B2238] dark:text-[#E9ECF7] block">
                 {formatPageBadge(currentPage)} uçun yangi izoh:
               </label>
               <textarea
@@ -234,13 +234,13 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Dars rejasi yoki muhim eslatma..."
-                className="w-full rounded-xl border border-[#D9DCD5] dark:border-[#353B47] bg-[#ECEEEA] dark:bg-[#15181E] p-2.5 text-xs text-[#1F2933] dark:text-[#E6E8EC] placeholder-[#5B6672] dark:placeholder-[#9AA3B0] focus:border-[#2A4FB8] dark:focus:border-[#5B93FA] focus:outline-none transition-colors"
+                className="w-full rounded-xl border border-[#E6E9F2] dark:border-[#262C42] bg-[#EEF1F8] dark:bg-[#10152A] p-2.5 text-xs text-[#1B2238] dark:text-[#E9ECF7] placeholder-[#9AA1B5] dark:placeholder-[#69718C] focus:border-[#2A4FB8] dark:focus:border-[#4F72EE] focus:outline-none transition-colors"
               />
               <div className="flex justify-end">
                 <button
                   type="submit"
                   disabled={!noteText.trim() || isSubmitting}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2A4FB8] text-xs font-semibold text-white hover:bg-[#223F94] disabled:opacity-40 transition active:scale-95 shadow-xs"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2A4FB8] text-xs font-semibold text-white hover:bg-[#234399] dark:bg-[#4F72EE] dark:hover:bg-[#6384F1] disabled:opacity-40 transition active:scale-95 shadow-xs"
                 >
                   <Plus className="h-3 w-3" />
                   <span>Izohni saqlaş</span>
@@ -248,17 +248,17 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
               </div>
             </form>
 
-            <div className="pt-1 border-t border-[#D9DCD5] dark:border-[#353B47]" />
+            <div className="pt-1 border-t border-[#E6E9F2] dark:border-[#262C42]" />
 
             {notes.length === 0 ? (
               <div className="text-center py-8 px-4">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/5 dark:bg-white/5 text-[#5B6672] dark:text-[#9AA3B0] mb-2">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/5 dark:bg-white/5 text-[#7A8299] dark:text-[#8B93AD] mb-2">
                   <FileText className="h-5 w-5" />
                 </div>
-                <h4 className="text-xs font-semibold text-[#1F2933] dark:text-[#E6E8EC] mb-0.5">
+                <h4 className="text-xs font-semibold text-[#1B2238] dark:text-[#E9ECF7] mb-0.5">
                   Izohlar mavjud emas
                 </h4>
-                <p className="text-[11px] text-[#5B6672] dark:text-[#9AA3B0] max-w-xs mx-auto">
+                <p className="text-[11px] text-[#7A8299] dark:text-[#8B93AD] max-w-xs mx-auto">
                   Darslik sahifalariga öz fikrlaringiz va öqitiş metodikangizni yozib qoldiring.
                 </p>
               </div>
@@ -267,7 +267,7 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
                 {notes.map((note) => (
                   <div
                     key={note.id}
-                    className="p-3 rounded-xl border border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#272C36]/60 space-y-1.5"
+                    className="p-3 rounded-xl border border-[#E6E9F2] dark:border-[#262C42] bg-[#EEF1F8] dark:bg-[#10152A] space-y-1.5"
                   >
                     <div className="flex items-center justify-between">
                       <button
@@ -275,14 +275,14 @@ export const BookmarksNotesDrawer: React.FC<BookmarksNotesDrawerProps> = ({
                           onSelectPage(note.pageNumber);
                           onClose();
                         }}
-                        className="inline-flex items-center gap-1 rounded-md bg-[#EEF4FF] dark:bg-[#EEF4FF]/10 px-2 py-0.5 text-[10.5px] font-bold text-[#2A4FB8] dark:text-[#5B93FA] hover:underline"
+                        className="inline-flex items-center gap-1 rounded-md bg-[#E8EDFB] dark:bg-[#1E2A55] px-2 py-0.5 text-[10.5px] font-bold text-[#2A4FB8] dark:text-[#8FA8F7] hover:underline"
                       >
                         <BookOpen className="h-3 w-3" />
                         <span>{formatPageBadge(note.pageNumber)}</span>
                       </button>
                       <button
                         onClick={() => onDeleteNote(note.id)}
-                        className="p-1 text-[#5B6672] hover:text-[#B91C1C] dark:text-[#9AA3B0] dark:hover:text-[#F87171] rounded transition-colors"
+                        className="p-1 text-[#7A8299] hover:text-[#B3322A] dark:text-[#8B93AD] dark:hover:text-[#F0857A] rounded transition-colors"
                         title="Öçiriş"
                       >
                         <Trash2 className="h-3 w-3" />

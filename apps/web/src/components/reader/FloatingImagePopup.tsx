@@ -314,9 +314,9 @@ export const FloatingImagePopup: React.FC<FloatingImagePopupProps> = ({
             left: `${position.x}px`,
             top: `${position.y}px`,
           }}
-          className="fixed z-50 px-3 py-1.5 rounded-2xl bg-[#FBFBF9]/95 dark:bg-[#1E222A]/90 backdrop-blur-md border border-[#D9DCD5] dark:border-[#353B47] shadow-xl flex items-center gap-2 text-[#1F2933] dark:text-white/90 text-xs font-bold pointer-events-none select-none"
+          className="fixed z-50 px-3 py-1.5 rounded-2xl bg-[#FFFFFF]/95 dark:bg-[#171C2E]/90 backdrop-blur-md border border-[#E6E9F2] dark:border-[#262C42] shadow-xl flex items-center gap-2 text-[#1B2238] dark:text-white/90 text-xs font-bold pointer-events-none select-none"
         >
-          <Loader2 className="w-3.5 h-3.5 text-[#2A4FB8] dark:text-[#5B93FA] animate-spin" />
+          <Loader2 className="w-3.5 h-3.5 text-[#2A4FB8] dark:text-[#4F72EE] animate-spin" />
           <span>Yuklanmoqda...</span>
         </div>
       )}
@@ -349,8 +349,8 @@ export const FloatingImagePopup: React.FC<FloatingImagePopupProps> = ({
           }
           handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
         }}
-        className="fixed z-50 rounded-2xl bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 backdrop-blur-md border border-[#D9DCD5] dark:border-[#353B47] shadow-[0_15px_45px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_45px_rgba(0,0,0,0.6)] select-none overflow-hidden cursor-grab active:cursor-grabbing flex items-center justify-center group transition-[box-shadow]"
-        title="Surish uchun bosing va torting • Kattalashtirish uchun ikki marta bosing"
+        className="fixed z-50 rounded-2xl bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-md border border-[#E6E9F2] dark:border-[#262C42] shadow-[0_15px_45px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_45px_rgba(0,0,0,0.6)] select-none overflow-hidden cursor-grab active:cursor-grabbing flex items-center justify-center group transition-[box-shadow]"
+        title="Suriş uçun bosing va torting • Kattalaştiriş uçun ikki marta bosing"
       >
         {/* Discreet Close Button (X) placed over the image corner */}
         <button
@@ -362,8 +362,8 @@ export const FloatingImagePopup: React.FC<FloatingImagePopupProps> = ({
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           className="absolute top-2 right-2 z-30 w-6 h-6 rounded-full bg-black/60 hover:bg-black/90 text-white/80 hover:text-white backdrop-blur-md border border-white/25 flex items-center justify-center shadow-md transition-all active:scale-90"
-          title="Yopish (Esc)"
-          aria-label="Yopish"
+          title="Yopiş (Esc)"
+          aria-label="Yopiş"
         >
           <X className="w-3.5 h-3.5" strokeWidth={2.5} />
         </button>
@@ -378,7 +378,7 @@ export const FloatingImagePopup: React.FC<FloatingImagePopupProps> = ({
           ) : hasError ? (
             <div className="p-3 text-center text-rose-500 dark:text-rose-300 space-y-1">
               <ImageIcon className="w-6 h-6 mx-auto text-rose-400/50 mb-0.5" />
-              <p className="text-[11px] font-bold">Rasmni ochib bo‘lmadi</p>
+              <p className="text-[11px] font-bold">Rasmni oçib bölmadi</p>
             </div>
           ) : (
             <img
@@ -406,7 +406,7 @@ export const FloatingImagePopup: React.FC<FloatingImagePopupProps> = ({
           onMouseDown={handleResizeStart}
           onTouchStart={handleTouchResizeStart}
           className="resize-handle absolute bottom-1 right-1 z-30 w-4 h-4 flex items-center justify-center cursor-nwse-resize text-[#5B6672] dark:text-white/50 hover:text-[#1F2933] dark:hover:text-white transition-colors"
-          title="O‘lchamini o‘zgartirish (tortib kattalashtiring)"
+          title="Ölçamini özgartiriş (tortib kattalaştiring)"
         >
           <svg className="w-3 h-3 drop-shadow" viewBox="0 0 24 24" fill="currentColor">
             <path d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z" />

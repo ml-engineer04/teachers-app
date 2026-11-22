@@ -36,7 +36,7 @@ const VOCAB_LIST: VocabItem[] = [
     id: 'education',
     word: 'Education',
     phonetic: '/ˌedʒ.ʊˈkeɪ.ʃən/',
-    translation: "Ta'lim, o'qitish",
+    translation: "Ta'lim, öqitiş",
     partOfSpeech: 'noun (ot)',
   },
   {
@@ -51,8 +51,8 @@ const VOCAB_LIST: VocabItem[] = [
 const MARKER_PALETTE = [
   { color: '#FDE047', label: 'Sariq (Yellow)', bgClass: 'bg-[#FDE047]' },
   { color: '#38BDF8', label: 'Moviy (Cyan)', bgClass: 'bg-[#38BDF8]' },
-  { color: '#34D399', label: 'Yashil (Mint)', bgClass: 'bg-[#34D399]' },
-  { color: '#F472B6', label: 'Pushti (Rose)', bgClass: 'bg-[#F472B6]' },
+  { color: '#34D399', label: 'Yaşil (Mint)', bgClass: 'bg-[#34D399]' },
+  { color: '#F472B6', label: 'Puşti (Rose)', bgClass: 'bg-[#F472B6]' },
 ];
 
 export const HeroTeacherShowcase: React.FC = () => {
@@ -110,14 +110,14 @@ export const HeroTeacherShowcase: React.FC = () => {
         {/* A. MAIN FOCAL POINT: Floating Interactive English Textbook    */}
         {/* ============================================================ */}
         <div
-          className="relative w-full rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-[#1A1F2C]/95 backdrop-blur-2xl border border-white/80 dark:border-white/10 transition-all duration-500 ease-out transform -rotate-1 hover:rotate-0 hover:scale-[1.008]"
+          className="relative w-full rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-[#171C2E]/95 backdrop-blur-2xl border border-[#E6E9F2]/80 dark:border-[#262C42]/80 transition-all duration-500 ease-out transform -rotate-1 hover:rotate-0 hover:scale-[1.008]"
           style={{
             boxShadow:
               '0 24px 56px -12px rgba(42, 79, 184, 0.2), 0 12px 28px -8px rgba(15, 23, 42, 0.1), inset 0 1.5px 2px rgba(255, 255, 255, 0.9)',
           }}
         >
           {/* Textbook Chrome / Window Titlebar */}
-          <div className="flex items-center justify-between px-3.5 sm:px-5 py-2.5 sm:py-3 border-b border-[#E2E8F0]/80 dark:border-white/10 bg-[#F8FAFC]/90 dark:bg-[#161B26]/90 rounded-t-2xl sm:rounded-t-3xl">
+          <div className="flex items-center justify-between px-3.5 sm:px-5 py-2.5 sm:py-3 border-b border-[#E6E9F2]/80 dark:border-[#262C42]/80 bg-[#FFFFFF]/90 dark:bg-[#171C2E]/90 rounded-t-2xl sm:rounded-t-3xl">
             {/* Window Controls */}
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#EF4444]/90 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]" />
@@ -126,12 +126,12 @@ export const HeroTeacherShowcase: React.FC = () => {
             </div>
 
             {/* Book & Unit Identification */}
-            <div className="flex items-center gap-2 text-[11px] sm:text-xs font-bold text-[#142452] dark:text-[#E6E8EC]">
-              <div className="w-5 h-5 rounded-md bg-[#2A4FB8]/10 dark:bg-[#5B93FA]/20 flex items-center justify-center text-[#2A4FB8] dark:text-[#5B93FA]">
+            <div className="flex items-center gap-2 text-[11px] sm:text-xs font-bold text-[#1B2238] dark:text-[#E9ECF7]">
+              <div className="w-5 h-5 rounded-md bg-[#2A4FB8]/10 dark:bg-[#8FA8F7]/20 flex items-center justify-center text-[#2A4FB8] dark:text-[#8FA8F7]">
                 <BookOpen className="w-3 h-3" />
               </div>
               <span className="tracking-tight">English B1 • 5-Sinf Student's Book</span>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded-md bg-[#EEF4FF] dark:bg-[#2A4FB8]/30 text-[#2A4FB8] dark:text-[#7DD3FC] text-[10px] font-semibold border border-[#BAD2FF]/50 dark:border-[#2A4FB8]/40">
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded-md bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] text-[10px] font-semibold border border-[#C9D6F5]/50 dark:border-[#34478C]/40">
                 Unit 4
               </span>
             </div>
@@ -150,14 +150,14 @@ export const HeroTeacherShowcase: React.FC = () => {
           {/* Textbook Main Reading & Lesson Body */}
           <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
             {/* Unit Header Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-[#F1F5F9] dark:border-white/5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-[#E6E9F2] dark:border-[#262C42]">
               <div>
-                <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#2A4FB8] dark:text-[#5B93FA]">
+                <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#2A4FB8] dark:text-[#8FA8F7]">
                   Lesson 2 • Natural World & Technology
                 </span>
-                <h3 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white tracking-tight flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-black text-[#1B2238] dark:text-[#E9ECF7] tracking-tight flex items-center gap-2">
                   <span>Protecting Our Environment</span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#DCFCE7] dark:bg-[#166534]/40 text-[#15803D] dark:text-[#4ADE80]">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#E3F5EE] dark:bg-[#12332B] text-[#0F6E56] dark:text-[#5FD1AC]">
                     CEFR B1
                   </span>
                 </h3>
@@ -165,20 +165,20 @@ export const HeroTeacherShowcase: React.FC = () => {
 
               {/* Quick Lesson Hotspots Available in Page */}
               <div className="flex items-center gap-1.5 text-[10px] font-bold">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EEF4FF] dark:bg-[#2A4FB8]/25 text-[#2A4FB8] dark:text-[#7DD3FC] border border-[#BAD2FF]/60 dark:border-white/10">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] border border-[#C9D6F5]/60 dark:border-[#34478C]/40">
                   <Headphones className="w-2.5 h-2.5" /> Audio
                 </span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F3E8FF] dark:bg-[#6D3FD1]/25 text-[#6D3FD1] dark:text-[#C084FC] border border-[#E9D5FF]/60 dark:border-white/10">
                   <Video className="w-2.5 h-2.5" /> Video
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ECFDF5] dark:bg-[#059669]/25 text-[#059669] dark:text-[#6EE7B7] border border-[#A7F3D0]/60 dark:border-white/10">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E3F5EE] dark:bg-[#12332B] text-[#0F6E56] dark:text-[#5FD1AC] border border-[#0F6E56]/30">
                   <Sparkles className="w-2.5 h-2.5" /> Hotspots
                 </span>
               </div>
             </div>
 
             {/* Reading Content Snippet with Interactive Hotspots & Marker Highlight */}
-            <div className="relative p-3.5 sm:p-4 rounded-2xl bg-[#F8FAFC]/90 dark:bg-[#121620]/80 border border-[#E2E8F0]/70 dark:border-white/5 text-xs sm:text-[13px] leading-relaxed text-[#334155] dark:text-[#CBD5E1]">
+            <div className="relative p-3.5 sm:p-4 rounded-2xl bg-[#EEF1F8]/90 dark:bg-[#10152A]/80 border border-[#E6E9F2]/70 dark:border-[#262C42]/60 text-xs sm:text-[13px] leading-relaxed text-[#1B2238] dark:text-[#E9ECF7]">
               {/* Interactive Audio Hotspot Badge Floating in Margin */}
               <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#14A294] text-white text-[10px] font-bold shadow-md shadow-[#14A294]/30 mr-2 -translate-y-0.5 cursor-pointer hover:scale-105 transition-transform">
                 <Headphones className="w-2.5 h-2.5" />
@@ -198,15 +198,15 @@ export const HeroTeacherShowcase: React.FC = () => {
                   They produce oxygen and absorb carbon dioxide
                 </span>{' '}
                 every single day. Modern <strong className="text-[#0369A1] dark:text-[#38BDF8]">education</strong> and green{' '}
-                <strong className="text-[#2A4FB8] dark:text-[#5B93FA]">technology</strong> empower students to build sustainable
+                <strong className="text-[#2A4FB8] dark:text-[#8FA8F7]">technology</strong> empower students to build sustainable
                 habits and preserve our planet's living ecosystems for future generations.
               </span>
 
               {/* Inline Hotspots & Action Bar on Page */}
-              <div className="mt-3 flex items-center justify-between text-[11px] pt-2.5 border-t border-[#E2E8F0]/50 dark:border-white/5">
+              <div className="mt-3 flex items-center justify-between text-[11px] pt-2.5 border-t border-[#E6E9F2]/50 dark:border-[#262C42]/50">
                 <div className="flex items-center gap-2">
-                  <span className="text-[#64748B] dark:text-[#94A3B8] font-medium flex items-center gap-1">
-                    <FileText className="w-3 h-3 text-[#2A4FB8] dark:text-[#5B93FA]" />
+                  <span className="text-[#7A8299] dark:text-[#8B93AD] font-medium flex items-center gap-1">
+                    <FileText className="w-3 h-3 text-[#2A4FB8] dark:text-[#8FA8F7]" />
                     <span>Exercise 3 • Reading Comprehension</span>
                   </span>
                 </div>
@@ -242,9 +242,9 @@ export const HeroTeacherShowcase: React.FC = () => {
               </div>
 
               {/* Grammar Interactive Fill-in / Choice */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs font-semibold text-[#1F2937] dark:text-[#E5E7EB] bg-white/80 dark:bg-[#151922]/80 p-2.5 rounded-xl border border-white/60 dark:border-white/5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs font-semibold text-[#1B2238] dark:text-[#E9ECF7] bg-white/80 dark:bg-[#10152A]/80 p-2.5 rounded-xl border border-[#E6E9F2]/60 dark:border-[#262C42]/60">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[#6B7280] dark:text-[#9CA3AF]">Qoida:</span>
+                  <span className="text-[#7A8299] dark:text-[#8B93AD]">Qoida:</span>
                   <span>"Healthy trees</span>
                   {/* Option 1: absorb */}
                   <button
@@ -253,7 +253,7 @@ export const HeroTeacherShowcase: React.FC = () => {
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       selectedGrammar === 'absorb'
                         ? 'bg-[#2A4FB8] text-white shadow-sm shadow-[#2A4FB8]/30 scale-105'
-                        : 'bg-[#F3F4F6] dark:bg-white/10 text-[#4B5563] dark:text-[#D1D5DB] hover:bg-[#E5E7EB]'
+                        : 'bg-[#EEF1F8] dark:bg-[#171C2E] text-[#7A8299] dark:text-[#8B93AD] hover:bg-[#E4E9F7]'
                     }`}
                   >
                     absorb
@@ -265,7 +265,7 @@ export const HeroTeacherShowcase: React.FC = () => {
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       selectedGrammar === 'absorbs'
                         ? 'bg-[#2A4FB8] text-white shadow-sm shadow-[#2A4FB8]/30 scale-105'
-                        : 'bg-[#F3F4F6] dark:bg-white/10 text-[#4B5563] dark:text-[#D1D5DB] hover:bg-[#E5E7EB]'
+                        : 'bg-[#EEF1F8] dark:bg-[#171C2E] text-[#7A8299] dark:text-[#8B93AD] hover:bg-[#E4E9F7]'
                     }`}
                   >
                     absorbs
@@ -274,9 +274,9 @@ export const HeroTeacherShowcase: React.FC = () => {
                 </div>
 
                 {/* Instant Educational Feedback Pill */}
-                <div className="flex items-center gap-1 text-[11px] font-bold text-[#15803D] dark:text-[#4ADE80] shrink-0">
+                <div className="flex items-center gap-1 text-[11px] font-bold text-[#0F6E56] dark:text-[#5FD1AC] shrink-0">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{selectedGrammar === 'absorb' ? "To'g'ri (Fakt)" : "Ko'plik: absorb"}</span>
+                  <span>{selectedGrammar === 'absorb' ? "Töğri (Fakt)" : "Köplik: absorb"}</span>
                 </div>
               </div>
             </div>
@@ -290,23 +290,23 @@ export const HeroTeacherShowcase: React.FC = () => {
           className="absolute -top-6 sm:-top-7 -left-3 sm:-left-6 lg:-left-9 z-30 w-[240px] sm:w-[270px] animate-float-card"
         >
           <div
-            className="p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-[#1E222A]/95 backdrop-blur-2xl border border-white/80 dark:border-white/15 shadow-[0_18px_36px_-6px_rgba(42,79,184,0.22),0_8px_16px_-4px_rgba(15,23,42,0.1)] transition-transform hover:scale-[1.02]"
+            className="p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-2xl border border-[#E6E9F2]/80 dark:border-[#262C42]/80 shadow-[0_18px_36px_-6px_rgba(42,79,184,0.22),0_8px_16px_-4px_rgba(15,23,42,0.1)] transition-transform hover:scale-[1.02]"
           >
             {/* Header with pronunciation audio icon */}
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#F1F5F9] dark:border-white/10">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E6E9F2] dark:border-[#262C42]">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#2A4FB8] to-[#14A294] text-white flex items-center justify-center shadow-sm">
                   <Volume2 className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-[#0F172A] dark:text-white tracking-tight">
+                  <h4 className="text-xs font-black text-[#1B2238] dark:text-[#E9ECF7] tracking-tight">
                     New Vocabulary
                   </h4>
-                  <p className="text-[10px] text-[#64748B] dark:text-[#94A3B8]">Ingliz tili lug'ati</p>
+                  <p className="text-[10px] text-[#7A8299] dark:text-[#8B93AD]">Ingliz tili luğati</p>
                 </div>
               </div>
-              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-[#EEF4FF] dark:bg-[#2A4FB8]/30 text-[#2A4FB8] dark:text-[#5B93FA]">
-                3 ta so'z
+              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA]">
+                3 ta söz
               </span>
             </div>
 
@@ -321,14 +321,14 @@ export const HeroTeacherShowcase: React.FC = () => {
                     className={`p-2 rounded-xl text-left cursor-pointer transition-all duration-200 border ${
                       isActive
                         ? 'bg-[#EEF8FD] dark:bg-[#0369A1]/20 border-[#BAD2FF] dark:border-[#0369A1]/50 shadow-sm'
-                        : 'bg-transparent hover:bg-[#F8FAFC] dark:hover:bg-white/5 border-transparent'
+                        : 'bg-transparent hover:bg-[#EEF1F8] dark:hover:bg-[#10152A] border-transparent'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#0F172A] dark:text-white">
+                      <span className="text-xs font-bold text-[#1B2238] dark:text-[#E9ECF7]">
                         {item.word}
                       </span>
-                      <span className="text-[10px] font-mono text-[#64748B] dark:text-[#94A3B8]">
+                      <span className="text-[10px] font-mono text-[#7A8299] dark:text-[#8B93AD]">
                         {item.phonetic}
                       </span>
                     </div>
@@ -336,7 +336,7 @@ export const HeroTeacherShowcase: React.FC = () => {
                       <span className="font-semibold text-[#14A294] dark:text-[#2DD4BF]">
                         → {item.translation}
                       </span>
-                      <span className="text-[9px] text-[#94A3B8] dark:text-[#64748B] italic">
+                      <span className="text-[9px] text-[#7A8299] dark:text-[#8B93AD] italic">
                         {item.partOfSpeech}
                       </span>
                     </div>
@@ -355,7 +355,7 @@ export const HeroTeacherShowcase: React.FC = () => {
           style={{ animationDelay: '1.8s' }}
         >
           <div
-            className="rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-[#1E222A]/95 backdrop-blur-2xl border border-white/80 dark:border-white/15 p-2 sm:p-2.5 shadow-[0_18px_36px_-6px_rgba(109,63,209,0.22),0_8px_16px_-4px_rgba(15,23,42,0.1)] transition-transform hover:scale-[1.02]"
+            className="rounded-2xl sm:rounded-3xl bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-2xl border border-[#E6E9F2]/80 dark:border-[#262C42]/80 p-2 sm:p-2.5 shadow-[0_18px_36px_-6px_rgba(109,63,209,0.22),0_8px_16px_-4px_rgba(15,23,42,0.1)] transition-transform hover:scale-[1.02]"
           >
             {/* Video Thumbnail with English Teacher Illustration */}
             <div className="relative h-24 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-gradient-to-br from-[#1E293B] via-[#2A4FB8] to-[#6D3FD1] flex items-center justify-center group cursor-pointer">
@@ -392,12 +392,12 @@ export const HeroTeacherShowcase: React.FC = () => {
             {/* Teacher Details & Topic */}
             <div className="pt-2 px-1 text-left">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black text-[#0F172A] dark:text-white tracking-tight">
+                <span className="text-[11px] font-black text-[#1B2238] dark:text-[#E9ECF7] tracking-tight">
                   Ms. Clara Wilson
                 </span>
                 <span className="text-[9px] font-bold text-[#14A294]">Native ESL</span>
               </div>
-              <p className="text-[10px] text-[#64748B] dark:text-[#94A3B8] truncate mt-0.5">
+              <p className="text-[10px] text-[#7A8299] dark:text-[#8B93AD] truncate mt-0.5">
                 Present Simple in Practice
               </p>
             </div>
@@ -412,14 +412,14 @@ export const HeroTeacherShowcase: React.FC = () => {
           style={{ animationDelay: '0.9s' }}
         >
           <div
-            className="flex items-center gap-2.5 sm:gap-3 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl sm:rounded-full bg-white/95 dark:bg-[#1E222A]/95 backdrop-blur-2xl border border-white/80 dark:border-white/15 shadow-[0_18px_36px_-6px_rgba(20,162,148,0.22),0_8px_16px_-4px_rgba(15,23,42,0.1)] transition-transform hover:scale-[1.01]"
+            className="flex items-center gap-2.5 sm:gap-3 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl sm:rounded-full bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-2xl border border-[#E6E9F2]/80 dark:border-[#262C42]/80 shadow-[0_18px_36px_-6px_rgba(20,162,148,0.22),0_8px_16px_-4px_rgba(15,23,42,0.1)] transition-transform hover:scale-[1.01]"
           >
             {/* Play / Pause Toggle Button */}
             <button
               type="button"
               onClick={() => setIsPlaying(!isPlaying)}
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-r from-[#2A4FB8] to-[#14A294] hover:opacity-95 text-white flex items-center justify-center shadow-md shadow-[#2A4FB8]/30 transition-transform active:scale-95 cursor-pointer shrink-0"
-              title={isPlaying ? "To'xtatish" : "Eshitish"}
+              title={isPlaying ? "Töxtatiş" : "Eşitiş"}
             >
               {isPlaying ? (
                 <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white text-white" />
@@ -431,10 +431,10 @@ export const HeroTeacherShowcase: React.FC = () => {
             {/* Track Info & Animated Waveform */}
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] sm:text-xs font-bold text-[#0F172A] dark:text-white tracking-tight">
+                <span className="text-[11px] sm:text-xs font-bold text-[#1B2238] dark:text-[#E9ECF7] tracking-tight">
                   Track 18: Listening Audio Lesson
                 </span>
-                <span className="text-[10px] font-mono font-semibold text-[#64748B] dark:text-[#94A3B8]">
+                <span className="text-[10px] font-mono font-semibold text-[#7A8299] dark:text-[#8B93AD]">
                   01:42 / 03:15
                 </span>
               </div>
@@ -458,10 +458,10 @@ export const HeroTeacherShowcase: React.FC = () => {
             </div>
 
             {/* Interactive Transcript Button */}
-            <div className="hidden sm:flex items-center gap-1 pl-2 border-l border-[#E2E8F0] dark:border-white/10">
+            <div className="hidden sm:flex items-center gap-1 pl-2 border-l border-[#E6E9F2] dark:border-[#262C42]">
               <button
                 type="button"
-                className="px-2.5 py-1 rounded-full bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 hover:bg-[#E0E7FF] text-[#2A4FB8] dark:text-[#7DD3FC] text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-full bg-[#E8EDFB] dark:bg-[#1E2A55] hover:bg-[#DCE8FF] text-[#1D3A8F] dark:text-[#B3C4FA] text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <FileText className="w-2.5 h-2.5" />
                 <span>Transcript</span>
@@ -478,10 +478,10 @@ export const HeroTeacherShowcase: React.FC = () => {
           style={{ animationDelay: '2.5s' }}
         >
           <div
-            className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:py-2 rounded-2xl bg-white/95 dark:bg-[#1E222A]/95 backdrop-blur-2xl border border-white/80 dark:border-white/15 shadow-[0_16px_32px_-6px_rgba(15,23,42,0.18)]"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:py-2 rounded-2xl bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-2xl border border-[#E6E9F2]/80 dark:border-[#262C42]/80 shadow-[0_16px_32px_-6px_rgba(15,23,42,0.18)]"
           >
             {/* Active Tool Label */}
-            <div className="flex items-center gap-1 text-[10px] font-black text-[#2A4FB8] dark:text-[#5B93FA] pr-1.5 border-r border-[#E2E8F0] dark:border-white/10">
+            <div className="flex items-center gap-1 text-[10px] font-black text-[#2A4FB8] dark:text-[#8FA8F7] pr-1.5 border-r border-[#E6E9F2] dark:border-[#262C42]">
               <Highlighter className="w-3.5 h-3.5 text-[#EAB308]" />
               <span className="hidden sm:inline">Marker</span>
             </div>
@@ -508,8 +508,8 @@ export const HeroTeacherShowcase: React.FC = () => {
             {/* Eraser Tool */}
             <button
               type="button"
-              className="p-1 rounded-lg text-[#64748B] hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer"
-              title="O'chirg'ich (Eraser)"
+              className="p-1 rounded-lg text-[#7A8299] hover:text-[#1B2238] dark:hover:text-[#E9ECF7] transition-colors cursor-pointer"
+              title="Öçirğiç (Eraser)"
             >
               <Eraser className="w-3.5 h-3.5" />
             </button>

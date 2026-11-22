@@ -23,12 +23,12 @@ export const NotificationHost: React.FC = () => {
       {toasts.map((toast) => {
         const styles =
           toast.type === 'success'
-            ? 'border-[#15803D]/30 dark:border-[#4ADE80]/30 bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 text-[#1F2933] dark:text-[#E6E8EC]'
+            ? 'border-[#0F6E56]/30 dark:border-[#5FD1AC]/30 bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 text-[#1B2238] dark:text-[#E9ECF7]'
             : toast.type === 'error'
-            ? 'border-[#B91C1C]/30 dark:border-[#F87171]/30 bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 text-[#B91C1C] dark:text-[#F87171]'
+            ? 'border-[#B3322A]/30 dark:border-[#F0857A]/30 bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 text-[#B3322A] dark:text-[#F0857A]'
             : toast.type === 'warning'
-            ? 'border-[#B45309]/30 dark:border-[#FBBF24]/30 bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 text-[#B45309] dark:text-[#FBBF24]'
-            : 'border-[#2A4FB8]/30 dark:border-[#5B93FA]/30 bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 text-[#1F2933] dark:text-[#E6E8EC]';
+            ? 'border-[#8A5A0B]/30 dark:border-[#F0B95B]/30 bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 text-[#8A5A0B] dark:text-[#F0B95B]'
+            : 'border-[#2A4FB8]/30 dark:border-[#4F72EE]/30 bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 text-[#1B2238] dark:text-[#E9ECF7]';
 
         const Icon =
           toast.type === 'success'
@@ -41,12 +41,12 @@ export const NotificationHost: React.FC = () => {
 
         const iconColor =
           toast.type === 'success'
-            ? 'text-[#15803D] dark:text-[#4ADE80]'
+            ? 'text-[#0F6E56] dark:text-[#5FD1AC]'
             : toast.type === 'error'
-            ? 'text-[#B91C1C] dark:text-[#F87171]'
+            ? 'text-[#B3322A] dark:text-[#F0857A]'
             : toast.type === 'warning'
-            ? 'text-[#B45309] dark:text-[#FBBF24]'
-            : 'text-[#2A4FB8] dark:text-[#5B93FA]';
+            ? 'text-[#8A5A0B] dark:text-[#F0B95B]'
+            : 'text-[#2A4FB8] dark:text-[#8FA8F7]';
 
         return (
           <div

@@ -544,7 +544,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
           description: newBookDesc,
         });
         createdBookId = res?.id;
-        showToast(`🎉 Yangi darslik yaratildi va katalogga qo‘shildi!`);
+        showToast(`🎉 Yangi darslik yaratildi va katalogga qöşildi!`);
       }
 
       // If user also attached a cover image, upload it
@@ -577,7 +577,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setNewBookStartPdfPage('1');
       setActiveNav('my_books');
     } catch (err: any) {
-      alert('Kitobni saqlashda xatolik yuz berdi: ' + err.message);
+      alert('Kitobni saqlaşda xatolik yuz berdi: ' + err.message);
     } finally {
       setIsUploadingPdf(false);
     }
@@ -589,20 +589,20 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       await loadCatalogBooks();
       showToast('📸 Muqova rasmi muvaffaqiyatli yangilandi!');
     } catch (err: any) {
-      alert('Muqovani yuklashda xatolik: ' + err.message);
+      alert('Muqovani yuklaşda xatolik: ' + err.message);
     }
   };
 
   const handleDeleteBook = async (bookId: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu darslikni va barcha sahifalarini o'chirib tashlamoqchimisiz?")) {
+    if (!window.confirm("Haqiqatan ham ushbu darslikni va barcha sahifalarini öçirib taşlamoqçimisiz?")) {
       return;
     }
     try {
       await api.deleteBook(bookId);
       await loadCatalogBooks();
-      showToast("Darslik bazadan to'liq o'chirildi!");
+      showToast("Darslik bazadan töliq öçirildi!");
     } catch (err: any) {
-      alert("O'chirishda xatolik: " + err.message);
+      alert("Öçirişda xatolik: " + err.message);
     }
   };
 
@@ -611,9 +611,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     try {
       await api.updateBook(book.id, { status: newStatus });
       await loadCatalogBooks();
-      showToast(newStatus === 'PUBLISHED' ? '✅ Kitob nashr qilindi (faol)' : 'Kitob qoralama holatiga o‘tkazildi');
+      showToast(newStatus === 'PUBLISHED' ? '✅ Kitob nashr qilindi (faol)' : 'Kitob qoralama holatiga ötkazildi');
     } catch (err: any) {
-      alert('Holatni o‘zgartirishda xatolik: ' + err.message);
+      alert('Holatni özgartirişda xatolik: ' + err.message);
     }
   };
 
@@ -644,14 +644,14 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setMediaFileTitle('');
       showToast('🎉 Yangi audio/video fayl muvaffaqiyatli yuklandi va saqlandi!');
     } catch (err: any) {
-      alert('Media yuklashda xatolik: ' + err.message);
+      alert('Media yuklaşda xatolik: ' + err.message);
     } finally {
       setIsUploadingMedia(false);
     }
   };
 
   const handleDeleteMedia = async (id: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu media faylni o'chirmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu media faylni öçirmoqçimisiz?")) return;
     try {
       await api.deleteMedia(id);
       if (playingAudioId === id) {
@@ -659,9 +659,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         setPlayingAudioId(null);
       }
       await loadMedia();
-      showToast("Media fayl o'chirildi!");
+      showToast("Media fayl öçirildi!");
     } catch (err: any) {
-      alert("O'chirishda xatolik: " + err.message);
+      alert("Öçirişda xatolik: " + err.message);
     }
   };
 
@@ -686,15 +686,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // ==========================================
   const handleSaveNewAnswerMapping = async () => {
     if (!answerExercise.trim()) {
-      alert('Iltimos, mashq nomini kiriting!');
+      alert('Iltimos, maşq nomini kiriting!');
       return;
     }
     if (answerFormat === 'TEXT' && !answerSolutionKey.trim()) {
-      alert('Iltimos, matnli yechimni kiriting!');
+      alert('Iltimos, matnli yeçimni kiriting!');
       return;
     }
     if (answerFormat === 'IMAGE' && !answerScreenshotFile) {
-      alert('Iltimos, javoblar skrinshot fotosuratini yuklang!');
+      alert('Iltimos, javoblar skrinşot fotosuratini yuklang!');
       return;
     }
 
@@ -732,22 +732,22 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setAnswerNotes('');
       setAnswerScreenshotFile(null);
       setAnswerScreenshotPreview(null);
-      showToast("🎉 Javoblar kaliti muvaffaqiyatli bog'landi!");
+      showToast("🎉 Javoblar kaliti muvaffaqiyatli boğlandi!");
     } catch (err: any) {
-      alert('Javob saqlashda xatolik: ' + err.message);
+      alert('Javob saqlaşda xatolik: ' + err.message);
     } finally {
       setIsSavingAnswer(false);
     }
   };
 
   const handleDeleteAnswerMapping = async (id: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu javoblar kalitini o'chirmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu javoblar kalitini öçirmoqçimisiz?")) return;
     try {
       await api.deleteAnswerMapping(id);
       await loadAnswerMappings();
-      showToast("Javoblar kaliti o'chirildi!");
+      showToast("Javoblar kaliti öçirildi!");
     } catch (err: any) {
-      alert("O'chirishda xatolik: " + err.message);
+      alert("Öçirişda xatolik: " + err.message);
     }
   };
 
@@ -761,7 +761,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       await loadAnswerMappings();
       setIsCsvImportModalOpen(false);
       setCsvImportContent('');
-      showToast('🎉 CSV fayldagi barcha javoblar muvaffaqiyatli yuklandi!');
+      showToast('🎉 CSV fayldagi barça javoblar muvaffaqiyatli yuklandi!');
     } catch (err: any) {
       alert('CSV import xatolik: ' + err.message);
     }
@@ -780,7 +780,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         prev.map((r) => (r.id === requestId ? { ...r, status: 'PAID_APPROVED' } : r)),
       );
       await Promise.all([loadRequests(), loadUsers()]);
-      showToast(`✅ So‘rov qabul qilindi va ${durationDays} kunlik obuna faollashtirildi!`);
+      showToast(`✅ Sörov qabul qilindi va ${durationDays} kunlik obuna faollaştirildi!`);
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -795,7 +795,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         prev.map((r) => (r.id === requestId ? { ...r, status: 'REJECTED' } : r)),
       );
       await loadRequests();
-      showToast("So'rov rad etildi.");
+      showToast("Sörov rad etildi.");
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -803,7 +803,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
   const handleCreateManualSubscription = async () => {
     if (!manualTeacherName.trim()) {
-      alert("Iltimos, o'qituvchi ismi yoki emailini kiriting!");
+      alert("Iltimos, öqituvçi ismi yoki emailini kiriting!");
       return;
     }
     try {
@@ -820,7 +820,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         durationDays: Number(manualDurationDays),
       });
       await Promise.all([loadRequests(), loadUsers()]);
-      showToast(`✅ ${manualTeacherName} uchun ${manualDurationDays} kunlik litsenziya faollashtirildi!`);
+      showToast(`✅ ${manualTeacherName} uchun ${manualDurationDays} kunlik litsenziya faollaştirildi!`);
       setIsManualSubscriptionModalOpen(false);
       setManualTeacherName('');
       setManualTeacherPhone('+998 ');
@@ -830,11 +830,11 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   };
 
   const handleDisconnectDevice = async (userId: string, deviceId: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu qurilmani uzib, slotni bo'shatmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu qurilmani uzib, slotni böşatmoqçimisiz?")) return;
     try {
       await api.disconnectDevice(userId, deviceId);
       await loadUsers();
-      showToast('Qurilma uzildi, slot bo‘shatildi!');
+      showToast('Qurilma uzildi, slot böşatildi!');
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -857,18 +857,18 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setIsAddSubjectModalOpen(false);
       setNewSubjName('');
       setNewSubjCode('');
-      showToast('🎉 Yangi fan muvaffaqiyatli qo‘shildi!');
+      showToast('🎉 Yangi fan muvaffaqiyatli qöşildi!');
     } catch (err: any) {
-      alert('Fanni qo‘shishda xatolik: ' + err.message);
+      alert('Fanni qöşişda xatolik: ' + err.message);
     }
   };
 
   const handleDeleteSubject = async (id: string) => {
-    if (!window.confirm("Haqiqatan ham ushbu fanni o'chirmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu fanni öçirmoqçimisiz?")) return;
     try {
       await api.deleteSubject(id);
       await loadSubjects();
-      showToast('Fan o‘chirildi!');
+      showToast('Fan öçirildi!');
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -896,9 +896,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       setIsAddGradeModalOpen(false);
       setNewGradeTitle('');
       setNewGradeDesc('');
-      showToast(`✅ ${gradeNum}-sinf muvaffaqiyatli qo‘shildi!`);
+      showToast(`✅ ${gradeNum}-sinf muvaffaqiyatli qöşildi!`);
     } catch (err: any) {
-      alert('Sinf qo‘shishda xatolik: ' + err.message);
+      alert('Sinf qöşişda xatolik: ' + err.message);
     } finally {
       setIsSavingGrade(false);
     }
@@ -916,15 +916,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   };
 
   const handleDeleteGrade = async (gradeNumber: number) => {
-    if (!window.confirm(`${gradeNumber}-sinfni o‘chirmoqchimisiz? Mobil ilovada ushbu sinf ko‘rinmaydi.`)) {
+    if (!window.confirm(`${gradeNumber}-sinfni öçirmoqçimisiz? Mobil ilovada uşbu sinf körinmaydi.`)) {
       return;
     }
     try {
       await api.deleteGrade(gradeNumber);
       await Promise.all([loadGrades(), loadPricingMatrix()]);
-      showToast(`${gradeNumber}-sinf o‘chirildi!`);
+      showToast(`${gradeNumber}-sinf öçirildi!`);
     } catch (err: any) {
-      alert('Sinfni o‘chirishda xatolik: ' + err.message);
+      alert('Sinfni öçirişda xatolik: ' + err.message);
     }
   };
 
@@ -993,9 +993,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         matrixEntries.length > 0 ? api.upsertPricingMatrix(matrixEntries) : Promise.resolve(),
       ]);
       await Promise.all([loadPricingPlans(), loadPricingMatrix()]);
-      showToast('✅ Global tariflar va barcha sinf×fan narxlari saqlandi!');
+      showToast('✅ Global tariflar va barça sinf×fan narxlari saqlandi!');
     } catch (err: any) {
-      alert('Narxlarni saqlashda xatolik: ' + err.message);
+      alert('Narxlarni saqlaşda xatolik: ' + err.message);
     } finally {
       setIsSavingPricing(false);
     }
@@ -1030,14 +1030,14 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
   const handleDeleteAdmin = async (id: string) => {
     if (id === 'admin_super_mlrahmonjon') {
-      alert('Asosiy Super Admin hisobini o‘chirib bo‘lmaydi!');
+      alert('Asosiy Super Admin hisobini öçirib bölmaydi!');
       return;
     }
-    if (!window.confirm("Haqiqatan ham ushbu administratorni o'chirmoqchimisiz?")) return;
+    if (!window.confirm("Haqiqatan ham ushbu administratorni öçirmoqçimisiz?")) return;
     try {
       await api.deleteAdmin(id);
       await loadAdmins();
-      showToast('Administrator hisobi o‘chirildi!');
+      showToast('Administrator hisobi öçirildi!');
     } catch (err: any) {
       alert('Xatolik: ' + err.message);
     }
@@ -1052,10 +1052,10 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       await api.resetDatabase();
       await loadAllPortalData();
       setIsResetConfirmOpen(false);
-      showToast("🎉 Barcha ma'lumotlar bazasi to'liq tozalandi!");
+      showToast("🎉 Barça ma'lumotlar bazasi töliq tozalandi!");
       setActiveNav('my_books');
     } catch (err: any) {
-      alert('Tozalashda xatolik: ' + err.message);
+      alert('Tozalaşda xatolik: ' + err.message);
     } finally {
       setIsResetting(false);
     }
@@ -4390,7 +4390,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between p-3 border-b border-slate-100">
-                  <span className="text-xs font-bold text-slate-700">📸 O‘qituvchi kitobi javoblar skrinshoti</span>
+                  <span className="text-xs font-bold text-slate-700">📸 O‘qituvchi kitobi javoblar skrinşoti</span>
                   <button
                     onClick={() => setPreviewImageModalUrl(null)}
                     className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all"

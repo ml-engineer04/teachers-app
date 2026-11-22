@@ -58,6 +58,7 @@ export const PinchZoomView: React.FC<PinchZoomViewProps> = ({
   const panYAnim = useRef(new Animated.Value(0)).current;
 
   const [isZoomed, setIsZoomed] = useState(false);
+  const isZoomedRef = useRef(false);
   const [zoomPercent, setZoomPercent] = useState(100);
 
   const layoutRef = useRef({ width: 360, height: 540 });
@@ -118,9 +119,14 @@ export const PinchZoomView: React.FC<PinchZoomViewProps> = ({
       tyRef.current = y;
 
       const zoomedNow = clampedScale > ZOOM_THRESHOLD;
-      setIsZoomed(zoomedNow);
-      setZoomPercent(Math.round(clampedScale * 100));
-      emitLock(zoomedNow);
+      if (isZoomedRef.current !== zoomedNow) {
+        isZoomedRef.current = zoomedNow;
+        setIsZoomed(zoomedNow);
+        emitLock(zoomedNow);
+      }
+      if (animate) {
+        setZoomPercent(Math.round(clampedScale * 100));
+      }
 
       if (animate) {
         const useNativeDriver = Platform.OS !== 'web';
@@ -255,6 +261,7 @@ export const PinchZoomView: React.FC<PinchZoomViewProps> = ({
       },
       onPanResponderRelease: () => {
         gestureStateRef.current.mode = 'NONE';
+        setZoomPercent(Math.round(scaleRef.current * 100));
         if (scaleRef.current <= ZOOM_THRESHOLD) {
           applyTransform(minScale, 0, 0, true);
         } else {

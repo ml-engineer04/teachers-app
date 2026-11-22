@@ -87,13 +87,13 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg rounded-3xl bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-2xl p-6 sm:p-8 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0E1220]/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-lg rounded-3xl bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] shadow-2xl p-6 sm:p-8 overflow-hidden">
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933] dark:hover:text-[#E6E8EC] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-xl text-[#7A8299] dark:text-[#8B93AD] hover:text-[#1B2238] dark:hover:text-[#E9ECF7] hover:bg-[#EEF1F8] dark:hover:bg-[#10152A] transition-colors"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
@@ -101,20 +101,20 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
 
         {/* Warning Icon & Header */}
         <div className="flex items-center gap-3.5 mb-5">
-          <div className="w-12 h-12 rounded-2xl bg-[#FFFBEB] dark:bg-[#92400E]/30 text-[#B45309] dark:text-[#FBBF24] flex items-center justify-center shrink-0 border border-[#FCD34D]/60 dark:border-[#B45309]/50">
+          <div className="w-12 h-12 rounded-2xl bg-[#FDF3E1] dark:bg-[#3A2B10] text-[#8A5A0B] dark:text-[#F0B95B] flex items-center justify-center shrink-0 border border-[#8A5A0B]/30 dark:border-[#F0B95B]/30">
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-lg sm:text-xl font-black text-[#142452] dark:text-[#E6E8EC]">
+            <h3 className="text-lg sm:text-xl font-black text-[#1B2238] dark:text-[#E9ECF7]">
               {t('modals.deviceLimitTitle')} (2/2)
             </h3>
-            <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] mt-0.5">
+            <p className="text-xs text-[#7A8299] dark:text-[#8B93AD] mt-0.5">
               Xavfsizlik qoidasi: bitta hisobdan bir vaqtda 2 tagaça qurilma ulanişi mumkin
             </p>
           </div>
         </div>
 
-        <p className="text-sm text-[#1F2933] dark:text-[#E6E8EC] leading-relaxed mb-6">
+        <p className="text-sm text-[#1B2238] dark:text-[#E9ECF7] leading-relaxed mb-6">
           {t('modals.deviceLimitDesc')}
         </p>
 
@@ -132,20 +132,20 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
                 key={device.deviceId || idx}
                 className={`rounded-2xl p-4 border transition-all ${
                   isTargeted
-                    ? 'border-[#B91C1C] dark:border-[#B91C1C]/70 bg-red-50/60 dark:bg-red-950/30'
-                    : 'border-[#D9DCD5] dark:border-[#353B47] bg-[#F4F5F2] dark:bg-[#15181E]'
+                    ? 'border-[#B3322A] dark:border-[#F0857A]/70 bg-[#FCEBEA]/60 dark:bg-[#3A1B1D]/40'
+                    : 'border-[#E6E9F2] dark:border-[#262C42] bg-[#EEF1F8] dark:bg-[#10152A]'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] flex items-center justify-center text-[#5B6672] dark:text-[#9AA3B0] shrink-0 mt-0.5">
+                    <div className="w-10 h-10 rounded-xl bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] flex items-center justify-center text-[#7A8299] dark:text-[#8B93AD] shrink-0 mt-0.5">
                       {isWeb ? <Laptop className="w-5 h-5" /> : <Smartphone className="w-5 h-5" />}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-[#1F2933] dark:text-[#E6E8EC]">
+                      <p className="text-sm font-bold text-[#1B2238] dark:text-[#E9ECF7]">
                         {device.deviceModel || 'Noma‘lum qurilma'}
                       </p>
-                      <p className="text-xs text-[#5B6672] dark:text-[#9AA3B0] mt-0.5">
+                      <p className="text-xs text-[#7A8299] dark:text-[#8B93AD] mt-0.5">
                         {device.osVersion || device.platform || 'Platform'} • Faollik:{' '}
                         {formatLastActive(device.lastActiveAt)}
                       </p>
@@ -157,7 +157,7 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
                       type="button"
                       onClick={() => setConfirmDeviceId(device.deviceId)}
                       disabled={disconnectingId !== null}
-                      className="px-3 py-1.5 rounded-xl border border-[#B91C1C]/30 text-[#B91C1C] dark:text-[#F87171] text-xs font-bold hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors flex items-center gap-1.5 shrink-0"
+                      className="px-3 py-1.5 rounded-xl border border-[#B3322A]/30 text-[#B3322A] dark:text-[#F0857A] text-xs font-bold hover:bg-[#FCEBEA] dark:hover:bg-[#3A1B1D] transition-colors flex items-center gap-1.5 shrink-0"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>{t('settings.removeDeviceBtn')}</span>
@@ -168,7 +168,7 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
                         type="button"
                         onClick={() => setConfirmDeviceId(null)}
                         disabled={isBusy}
-                        className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36]"
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-[#7A8299] dark:text-[#8B93AD] hover:bg-[#EEF1F8] dark:hover:bg-[#10152A]"
                       >
                         {t('common.cancel')}
                       </button>
@@ -176,7 +176,7 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
                         type="button"
                         onClick={() => handleDisconnect(device.deviceId)}
                         disabled={isBusy}
-                        className="px-3 py-1.5 rounded-xl bg-[#B91C1C] hover:bg-[#991B1B] text-white text-xs font-bold shadow-sm flex items-center gap-1"
+                        className="px-3 py-1.5 rounded-xl bg-[#C0392B] hover:bg-[#A93226] text-white text-xs font-bold shadow-sm flex items-center gap-1"
                       >
                         {isBusy ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -194,14 +194,14 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
         </div>
 
         {/* Footer info */}
-        <div className="pt-4 border-t border-[#D9DCD5] dark:border-[#353B47] flex items-center justify-between">
-          <span className="text-xs text-[#5B6672] dark:text-[#9AA3B0]">
+        <div className="pt-4 border-t border-[#E6E9F2] dark:border-[#262C42] flex items-center justify-between">
+          <span className="text-xs text-[#7A8299] dark:text-[#8B93AD]">
             Biror qurilmani uzsangiz, yangi joy darhol oçiladi.
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-[#1F2933] dark:text-[#E6E8EC] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36]"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-[#1B2238] dark:text-[#E9ECF7] hover:bg-[#EEF1F8] dark:hover:bg-[#10152A]"
           >
             {t('common.close')}
           </button>

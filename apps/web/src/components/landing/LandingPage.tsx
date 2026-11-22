@@ -202,10 +202,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
   const features = [
     {
       icon: MonitorPlay,
-      iconBg: 'bg-[#EEF4FF] dark:bg-[#2A4FB8]/20',
-      iconBorder: 'border-[#BAD2FF] dark:border-[#223F94]',
-      iconColor: 'text-[#2A4FB8] dark:text-[#5B93FA]',
-      bottomBar: 'bg-gradient-to-r from-[#2A4FB8] via-[#3461D6] to-[#5B93FA]',
+      iconBg: 'bg-[#E8EDFB] dark:bg-[#1E2A55]',
+      iconBorder: 'border-[#C9D6F5] dark:border-[#34478C]',
+      iconColor: 'text-[#2A4FB8] dark:text-[#8FA8F7]',
+      bottomBar: 'bg-gradient-to-r from-[#2A4FB8] via-[#3461D6] to-[#4F72EE]',
       bottomShadow: 'shadow-[0_16px_36px_-10px_rgba(42,79,184,0.32)] dark:shadow-[0_16px_36px_-10px_rgba(42,79,184,0.2)]',
       arrowColor: 'text-[#2A4FB8]',
       title: t('landing.feat1Title'),
@@ -278,7 +278,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F4F5F2] dark:bg-[#15181E] text-[#1F2933] dark:text-[#E6E8EC] transition-colors">
+    <div className="min-h-screen flex flex-col bg-[#F6F7FB] dark:bg-[#0E1220] text-[#1B2238] dark:text-[#E9ECF7] transition-colors">
       <LandingHeader
         onOpenLogin={() => onOpenAuth('login')}
         onOpenRegister={() => onOpenAuth('register')}
@@ -288,7 +288,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         {/* ============================================================ */}
         {/* 1. HERO SECTION — Modern 2026 SaaS/EdTech Redesign           */}
         {/* ============================================================ */}
-        <section className="relative overflow-hidden bg-[#F4F5F2] dark:bg-[#15181E] -mt-[68px] sm:-mt-[76px] pt-[100px] sm:pt-[116px] lg:pt-[124px] pb-8 sm:pb-12 min-h-screen flex flex-col justify-start lg:justify-center transition-colors">
+        <section className="relative overflow-hidden bg-[#F6F7FB] dark:bg-[#0E1220] -mt-[68px] sm:-mt-[76px] pt-[100px] sm:pt-[116px] lg:pt-[124px] pb-8 sm:pb-12 min-h-screen flex flex-col justify-start lg:justify-center transition-colors">
           {/* Subtle Ambient Radial Lighting */}
           <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#2A4FB8]/[0.06] dark:bg-[#2A4FB8]/15 rounded-full pointer-events-none" />
           <div className="absolute top-1/4 right-1/10 w-[500px] h-[500px] bg-[#0369A1]/[0.06] dark:bg-[#0369A1]/15 rounded-full pointer-events-none" />
@@ -334,7 +334,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
           {/* Top-Right Decorative Dot Matrix */}
           <div className="absolute top-24 right-8 lg:right-16 hidden sm:grid grid-cols-6 gap-2.5 opacity-40 dark:opacity-20 pointer-events-none z-10">
             {Array.from({ length: 24 }).map((_, i) => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full bg-[#2A4FB8]/60 dark:bg-[#5B93FA]" />
+              <div key={i} className="w-1.5 h-1.5 rounded-full bg-[#2A4FB8]/60 dark:bg-[#8FA8F7]" />
             ))}
           </div>
 
@@ -342,13 +342,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
             {/* Center Column: Heading, Subtitle, CTAs, Statistics */}
             <div className="space-y-6 sm:space-y-7 max-w-4xl mx-auto flex flex-col items-center">
               {/* Modern Glassmorphism Pill Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FBFBF9]/80 dark:bg-[#1E222A]/80 backdrop-blur-xl border border-[#BAD2FF] dark:border-[#223F94] text-[#2A4FB8] dark:text-[#5B93FA] text-xs sm:text-sm font-semibold shadow-[0_4px_16px_rgba(42,79,184,0.1),inset_0_1px_1px_rgba(255,255,255,0.9)] mt-2 sm:mt-0">
-                <Sparkles className="w-3.5 h-3.5 fill-[#2A4FB8] text-[#2A4FB8] dark:fill-[#5B93FA] dark:text-[#5B93FA]" />
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FFFFFF]/80 dark:bg-[#171C2E]/80 backdrop-blur-xl border border-[#C9D6F5] dark:border-[#34478C] text-[#2A4FB8] dark:text-[#8FA8F7] text-xs sm:text-sm font-semibold shadow-[0_4px_16px_rgba(42,79,184,0.1),inset_0_1px_1px_rgba(255,255,255,0.9)] mt-2 sm:mt-0">
+                <Sparkles className="w-3.5 h-3.5 fill-[#2A4FB8] text-[#2A4FB8] dark:fill-[#8FA8F7] dark:text-[#8FA8F7]" />
                 <span>{t('landing.heroBadge')}</span>
               </div>
 
               {/* Bold Display Heading */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-[62px] font-black tracking-tight text-[#142452] dark:text-white leading-[1.14] max-w-4xl">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-[62px] font-black tracking-tight text-[#1B2238] dark:text-[#E9ECF7] leading-[1.14] max-w-4xl">
                 {t('landing.heroTitlePart1')}
                 <span className="block sm:inline text-transparent bg-clip-text bg-gradient-to-r from-[#2A4FB8] via-[#0369A1] to-[#0E7C70]">
                   {t('landing.heroTitleAccent')}
@@ -356,7 +356,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               </h1>
 
               {/* Subtitle / Description */}
-              <p className="text-base sm:text-lg lg:text-xl text-[#52617A] dark:text-[#9AA3B0] max-w-2xl mx-auto leading-relaxed font-normal">
+              <p className="text-base sm:text-lg lg:text-xl text-[#7A8299] dark:text-[#8B93AD] max-w-2xl mx-auto leading-relaxed font-normal">
                 {t('landing.heroSubtitle')}
               </p>
 
@@ -365,7 +365,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 <button
                   type="button"
                   onClick={() => onOpenAuth('register')}
-                  className="w-full sm:w-auto px-8 py-3.5 sm:py-4 rounded-full bg-[#2A4FB8] hover:bg-[#223F94] text-white font-bold text-sm sm:text-base shadow-[0_14px_32px_-6px_rgba(42,79,184,0.45),inset_0_1px_1px_rgba(255,255,255,0.35)] hover:shadow-[0_18px_36px_-6px_rgba(42,79,184,0.55)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all flex items-center justify-center gap-2.5 group cursor-pointer"
+                  className="w-full sm:w-auto px-8 py-3.5 sm:py-4 rounded-full bg-[#2A4FB8] hover:bg-[#234399] dark:bg-[#4F72EE] dark:hover:bg-[#6384F1] text-white font-bold text-sm sm:text-base shadow-[0_14px_32px_-6px_rgba(42,79,184,0.45),inset_0_1px_1px_rgba(255,255,255,0.35)] hover:shadow-[0_18px_36px_-6px_rgba(42,79,184,0.55)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all flex items-center justify-center gap-2.5 group cursor-pointer"
                 >
                   <span>{t('landing.heroCtaPrimary')}</span>
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
@@ -373,10 +373,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
 
                 <a
                   href="#pricing"
-                  className="w-full sm:w-auto px-7 py-3.5 sm:py-4 rounded-full bg-[#FBFBF9]/90 dark:bg-[#1E222A]/90 backdrop-blur-xl hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] text-[#1F2933] dark:text-[#E6E8EC] font-bold text-sm sm:text-base border border-[#D9DCD5] dark:border-[#353B47] shadow-[0_8px_24px_-4px_rgba(15,23,42,0.06),inset_0_1px_2px_rgba(255,255,255,1)] hover:shadow-[0_12px_28px_-4px_rgba(15,23,42,0.1)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                  className="w-full sm:w-auto px-7 py-3.5 sm:py-4 rounded-full bg-[#FFFFFF]/90 dark:bg-[#171C2E]/90 backdrop-blur-xl hover:bg-[#EEF1F8] dark:hover:bg-[#10152A] text-[#1B2238] dark:text-[#E9ECF7] font-bold text-sm sm:text-base border border-[#E6E9F2] dark:border-[#262C42] shadow-[0_8px_24px_-4px_rgba(15,23,42,0.06),inset_0_1px_2px_rgba(255,255,255,1)] hover:shadow-[0_12px_28px_-4px_rgba(15,23,42,0.1)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all flex items-center justify-center gap-2 group cursor-pointer"
                 >
                   <span>{t('landing.heroCtaSecondary')}</span>
-                  <ChevronRight className="w-4 h-4 text-[#5B6672] dark:text-[#9AA3B0] group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight className="w-4 h-4 text-[#7A8299] dark:text-[#8B93AD] group-hover:translate-x-0.5 transition-transform" />
                 </a>
               </div>
 
@@ -384,14 +384,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 pt-8 sm:pt-10 w-full max-w-3xl">
                 {/* Stat 1: 1–11 */}
                 <div className="flex flex-col items-center text-center gap-2.5">
-                  <div className="w-11 h-11 rounded-2xl bg-[#EEF4FF] dark:bg-[#142452]/50 border border-[#BAD2FF] dark:border-[#223F94] backdrop-blur-md shadow-[0_4px_14px_rgba(42,79,184,0.12),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_4px_14px_rgba(42,79,184,0.3)] flex items-center justify-center text-[#2A4FB8] dark:text-[#5B93FA]">
-                    <Zap className="w-5 h-5 fill-[#2A4FB8] text-[#2A4FB8] dark:fill-[#5B93FA] dark:text-[#5B93FA]" />
+                  <div className="w-11 h-11 rounded-2xl bg-[#E8EDFB] dark:bg-[#1E2A55]/50 border border-[#C9D6F5] dark:border-[#34478C] backdrop-blur-md shadow-[0_4px_14px_rgba(42,79,184,0.12),inset_0_1px_1px_rgba(255,255,255,0.9)] dark:shadow-[0_4px_14px_rgba(42,79,184,0.3)] flex items-center justify-center text-[#2A4FB8] dark:text-[#8FA8F7]">
+                    <Zap className="w-5 h-5 fill-[#2A4FB8] text-[#2A4FB8] dark:fill-[#8FA8F7] dark:text-[#8FA8F7]" />
                   </div>
                   <div>
-                    <p className="text-xl sm:text-2xl font-black text-[#2A4FB8] dark:text-[#5B93FA] tracking-tight">
+                    <p className="text-xl sm:text-2xl font-black text-[#2A4FB8] dark:text-[#8FA8F7] tracking-tight">
                       {t('landing.statGradesVal')}
                     </p>
-                    <p className="text-xs font-medium text-[#52617A] dark:text-[#9AA3B0] mt-0.5">
+                    <p className="text-xs font-medium text-[#7A8299] dark:text-[#8B93AD] mt-0.5">
                       {t('landing.statGradesLabel')}
                     </p>
                   </div>
@@ -403,10 +403,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                     <Play className="w-4 h-4 fill-[#0E7C70] text-[#0E7C70] ml-0.5 dark:fill-[#5ED3C4] dark:text-[#5ED3C4]" />
                   </div>
                   <div>
-                    <p className="text-base sm:text-lg font-black text-[#1F2933] dark:text-[#E6E8EC] tracking-tight leading-snug">
+                    <p className="text-base sm:text-lg font-black text-[#1B2238] dark:text-[#E9ECF7] tracking-tight leading-snug">
                       {t('landing.statMediaVal')}
                     </p>
-                    <p className="text-xs font-medium text-[#52617A] dark:text-[#9AA3B0] mt-0.5">
+                    <p className="text-xs font-medium text-[#7A8299] dark:text-[#8B93AD] mt-0.5">
                       {t('landing.statMediaLabel')}
                     </p>
                   </div>
@@ -421,7 +421,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                     <p className="text-base sm:text-lg font-black text-[#B45309] dark:text-[#FBBF24] tracking-tight leading-snug">
                       {t('landing.statDevicesVal')}
                     </p>
-                    <p className="text-xs font-medium text-[#52617A] dark:text-[#9AA3B0] mt-0.5">
+                    <p className="text-xs font-medium text-[#7A8299] dark:text-[#8B93AD] mt-0.5">
                       {t('landing.statDevicesLabel')}
                     </p>
                   </div>
@@ -433,10 +433,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                     <Infinity className="w-5 h-5 text-[#0369A1] dark:text-[#7DD3FC]" />
                   </div>
                   <div>
-                    <p className="text-base sm:text-lg font-black text-[#1F2933] dark:text-[#E6E8EC] tracking-tight leading-snug">
+                    <p className="text-base sm:text-lg font-black text-[#1B2238] dark:text-[#E9ECF7] tracking-tight leading-snug">
                       {t('landing.statSyncVal')}
                     </p>
-                    <p className="text-xs font-medium text-[#52617A] dark:text-[#9AA3B0] mt-0.5">
+                    <p className="text-xs font-medium text-[#7A8299] dark:text-[#8B93AD] mt-0.5">
                       {t('landing.statSyncLabel')}
                     </p>
                   </div>
@@ -451,28 +451,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         {/* ============================================================ */}
         <section
           id="features"
-          className="relative py-20 sm:py-24 bg-[#F4F5F2] dark:bg-[#15181E]"
+          className="relative py-20 sm:py-24 bg-[#F6F7FB] dark:bg-[#0E1220]"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             {/* Section Header */}
             <div className="text-center max-w-3xl mx-auto mb-14 sm:mb-16">
               {/* Badge with horizontal side lines (Reference Design) */}
               <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="w-12 h-[1px] bg-[#BAD2FF] dark:bg-[#223F94]" />
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#223F94] text-xs font-bold uppercase tracking-wider shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5 fill-[#2A4FB8] text-[#2A4FB8] dark:fill-[#5B93FA] dark:text-[#5B93FA]" />
+                <div className="w-12 h-[1px] bg-[#C9D6F5] dark:bg-[#34478C]" />
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] border border-[#C9D6F5] dark:border-[#34478C] text-xs font-bold uppercase tracking-wider shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5 fill-[#2A4FB8] text-[#2A4FB8] dark:fill-[#8FA8F7] dark:text-[#8FA8F7]" />
                   <span>{t('landing.navFeatures')}</span>
                 </div>
-                <div className="w-12 h-[1px] bg-[#BAD2FF] dark:bg-[#223F94]" />
+                <div className="w-12 h-[1px] bg-[#C9D6F5] dark:bg-[#34478C]" />
               </div>
 
               {/* Solid Heading (Reference Design) */}
-              <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-black tracking-tight text-[#142452] dark:text-white mb-3.5 leading-tight">
+              <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-black tracking-tight text-[#1B2238] dark:text-[#E9ECF7] mb-3.5 leading-tight">
                 {t('landing.featuresTitle')}
               </h2>
 
               {/* Description */}
-              <p className="text-base sm:text-lg text-[#52617A] dark:text-[#9AA3B0] max-w-2xl mx-auto leading-relaxed font-normal">
+              <p className="text-base sm:text-lg text-[#7A8299] dark:text-[#8B93AD] max-w-2xl mx-auto leading-relaxed font-normal">
                 {t('landing.featuresSubtitle')}
               </p>
             </div>
@@ -484,7 +484,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 return (
                   <div
                     key={idx}
-                    className={`group relative rounded-[28px] p-7 sm:p-8 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] ${feat.bottomShadow} hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between overflow-hidden`}
+                    className={`group relative rounded-[28px] p-7 sm:p-8 bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] ${feat.bottomShadow} hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between overflow-hidden`}
                   >
                     <div>
                       {/* Top Row: Icon Container on Left, Arrow Button on Right */}
@@ -495,18 +495,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                           <Icon className="w-6 h-6 transition-transform duration-300 group-hover:rotate-3" />
                         </div>
 
-                        <div className="w-9 h-9 rounded-full bg-[#ECEEEA] dark:bg-[#272C36] border border-[#D9DCD5] dark:border-[#353B47] flex items-center justify-center text-[#5B6672] dark:text-[#9AA3B0] group-hover:bg-[#2A4FB8] group-hover:text-white group-hover:border-[#2A4FB8] transition-all duration-300 shadow-sm">
+                        <div className="w-9 h-9 rounded-full bg-[#EEF1F8] dark:bg-[#10152A] border border-[#E6E9F2] dark:border-[#262C42] flex items-center justify-center text-[#7A8299] dark:text-[#8B93AD] group-hover:bg-[#2A4FB8] dark:group-hover:bg-[#4F72EE] group-hover:text-white group-hover:border-[#2A4FB8] dark:group-hover:border-[#4F72EE] transition-all duration-300 shadow-sm">
                           <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
                         </div>
                       </div>
 
                       {/* Card Title */}
-                      <h3 className="text-lg sm:text-[19px] font-bold text-[#1F2933] dark:text-white mb-2.5 leading-snug group-hover:text-[#2A4FB8] dark:group-hover:text-[#5B93FA] transition-colors">
+                      <h3 className="text-lg sm:text-[19px] font-bold text-[#1B2238] dark:text-[#E9ECF7] mb-2.5 leading-snug group-hover:text-[#2A4FB8] dark:group-hover:text-[#8FA8F7] transition-colors">
                         {feat.title}
                       </h3>
 
                       {/* Card Description */}
-                      <p className="text-xs sm:text-sm text-[#52617A] dark:text-[#9AA3B0] leading-relaxed font-normal">
+                      <p className="text-xs sm:text-sm text-[#7A8299] dark:text-[#8B93AD] leading-relaxed font-normal">
                         {feat.desc}
                       </p>
                     </div>
@@ -523,7 +523,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         {/* ============================================================ */}
         {/* 3. LIVE 1-11 GRADES & TEXTBOOK CATALOG SHOWCASE             */}
         {/* ============================================================ */}
-        <section id="grades" className="relative py-20 sm:py-24 bg-[#F4F5F2] dark:bg-[#15181E] overflow-hidden">
+        <section id="grades" className="relative py-20 sm:py-24 bg-[#F6F7FB] dark:bg-[#0E1220] overflow-hidden">
           {/* Top-Left Soft Lavender Organic Wave */}
           <svg
             className="absolute -top-10 -left-10 w-[360px] sm:w-[460px] h-[220px] sm:h-[280px] pointer-events-none z-0 opacity-70 dark:opacity-20"
@@ -578,14 +578,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="text-center max-w-2xl mx-auto mb-10">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EDF9F1] dark:bg-[#166534]/60 text-[#15803D] dark:text-[#4ADE80] text-xs font-bold uppercase tracking-wider mb-3 border border-[#22A45A]/30">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E3F5EE] dark:bg-[#12332B] text-[#0F6E56] dark:text-[#5FD1AC] text-xs font-bold uppercase tracking-wider mb-3 border border-[#0F6E56]/30">
                 <GraduationCap className="w-3.5 h-3.5" />
                 <span>1–11</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-[#142452] dark:text-white mb-3">
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-[#1B2238] dark:text-[#E9ECF7] mb-3">
                 {t('landing.gradesTitle')}
               </h2>
-              <p className="text-base text-[#5B6672] dark:text-[#9AA3B0]">
+              <p className="text-base text-[#7A8299] dark:text-[#8B93AD]">
                 {t('landing.gradesSubtitle')}
               </p>
             </div>
@@ -605,8 +605,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                     }}
                     className={`px-4 py-2.5 rounded-2xl text-sm font-bold transition-all flex items-center gap-2 border ${
                       active
-                        ? 'bg-[#2A4FB8] text-white border-[#2A4FB8] shadow-md shadow-[#2A4FB8]/25 scale-[1.02]'
-                        : 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#1F2933] dark:text-[#E6E8EC] border-[#D9DCD5] dark:border-[#353B47] hover:border-[#2A4FB8] dark:hover:border-[#5B93FA]'
+                        ? 'bg-[#2A4FB8] dark:bg-[#4F72EE] text-white border-[#2A4FB8] dark:border-[#4F72EE] shadow-md shadow-[#2A4FB8]/25 scale-[1.02]'
+                        : 'bg-[#FFFFFF] dark:bg-[#171C2E] text-[#1B2238] dark:text-[#E9ECF7] border-[#E6E9F2] dark:border-[#262C42] hover:border-[#2A4FB8] dark:hover:border-[#8FA8F7]'
                     }`}
                   >
                     <span>{formatGrade(g.gradeNumber || g.id)}</span>
@@ -615,7 +615,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                         className={`px-1.5 py-0.5 text-[11px] rounded-md font-extrabold ${
                           active
                             ? 'bg-white/20 text-white'
-                            : 'bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA]'
+                            : 'bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA]'
                         }`}
                       >
                         {count}
@@ -634,8 +634,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   onClick={() => setSelectedSubjectId('ALL')}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
                     selectedSubjectId === 'ALL'
-                      ? 'bg-[#142452] dark:bg-white text-white dark:text-[#142452] border-transparent'
-                      : 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47]'
+                      ? 'bg-[#1B2238] dark:bg-[#E9ECF7] text-white dark:text-[#1B2238] border-transparent'
+                      : 'bg-[#FFFFFF] dark:bg-[#171C2E] text-[#7A8299] dark:text-[#8B93AD] border-[#E6E9F2] dark:border-[#262C42]'
                   }`}
                 >
                   {t('landing.gradesFilterAll')}
@@ -649,8 +649,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                       onClick={() => setSelectedSubjectId(sub.id)}
                       className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 ${
                         active
-                          ? 'bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] border-[#BAD2FF] dark:border-[#223F94]'
-                          : 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47]'
+                          ? 'bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] border-[#C9D6F5] dark:border-[#34478C]'
+                          : 'bg-[#FFFFFF] dark:bg-[#171C2E] text-[#7A8299] dark:text-[#8B93AD] border-[#E6E9F2] dark:border-[#262C42]'
                       }`}
                     >
                       <span>{sub.icon || '📘'}</span>
@@ -667,14 +667,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="h-44 rounded-3xl bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] animate-pulse p-6"
+                    className="h-44 rounded-3xl bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] animate-pulse p-6"
                   />
                 ))}
               </div>
             ) : filteredBooks.length === 0 ? (
-              <div className="max-w-lg mx-auto text-center rounded-3xl p-10 bg-[#FBFBF9] dark:bg-[#1E222A] border border-dashed border-[#D9DCD5] dark:border-[#353B47]">
-                <BookOpen className="w-10 h-10 text-[#5B6672] dark:text-[#9AA3B0] mx-auto mb-3" />
-                <p className="text-sm font-bold text-[#1F2933] dark:text-[#E6E8EC]">
+              <div className="max-w-lg mx-auto text-center rounded-3xl p-10 bg-[#FFFFFF] dark:bg-[#171C2E] border border-dashed border-[#E6E9F2] dark:border-[#262C42]">
+                <BookOpen className="w-10 h-10 text-[#7A8299] dark:text-[#8B93AD] mx-auto mb-3" />
+                <p className="text-sm font-bold text-[#1B2238] dark:text-[#E9ECF7]">
                   {t('landing.gradesEmpty')}
                 </p>
               </div>
@@ -686,7 +686,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                     <div
                       key={book.id}
                       onClick={() => onOpenAuth('login')}
-                      className="group cursor-pointer rounded-3xl p-5 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft hover:shadow-elevated hover:border-[#2A4FB8] dark:hover:border-[#5B93FA] transition-all flex items-start gap-4"
+                      className="group cursor-pointer rounded-3xl p-5 bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] shadow-soft hover:shadow-elevated hover:border-[#2A4FB8] dark:hover:border-[#8FA8F7] transition-all flex items-start gap-4"
                     >
                       {/* Book Cover Thumbnail */}
                       <div className="w-20 h-28 rounded-2xl overflow-hidden bg-gradient-to-br from-[#2A4FB8] to-[#1C3375] shrink-0 shadow-md flex items-center justify-center relative">
@@ -710,23 +710,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                       <div className="flex-1 min-w-0 flex flex-col justify-between h-28">
                         <div>
                           <div className="flex items-center gap-1.5 mb-1.5">
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#223F94]">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] border border-[#C9D6F5] dark:border-[#34478C]">
                               {formatBookType(book.type)}
                             </span>
-                            <span className="text-[11px] font-semibold text-[#5B6672] dark:text-[#9AA3B0] truncate">
+                            <span className="text-[11px] font-semibold text-[#7A8299] dark:text-[#8B93AD] truncate">
                               {subj.name}
                             </span>
                           </div>
-                          <h4 className="font-extrabold text-sm sm:text-base text-[#1F2933] dark:text-white line-clamp-2 group-hover:text-[#2A4FB8] dark:group-hover:text-[#5B93FA] transition-colors">
+                          <h4 className="font-extrabold text-sm sm:text-base text-[#1B2238] dark:text-[#E9ECF7] line-clamp-2 group-hover:text-[#2A4FB8] dark:group-hover:text-[#8FA8F7] transition-colors">
                             {book.title}
                           </h4>
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-[#D9DCD5] dark:border-[#353B47]">
-                          <span className="text-xs font-semibold text-[#5B6672] dark:text-[#9AA3B0]">
+                        <div className="flex items-center justify-between pt-2 border-t border-[#E6E9F2] dark:border-[#262C42]">
+                          <span className="text-xs font-semibold text-[#7A8299] dark:text-[#8B93AD]">
                             {book.totalPages} {t('common.pages')}
                           </span>
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2A4FB8] dark:text-[#5B93FA]">
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-[#2A4FB8] dark:text-[#8FA8F7]">
                             <Lock className="w-3 h-3" />
                             <span>{t('landing.gradesViewInside')}</span>
                           </span>
@@ -745,7 +745,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         {/* ============================================================ */}
         <section
           id="workflow"
-          className="relative py-20 sm:py-24 bg-[#F4F5F2] dark:bg-[#15181E] overflow-hidden"
+          className="relative py-20 sm:py-24 bg-[#F6F7FB] dark:bg-[#0E1220] overflow-hidden"
         >
           {/* Top-Left Soft Lavender Wave */}
           <svg
@@ -831,16 +831,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
             {/* Section Header */}
             <div className="text-center max-w-3xl mx-auto mb-14 sm:mb-16">
               <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#223F94] text-xs font-bold uppercase tracking-wider shadow-sm">
-                  <Star className="w-3.5 h-3.5 fill-[#2A4FB8] text-[#2A4FB8] dark:fill-[#5B93FA] dark:text-[#5B93FA]" />
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] border border-[#C9D6F5] dark:border-[#34478C] text-xs font-bold uppercase tracking-wider shadow-sm">
+                  <Star className="w-3.5 h-3.5 fill-[#2A4FB8] text-[#2A4FB8] dark:fill-[#8FA8F7] dark:text-[#8FA8F7]" />
                   <span>{t('landing.workflowBadge')}</span>
                 </div>
               </div>
 
-              <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-black tracking-tight text-[#142452] dark:text-white mb-3.5 leading-tight">
+              <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-black tracking-tight text-[#1B2238] dark:text-[#E9ECF7] mb-3.5 leading-tight">
                 {t('landing.workflowTitle')}
               </h2>
-              <p className="text-base sm:text-lg text-[#52617A] dark:text-[#9AA3B0] max-w-2xl mx-auto leading-relaxed font-normal">
+              <p className="text-base sm:text-lg text-[#7A8299] dark:text-[#8B93AD] max-w-2xl mx-auto leading-relaxed font-normal">
                 {t('landing.workflowSubtitle')}
               </p>
             </div>
@@ -852,12 +852,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   num: '01',
                   title: t('landing.step1Title'),
                   desc: t('landing.step1Desc'),
-                  numColor: 'text-[#2A4FB8] dark:text-[#5B93FA]',
-                  numBg: 'bg-[#EEF4FF] dark:bg-[#2A4FB8]/20',
-                  numBorder: 'border-[#BAD2FF] dark:border-[#223F94]',
+                  numColor: 'text-[#2A4FB8] dark:text-[#8FA8F7]',
+                  numBg: 'bg-[#E8EDFB] dark:bg-[#1E2A55]',
+                  numBorder: 'border-[#C9D6F5] dark:border-[#34478C]',
                   accentGlow: 'shadow-[0_16px_36px_-10px_rgba(42,79,184,0.18)] dark:shadow-[0_16px_36px_-10px_rgba(42,79,184,0.1)]',
                   bottomGradient:
-                    'from-[#DCE8FF]/60 via-[#EEF4FF]/30 to-transparent dark:from-[#1C3375]/30 dark:via-[#142452]/20 dark:to-transparent',
+                    'from-[#DCE8FF]/60 via-[#EEF4FF]/30 to-transparent dark:from-[#1C3375]/30 dark:via-[#171C2E]/20 dark:to-transparent',
                 },
                 {
                   num: '02',
@@ -868,7 +868,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   numBorder: 'border-[#BAD2FF] dark:border-[#0369A1]/30',
                   accentGlow: 'shadow-[0_16px_36px_-10px_rgba(3,105,161,0.18)] dark:shadow-[0_16px_36px_-10px_rgba(3,105,161,0.1)]',
                   bottomGradient:
-                    'from-[#BAD2FF]/60 via-[#EEF8FD]/30 to-transparent dark:from-[#075985]/30 dark:via-[#142452]/20 dark:to-transparent',
+                    'from-[#BAD2FF]/60 via-[#EEF8FD]/30 to-transparent dark:from-[#075985]/30 dark:via-[#171C2E]/20 dark:to-transparent',
                 },
                 {
                   num: '03',
@@ -879,12 +879,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   numBorder: 'border-[#C2EAE5] dark:border-[#0E7C70]/30',
                   accentGlow: 'shadow-[0_16px_36px_-10px_rgba(14,124,112,0.18)] dark:shadow-[0_16px_36px_-10px_rgba(14,124,112,0.1)]',
                   bottomGradient:
-                    'from-[#C2EAE5]/60 via-[#E6F6F4]/30 to-transparent dark:from-[#0B6259]/30 dark:via-[#15181E]/20 dark:to-transparent',
+                    'from-[#C2EAE5]/60 via-[#E6F6F4]/30 to-transparent dark:from-[#0B6259]/30 dark:via-[#0E1220]/20 dark:to-transparent',
                 },
               ].map((step) => (
                 <div
                   key={step.num}
-                  className={`group relative rounded-[28px] p-7 sm:p-8 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] ${step.accentGlow} hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between overflow-hidden min-h-[240px]`}
+                  className={`group relative rounded-[28px] p-7 sm:p-8 bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] ${step.accentGlow} hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between overflow-hidden min-h-[240px]`}
                 >
                   <div className="relative z-10">
                     {/* Top Row: Squircle number + Circular Arrow Button */}
@@ -895,15 +895,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                         {step.num}
                       </div>
 
-                      <div className="w-9 h-9 rounded-full bg-[#ECEEEA] dark:bg-[#272C36] border border-[#D9DCD5] dark:border-[#353B47] flex items-center justify-center text-[#5B6672] dark:text-[#9AA3B0] group-hover:bg-[#2A4FB8] group-hover:text-white group-hover:border-[#2A4FB8] transition-all duration-300 shadow-sm">
+                      <div className="w-9 h-9 rounded-full bg-[#EEF1F8] dark:bg-[#10152A] border border-[#E6E9F2] dark:border-[#262C42] flex items-center justify-center text-[#7A8299] dark:text-[#8B93AD] group-hover:bg-[#2A4FB8] dark:group-hover:bg-[#4F72EE] group-hover:text-white group-hover:border-[#2A4FB8] dark:group-hover:border-[#4F72EE] transition-all duration-300 shadow-sm">
                         <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
                       </div>
                     </div>
 
-                    <h3 className="text-lg sm:text-[19px] font-bold text-[#1F2933] dark:text-white mb-2 leading-snug">
+                    <h3 className="text-lg sm:text-[19px] font-bold text-[#1B2238] dark:text-[#E9ECF7] mb-2 leading-snug">
                       {step.title}
                     </h3>
-                    <p className="text-xs sm:text-sm text-[#52617A] dark:text-[#9AA3B0] leading-relaxed font-normal">
+                    <p className="text-xs sm:text-sm text-[#7A8299] dark:text-[#8B93AD] leading-relaxed font-normal">
                       {step.desc}
                     </p>
                   </div>
@@ -923,26 +923,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         {/* ============================================================ */}
         <section
           id="pricing"
-          className="relative py-20 sm:py-24 bg-[#F4F5F2] dark:bg-[#15181E]"
+          className="relative py-20 sm:py-24 bg-[#F6F7FB] dark:bg-[#0E1220]"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             {/* Section Header */}
             <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-12">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#223F94] text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] border border-[#C9D6F5] dark:border-[#34478C] text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
                 <Layers className="w-3.5 h-3.5" />
                 <span>{t('landing.navPricing')}</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-black tracking-tight text-[#142452] dark:text-white mb-3.5 leading-tight">
+              <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-black tracking-tight text-[#1B2238] dark:text-[#E9ECF7] mb-3.5 leading-tight">
                 {t('landing.pricingTitle')}
               </h2>
-              <p className="text-base sm:text-lg text-[#52617A] dark:text-[#9AA3B0] max-w-2xl mx-auto leading-relaxed font-normal">
+              <p className="text-base sm:text-lg text-[#7A8299] dark:text-[#8B93AD] max-w-2xl mx-auto leading-relaxed font-normal">
                 {t('landing.pricingSubtitle')}
               </p>
             </div>
 
             {/* Grade Selector for Dynamic Pricing */}
             <div className="flex flex-wrap items-center justify-center gap-2 mb-12 sm:mb-14">
-              <span className="text-xs sm:text-sm font-semibold text-[#5B6672] dark:text-[#9AA3B0] mr-2">
+              <span className="text-xs sm:text-sm font-semibold text-[#7A8299] dark:text-[#8B93AD] mr-2">
                 {t('landing.pricingSelectGrade')}:
               </span>
               {gradeList.map((g) => (
@@ -952,8 +952,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   onClick={() => setPricingGrade(g.id)}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border ${
                     pricingGrade === g.id
-                      ? 'bg-[#2A4FB8] text-white border-[#2A4FB8] shadow-md shadow-[#2A4FB8]/25 scale-105'
-                      : 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47] hover:border-[#2A4FB8]'
+                      ? 'bg-[#2A4FB8] dark:bg-[#4F72EE] text-white border-[#2A4FB8] dark:border-[#4F72EE] shadow-md shadow-[#2A4FB8]/25 scale-105'
+                      : 'bg-[#FFFFFF] dark:bg-[#171C2E] text-[#7A8299] dark:text-[#8B93AD] border-[#E6E9F2] dark:border-[#262C42] hover:border-[#2A4FB8] dark:hover:border-[#8FA8F7]'
                   }`}
                 >
                   {formatGrade(g.gradeNumber || g.id)}
@@ -999,10 +999,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   return (
                     <div
                       key={plan.id}
-                      className="group rounded-[28px] p-7 sm:p-8 flex flex-col justify-between transition-all duration-300 bg-gradient-to-br from-[#2A4FB8] via-[#223F94] to-[#0E7C70] text-white shadow-[0_24px_50px_-10px_rgba(42,79,184,0.45)] ring-1 ring-white/25 hover:-translate-y-1.5 relative"
+                      className="group rounded-[28px] p-7 sm:p-8 flex flex-col justify-between transition-all duration-300 bg-gradient-to-br from-[#2A4FB8] via-[#234399] to-[#0E7C70] text-white shadow-[0_24px_50px_-10px_rgba(42,79,184,0.45)] ring-1 ring-white/25 hover:-translate-y-1.5 relative"
                     >
                       {badge && (
-                        <span className="absolute -top-3.5 right-6 px-3.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg bg-[#F5B82E] text-[#142452] z-20">
+                        <span className="absolute -top-3.5 right-6 px-3.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider shadow-lg bg-[#F5B82E] text-[#1B2238] z-20">
                           {badge}
                         </span>
                       )}
@@ -1047,7 +1047,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                       <button
                         type="button"
                         onClick={() => onOpenAuth('register')}
-                        className="w-full py-3.5 rounded-full font-extrabold text-sm transition-all duration-200 bg-white text-[#2A4FB8] hover:bg-[#EEF4FF] shadow-lg flex items-center justify-center gap-2 active:scale-95"
+                        className="w-full py-3.5 rounded-full font-extrabold text-sm transition-all duration-200 bg-white text-[#2A4FB8] hover:bg-[#E8EDFB] shadow-lg flex items-center justify-center gap-2 active:scale-95"
                       >
                         <span>{t('landing.pricingChooseBtn')}</span>
                         <ArrowRight className="w-4 h-4" />
@@ -1060,7 +1060,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 return (
                   <div
                     key={plan.id}
-                    className="group rounded-[28px] p-7 sm:p-8 flex flex-col justify-between transition-all duration-300 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-[0_16px_36px_-10px_rgba(42,79,184,0.12)] hover:-translate-y-1.5 relative"
+                    className="group rounded-[28px] p-7 sm:p-8 flex flex-col justify-between transition-all duration-300 bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] shadow-[0_16px_36px_-10px_rgba(42,79,184,0.12)] hover:-translate-y-1.5 relative"
                   >
                     {badge && (
                       <span className="absolute -top-3.5 right-6 px-3.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider shadow-md bg-[#0E7C70] text-white z-20">
@@ -1071,14 +1071,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                     <div>
                       {/* Top Row: Grade Badge + Icon Squircle */}
                       <div className="flex items-center justify-between mb-4">
-                        <span className="px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#EEF4FF] text-[#2A4FB8] dark:bg-[#142452] dark:text-[#5B93FA]">
+                        <span className="px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#E8EDFB] text-[#1D3A8F] dark:bg-[#1E2A55] dark:text-[#B3C4FA]">
                           {formatGrade(pricingGrade)}
                         </span>
                         <div
                           className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
                             isThreeMonths
                               ? 'bg-[#E6F6F4] text-[#0E7C70] dark:bg-[#0E7C70]/20 dark:text-[#5ED3C4]'
-                              : 'bg-[#EEF4FF] text-[#2A4FB8] dark:bg-[#2A4FB8]/20 dark:text-[#5B93FA]'
+                              : 'bg-[#E8EDFB] text-[#2A4FB8] dark:bg-[#1E2A55] dark:text-[#8FA8F7]'
                           }`}
                         >
                           {isThreeMonths ? (
@@ -1089,15 +1089,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                         </div>
                       </div>
 
-                      <h3 className="text-xl font-bold text-[#1F2933] dark:text-white mt-2 mb-3">
+                      <h3 className="text-xl font-bold text-[#1B2238] dark:text-[#E9ECF7] mt-2 mb-3">
                         {title}
                       </h3>
 
                       <div className="flex items-baseline gap-1.5 mb-6">
-                        <span className="text-3xl sm:text-4xl font-black tracking-tight text-[#1F2933] dark:text-white">
+                        <span className="text-3xl sm:text-4xl font-black tracking-tight text-[#1B2238] dark:text-[#E9ECF7]">
                           {formatPriceUzs(plan.priceUzs)}
                         </span>
-                        <span className="text-xs sm:text-sm font-medium text-[#52617A] dark:text-[#9AA3B0]">
+                        <span className="text-xs sm:text-sm font-medium text-[#7A8299] dark:text-[#8B93AD]">
                           {t('common.currencySom')} / {duration}
                         </span>
                       </div>
@@ -1111,7 +1111,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                         ].map((item, i) => (
                           <li
                             key={i}
-                            className="flex items-center gap-2.5 text-[#52617A] dark:text-[#9AA3B0]"
+                            className="flex items-center gap-2.5 text-[#7A8299] dark:text-[#8B93AD]"
                           >
                             <Check className="w-4 h-4 shrink-0 text-[#0E7C70]" />
                             <span>{item}</span>
@@ -1123,7 +1123,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                     <button
                       type="button"
                       onClick={() => onOpenAuth('register')}
-                      className="w-full py-3.5 rounded-full font-bold text-sm transition-all duration-200 border border-[#BAD2FF] dark:border-[#223F94] text-[#2A4FB8] dark:text-[#5B93FA] hover:bg-[#EEF4FF] dark:hover:bg-[#142452] flex items-center justify-center gap-2 active:scale-95"
+                      className="w-full py-3.5 rounded-full font-bold text-sm transition-all duration-200 border border-[#C9D6F5] dark:border-[#34478C] text-[#2A4FB8] dark:text-[#8FA8F7] hover:bg-[#E8EDFB] dark:hover:bg-[#1E2A55] flex items-center justify-center gap-2 active:scale-95"
                     >
                       <span>{t('landing.pricingChooseBtn')}</span>
                       <ArrowRight className="w-4 h-4" />
@@ -1140,7 +1140,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         {/* ============================================================ */}
         <section
           id="faq"
-          className="relative py-14 sm:py-16 bg-[#F4F5F2] dark:bg-[#15181E] overflow-hidden"
+          className="relative py-14 sm:py-16 bg-[#F6F7FB] dark:bg-[#0E1220] overflow-hidden"
         >
           {/* Top-Left Soft Lavender Wave */}
           <svg
@@ -1226,18 +1226,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
             {/* Section Header with Side Lines */}
             <div className="text-center mb-8 sm:mb-10">
               <div className="flex items-center justify-center gap-3 mb-3">
-                <div className="w-12 h-[1px] bg-[#BAD2FF] dark:bg-[#223F94]" />
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#EEF4FF] dark:bg-[#2A4FB8]/20 text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#223F94] text-xs font-bold uppercase tracking-wider shadow-sm">
+                <div className="w-12 h-[1px] bg-[#C9D6F5] dark:bg-[#34478C]" />
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] border border-[#C9D6F5] dark:border-[#34478C] text-xs font-bold uppercase tracking-wider shadow-sm">
                   <HelpCircle className="w-3.5 h-3.5" />
                   <span>{t('landing.faqBadge')}</span>
                 </div>
-                <div className="w-12 h-[1px] bg-[#BAD2FF] dark:bg-[#223F94]" />
+                <div className="w-12 h-[1px] bg-[#C9D6F5] dark:bg-[#34478C]" />
               </div>
 
-              <h2 className="text-3xl sm:text-4xl lg:text-[38px] font-black tracking-tight text-[#142452] dark:text-white mb-2.5 leading-tight">
+              <h2 className="text-3xl sm:text-4xl lg:text-[38px] font-black tracking-tight text-[#1B2238] dark:text-[#E9ECF7] mb-2.5 leading-tight">
                 {t('landing.faqTitle')}
               </h2>
-              <p className="text-sm sm:text-base text-[#52617A] dark:text-[#9AA3B0] max-w-xl mx-auto leading-relaxed font-normal">
+              <p className="text-sm sm:text-base text-[#7A8299] dark:text-[#8B93AD] max-w-xl mx-auto leading-relaxed font-normal">
                 {t('landing.faqSubtitle')}
               </p>
             </div>
@@ -1250,27 +1250,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 return (
                   <div
                     key={idx}
-                    className="rounded-2xl border border-[#D9DCD5] dark:border-[#353B47] bg-[#FBFBF9] dark:bg-[#1E222A] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-200 hover:border-[#2A4FB8] dark:hover:border-[#5B93FA]"
+                    className="rounded-2xl border border-[#E6E9F2] dark:border-[#262C42] bg-[#FFFFFF] dark:bg-[#171C2E] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-200 hover:border-[#2A4FB8] dark:hover:border-[#8FA8F7]"
                   >
                     <button
                       type="button"
                       onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                      className="w-full px-5 sm:px-6 py-3.5 sm:py-4 text-left flex items-center justify-between gap-4 font-bold text-sm sm:text-[15px] text-[#1F2933] dark:text-white hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors"
+                      className="w-full px-5 sm:px-6 py-3.5 sm:py-4 text-left flex items-center justify-between gap-4 font-bold text-sm sm:text-[15px] text-[#1B2238] dark:text-[#E9ECF7] hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors"
                     >
                       <div className="flex items-center gap-3.5">
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] flex items-center justify-center shrink-0">
                           <Icon className="w-4 h-4" />
                         </div>
                         <span className="leading-snug">{item.q}</span>
                       </div>
                       <ChevronDown
-                        className={`w-4 h-4 text-[#5B6672] dark:text-[#9AA3B0] shrink-0 transition-transform duration-200 ${
-                          isOpen ? 'rotate-180 text-[#2A4FB8] dark:text-[#5B93FA]' : ''
+                        className={`w-4 h-4 text-[#7A8299] dark:text-[#8B93AD] shrink-0 transition-transform duration-200 ${
+                          isOpen ? 'rotate-180 text-[#2A4FB8] dark:text-[#8FA8F7]' : ''
                         }`}
                       />
                     </button>
                     {isOpen && (
-                      <div className="px-5 sm:px-6 pb-4 pt-1 pl-[54px] sm:pl-[62px] text-xs sm:text-sm text-[#52617A] dark:text-[#9AA3B0] leading-relaxed border-t border-[#D9DCD5] dark:border-[#353B47] font-normal">
+                      <div className="px-5 sm:px-6 pb-4 pt-1 pl-[54px] sm:pl-[62px] text-xs sm:text-sm text-[#7A8299] dark:text-[#8B93AD] leading-relaxed border-t border-[#E6E9F2] dark:border-[#262C42] font-normal">
                         {item.a}
                       </div>
                     )}
@@ -1284,8 +1284,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         {/* ============================================================ */}
         {/* 7. BOTTOM CTA BANNER — Image 3 Redesign                      */}
         {/* ============================================================ */}
-        <section className="relative py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-[#F4F5F2] dark:bg-[#15181E] overflow-hidden">
-          <div className="max-w-6xl mx-auto rounded-[32px] bg-gradient-to-r from-[#2A4FB8] via-[#223F94] to-[#0E7C70] p-8 sm:p-12 lg:p-14 text-white shadow-[0_24px_50px_-10px_rgba(42,79,184,0.45)] flex flex-col lg:flex-row items-center justify-between gap-8 relative overflow-hidden">
+        <section className="relative py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-[#F6F7FB] dark:bg-[#0E1220] overflow-hidden">
+          <div className="max-w-6xl mx-auto rounded-[32px] bg-gradient-to-r from-[#2A4FB8] via-[#234399] to-[#0E7C70] p-8 sm:p-12 lg:p-14 text-white shadow-[0_24px_50px_-10px_rgba(42,79,184,0.45)] flex flex-col lg:flex-row items-center justify-between gap-8 relative overflow-hidden">
             {/* Right decorative dot matrix inside banner (Matching Image 3) */}
             <div className="absolute right-6 top-1/2 -translate-y-1/2 hidden md:grid grid-cols-6 gap-2.5 opacity-25 pointer-events-none">
               {Array.from({ length: 24 }).map((_, i) => (
@@ -1311,7 +1311,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               <button
                 type="button"
                 onClick={() => onOpenAuth('register')}
-                className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white text-[#2A4FB8] font-extrabold text-sm hover:bg-[#EEF4FF] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-white text-[#2A4FB8] font-extrabold text-sm hover:bg-[#E8EDFB] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
               >
                 <span>{t('landing.ctaPrimary')}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -1331,7 +1331,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
       {/* ============================================================ */}
       {/* 8. FOOTER — Gradient Aesthetic                              */}
       {/* ============================================================ */}
-      <footer className="relative bg-gradient-to-b from-[#F4F5F2] via-[#ECEEEA] to-[#ECEEEA] dark:from-[#15181E] dark:via-[#1A202C] dark:to-[#1E222A] pt-16 pb-10 border-t border-[#D9DCD5] dark:border-[#353B47] overflow-hidden">
+      <footer className="relative bg-gradient-to-b from-[#F6F7FB] via-[#EEF1F8] to-[#EEF1F8] dark:from-[#0E1220] dark:via-[#10152A] dark:to-[#171C2E] pt-16 pb-10 border-t border-[#E6E9F2] dark:border-[#262C42] overflow-hidden">
         {/* Bottom-Left Soft Lavender Organic Wave */}
         <svg
           className="absolute -bottom-8 -left-8 w-[320px] sm:w-[420px] h-[180px] sm:h-[220px] pointer-events-none z-0 opacity-75 dark:opacity-25"
@@ -1389,20 +1389,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
             <div className="mb-3">
               <BrandLogo size={32} />
             </div>
-            <p className="text-sm text-[#52617A] dark:text-[#9AA3B0] leading-relaxed max-w-xs">
+            <p className="text-sm text-[#7A8299] dark:text-[#8B93AD] leading-relaxed max-w-xs">
               {t('landing.footerDesc')}
             </p>
           </div>
 
           <div>
-            <h4 className="font-bold text-xs uppercase tracking-wider text-[#142452] dark:text-white mb-4">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-[#1B2238] dark:text-[#E9ECF7] mb-4">
               {t('landing.footerNavTitle')}
             </h4>
-            <ul className="space-y-2.5 text-sm text-[#52617A] dark:text-[#9AA3B0]">
+            <ul className="space-y-2.5 text-sm text-[#7A8299] dark:text-[#8B93AD]">
               <li>
                 <a
                   href="#features"
-                  className="hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors"
+                  className="hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors"
                 >
                   {t('landing.navFeatures')}
                 </a>
@@ -1410,7 +1410,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               <li>
                 <a
                   href="#grades"
-                  className="hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors"
+                  className="hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors"
                 >
                   {t('landing.navGrades')}
                 </a>
@@ -1418,7 +1418,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               <li>
                 <a
                   href="#pricing"
-                  className="hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors"
+                  className="hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors"
                 >
                   {t('landing.navPricing')}
                 </a>
@@ -1426,7 +1426,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               <li>
                 <a
                   href="#faq"
-                  className="hover:text-[#2A4FB8] dark:hover:text-[#5B93FA] transition-colors"
+                  className="hover:text-[#2A4FB8] dark:hover:text-[#8FA8F7] transition-colors"
                 >
                   Savol-Javoblar
                 </a>
@@ -1435,7 +1435,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
           </div>
 
           <div>
-            <h4 className="font-bold text-xs uppercase tracking-wider text-[#142452] dark:text-white mb-4">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-[#1B2238] dark:text-[#E9ECF7] mb-4">
               {t('landing.footerSupportTitle')}
             </h4>
             <a
@@ -1450,7 +1450,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-6 border-t border-[#D9DCD5] dark:border-[#353B47] text-center text-xs text-[#5B6672] dark:text-[#9AA3B0]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-6 border-t border-[#E6E9F2] dark:border-[#262C42] text-center text-xs text-[#7A8299] dark:text-[#8B93AD]">
           {t('landing.footerCopyright')}
         </div>
       </footer>

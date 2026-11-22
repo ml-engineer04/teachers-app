@@ -58,7 +58,7 @@ export const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
         <button
           type="button"
           onClick={onExploreCatalog}
-          className="shrink-0 px-6 py-3.5 rounded-2xl bg-[#FBFBF9] text-[#2A4FB8] font-extrabold text-xs sm:text-sm shadow-lg hover:bg-[#EEF4FF] active:scale-95 transition-all flex items-center gap-2"
+          className="shrink-0 px-6 py-3.5 rounded-2xl bg-[#FFFFFF] text-[#2A4FB8] font-extrabold text-xs sm:text-sm shadow-lg hover:bg-[#E8EDFB] active:scale-95 transition-all flex items-center gap-2"
         >
           <Compass className="w-4 h-4" />
           <span>{t('dashboard.textbookCatalogBtn')}</span>
@@ -72,7 +72,7 @@ export const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
   const percent = Math.min(100, Math.max(1, Math.round((lastPage / total) * 100)));
 
   return (
-    <div className="rounded-3xl p-6 sm:p-7 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft hover:shadow-[0_12px_32px_-4px_rgba(42,79,184,0.15)] transition-all flex flex-col md:flex-row items-center justify-between gap-6">
+    <div className="rounded-3xl p-6 sm:p-7 bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] shadow-sm hover:shadow-[0_12px_32px_-4px_rgba(42,79,184,0.15)] transition-all flex flex-col md:flex-row items-center justify-between gap-6">
       {/* Left: Book Cover & Progress Info */}
       <div className="flex items-center gap-5 w-full md:w-auto">
         {/* Book Cover */}
@@ -96,30 +96,30 @@ export const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
         {/* Title & Reading Meter */}
         <div className="space-y-2 flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-[#E6F6F4] dark:bg-[#0E7C70]/20 text-[#0E7C70] dark:text-[#5ED3C4] border border-[#0E7C70]/30">
-              <Clock className="w-3 h-3 text-[#0E7C70] dark:text-[#5ED3C4]" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-[#E3F5EE] dark:bg-[#12332B] text-[#0F6E56] dark:text-[#5FD1AC] border border-[#0F6E56]/30">
+              <Clock className="w-3 h-3 text-[#0F6E56] dark:text-[#5FD1AC]" />
               {t('home.continueReading')}
             </span>
-            <span className="text-xs font-semibold text-[#5B6672] dark:text-[#9AA3B0]">
+            <span className="text-xs font-semibold text-[#7A8299] dark:text-[#8B93AD]">
               {formatGrade(targetBook.gradeId)} • {formatBookType(targetBook.type)}
             </span>
           </div>
 
-          <h3 className="text-base sm:text-lg font-black text-[#142452] dark:text-[#E6E8EC] truncate">
+          <h3 className="text-base sm:text-lg font-black text-[#1B2238] dark:text-[#E9ECF7] truncate">
             {targetBook.title}
           </h3>
 
           {/* Progress Bar & Page Stats */}
           <div className="space-y-1.5 max-w-sm">
             <div className="flex items-center justify-between text-xs font-bold">
-              <span className="text-[#2A4FB8] dark:text-[#5B93FA]">
+              <span className="text-[#2A4FB8] dark:text-[#8FA8F7]">
                 {lastPage}-bet ({percent}%)
               </span>
-              <span className="text-[#5B6672] dark:text-[#9AA3B0]">
+              <span className="text-[#7A8299] dark:text-[#8B93AD]">
                 {total} {t('common.pages')}
               </span>
             </div>
-            <div className="w-full h-2 rounded-full bg-[#ECEEEA] dark:bg-[#272C36] overflow-hidden">
+            <div className="w-full h-2 rounded-full bg-[#E4E9F7] dark:bg-[#262C42] overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-[#2A4FB8] to-[#0E7C70] rounded-full transition-all duration-500"
                 style={{ width: `${percent}%` }}
@@ -133,7 +133,7 @@ export const ContinueReadingCard: React.FC<ContinueReadingCardProps> = ({
       <button
         type="button"
         onClick={() => onOpenReader(targetBook, lastPage)}
-        className="w-full md:w-auto px-7 py-3.5 rounded-2xl bg-[#2A4FB8] hover:bg-[#223F94] text-white font-extrabold text-sm shadow-md shadow-[#2A4FB8]/25 active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0"
+        className="w-full md:w-auto px-7 py-3.5 rounded-2xl bg-[#2A4FB8] hover:bg-[#234399] dark:bg-[#4F72EE] dark:hover:bg-[#6384F1] text-white font-extrabold text-sm shadow-md shadow-[#2A4FB8]/25 active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0"
       >
         <Bookmark className="w-4 h-4" />
         <span>{t('home.continueReading')}</span>

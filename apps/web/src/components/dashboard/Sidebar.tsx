@@ -75,15 +75,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => handleSelect(item.id)}
                 className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold transition-all ${
                   active
-                    ? 'bg-[#EEF4FF] dark:bg-[#142452]/70 text-[#2A4FB8] dark:text-[#5B93FA] shadow-sm'
-                    : 'text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#ECEEEA] dark:hover:bg-[#272C36] hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
+                    ? 'bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] shadow-sm'
+                    : 'text-[#7A8299] dark:text-[#8B93AD] hover:bg-[#F0F3FB] dark:hover:bg-[#1C2236] hover:text-[#1B2238] dark:hover:text-[#E9ECF7]'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-5 h-5 ${active ? 'text-[#2A4FB8] dark:text-[#5B93FA]' : 'text-[#8DB5FF] dark:text-[#9AA3B0]'}`} />
+                  <Icon className={`w-5 h-5 ${active ? 'text-[#1D3A8F] dark:text-[#B3C4FA]' : 'text-[#9AA1B5] dark:text-[#69718C]'}`} />
                   <span>{item.label}</span>
                 </div>
-                {active && <ChevronRight className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />}
+                {active && <ChevronRight className="w-4 h-4 text-[#1D3A8F] dark:text-[#B3C4FA]" />}
               </button>
             );
           })}
@@ -91,9 +91,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* User Footer Profile & Settings (Language, Dark Mode, Logout) */}
-      <div className="pt-4 border-t border-[#D9DCD5] dark:border-[#353B47] space-y-3">
+      <div className="pt-4 border-t border-[#E6E9F2] dark:border-[#262C42] space-y-3">
         {/* Quick Preferences: Language + Theme (Mobile drawer only — desktop has these in header) */}
-        <div className="lg:hidden flex items-center justify-between gap-2 p-1.5 rounded-2xl bg-[#ECEEEA] dark:bg-[#272C36] border border-[#D9DCD5] dark:border-[#353B47]">
+        <div className="lg:hidden flex items-center justify-between gap-2 p-1.5 rounded-2xl bg-[#EEF1F8] dark:bg-[#10152A] border border-[#E6E9F2] dark:border-[#262C42]">
           {/* Language Switcher */}
           <div className="flex items-center gap-1">
             {languages.map((item) => (
@@ -103,8 +103,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => setLanguage(item.code)}
                 className={`px-2 py-1 text-[11px] font-black rounded-lg transition-all ${
                   language === item.code
-                    ? 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#2A4FB8] dark:text-[#5B93FA] shadow-xs'
-                    : 'text-[#5B6672] dark:text-[#9AA3B0] hover:text-[#1F2933] dark:hover:text-[#E6E8EC]'
+                    ? 'bg-[#FFFFFF] dark:bg-[#171C2E] text-[#2A4FB8] dark:text-[#4F72EE] shadow-xs'
+                    : 'text-[#7A8299] dark:text-[#8B93AD] hover:text-[#1B2238] dark:hover:text-[#E9ECF7]'
                 }`}
                 title={item.label}
               >
@@ -117,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={toggleTheme}
-            className="p-1.5 rounded-xl bg-[#FBFBF9] dark:bg-[#1E222A] text-[#5B6672] dark:text-[#9AA3B0] hover:bg-[#EEF4FF] dark:hover:bg-[#142452] border border-[#D9DCD5] dark:border-[#353B47] transition-colors"
+            className="p-1.5 rounded-xl bg-[#FFFFFF] dark:bg-[#171C2E] text-[#7A8299] dark:text-[#8B93AD] hover:bg-[#E8EDFB] dark:hover:bg-[#1E2A55] border border-[#E6E9F2] dark:border-[#262C42] transition-colors"
             title={isDark ? 'Yoruğ rejim' : 'Qoronğu rejim'}
           >
             {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-[#2A4FB8]" />}
@@ -130,10 +130,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {user?.fullName ? user.fullName[0] : user?.email ? user.email[0] : 'O'}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black text-[#1F2933] dark:text-[#E6E8EC] truncate">
+            <p className="text-xs font-black text-[#1B2238] dark:text-[#E9ECF7] truncate">
               {user?.fullName || t('common.userFallback')}
             </p>
-            <p className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0] truncate mt-0.5">
+            <p className="text-[10px] text-[#7A8299] dark:text-[#8B93AD] truncate mt-0.5">
               {user?.email || 'teacher@ilmchi.uz'}
             </p>
           </div>
@@ -142,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           type="button"
           onClick={logout}
-          className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-red-200 dark:border-red-900/50 text-[#B91C1C] dark:text-[#F87171] hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-bold transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-[#FCEBEA] dark:border-[#3A1B1D] text-[#B3322A] dark:text-[#F0857A] hover:bg-[#FCEBEA] dark:hover:bg-[#3A1B1D] text-xs font-bold transition-colors"
         >
           <LogOut className="w-4 h-4" />
           <span>{t('nav.logout')}</span>
@@ -154,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-[#D9DCD5] dark:border-[#353B47] bg-[#FBFBF9]/95 dark:bg-[#1E222A]/95 backdrop-blur-xl h-screen sticky top-0 z-30 transition-colors">
+      <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-[#E6E9F2] dark:border-[#262C42] bg-[#FFFFFF]/95 dark:bg-[#171C2E]/95 backdrop-blur-xl h-screen sticky top-0 z-30 transition-colors">
         {content}
       </aside>
 
@@ -162,10 +162,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
-            className="fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-[#0E1220]/60 backdrop-blur-sm"
             onClick={onCloseMobile}
           />
-          <div className="relative w-72 max-w-[80vw] bg-[#FBFBF9] dark:bg-[#1E222A] h-full shadow-2xl z-10 border-r border-[#D9DCD5] dark:border-[#353B47]">
+          <div className="relative w-72 max-w-[80vw] bg-[#FFFFFF] dark:bg-[#171C2E] h-full shadow-2xl z-10 border-r border-[#E6E9F2] dark:border-[#262C42]">
             {content}
           </div>
         </div>

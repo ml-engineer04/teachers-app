@@ -24,7 +24,7 @@ interface HotspotLayerProps {
  * Interactive Icon-Only Hotspot Rendering Layer synced with Admin Visual Hotspot Editor:
  * Places clean compact circular icons (Audio, Video, Answer Key, Note) without dashed boxes or text clutter covering textbook words.
  */
-export const HotspotLayer: React.FC<HotspotLayerProps> = ({
+export const HotspotLayer = React.memo<HotspotLayerProps>(({
   hotspots,
   pageWidth,
   pageHeight,
@@ -128,7 +128,7 @@ export const HotspotLayer: React.FC<HotspotLayerProps> = ({
       })}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   AppState,
   BackHandler,
@@ -8,12 +8,12 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   Image,
   RefreshControl,
   Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import {
   Book,
@@ -74,6 +74,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const { strings, t, formatGrade, formatSubject, formatBookType } = useI18n();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -84,6 +92,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [progressList, setProgressList] = useState<any[]>([]);
 
   const [expiredModalVisible, setExpiredModalVisible] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [lockedTarget, setLockedTarget] = useState<{
     grade: number;
     subjectId?: string;
@@ -123,6 +132,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       await DownloadsManager.init().catch(() => {});
       const online = await mobileApi.checkConnectivity();
+      setIsOfflineMode(!online);
       if (!online) {
         const [accessData, cachedGrades, cachedSubjects, cachedBooks, cachedProgress] =
           await Promise.all([
@@ -210,7 +220,70 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     (s) => typeof s.daysRemaining === 'number' && s.daysRemaining <= 3 && s.daysRemaining >= 0,
   );
   const resolvedUserName = (userName || strings.common.userFallback).trim();
-  const firstName = resolvedUserName.split(' ')[0];
+  const firstName = useMemo(() => {
+    // 1. If explicit multi-word name is provided
+    if (userName && userName.trim()) {
+      const parts = userName.trim().split(/\s+/);
+      if (parts.length > 1) {
+        if (/(ov|ova|ev|eva|iy|zoda)$/i.test(parts[0])) {
+          return parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase();
+        }
+        if (/(ov|ova|ev|eva|iy|zoda)$/i.test(parts[1])) {
+          return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        }
+        return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+      }
+    }
+
+    // 2. Extract from email or concatenated username
+    const sourceString = (userEmail ? userEmail.split('@')[0] : (userName || '')).toLowerCase();
+    if (sourceString) {
+      // Check for dot/underscore/hyphen separation (e.g. qosimov.rahmonjon)
+      const segments = sourceString.split(/[._\-]/).filter((s) => s.length >= 2);
+      if (segments.length > 1) {
+        if (/(ov|ova|ev|eva|iy|zoda)$/i.test(segments[0])) {
+          const clean = segments[1].replace(/[0-9]/g, '');
+          if (clean.length >= 2) return clean.charAt(0).toUpperCase() + clean.slice(1);
+        }
+        const clean = segments[0].replace(/[0-9]/g, '');
+        if (clean.length >= 2) return clean.charAt(0).toUpperCase() + clean.slice(1);
+      }
+
+      // Check for concatenated surname + firstname (e.g. qosimovrahmonjon0927 -> qosimov + rahmonjon)
+      const compoundMatch = sourceString.match(/^(?:.*?(?:ov|ova|ev|eva|iy|zoda))([a-z]{2,})/i);
+      if (compoundMatch && compoundMatch[1]) {
+        const clean = compoundMatch[1].replace(/[0-9]/g, '');
+        if (clean.length >= 2) {
+          return clean.charAt(0).toUpperCase() + clean.slice(1);
+        }
+      }
+
+      // If userName is a single word surname and email has the rest
+      if (userName && userName.trim() && userEmail) {
+        const uLower = userName.trim().toLowerCase();
+        if (sourceString.startsWith(uLower)) {
+          const rest = sourceString.slice(uLower.length).replace(/[0-9_\-.]/g, '');
+          if (rest.length >= 2) {
+            return rest.charAt(0).toUpperCase() + rest.slice(1);
+          }
+        }
+      }
+
+      // Fallback clean alphabetic letters
+      const cleanLetters = sourceString.replace(/[0-9_\-.]/g, '');
+      if (cleanLetters.length >= 2) {
+        return cleanLetters.charAt(0).toUpperCase() + cleanLetters.slice(1);
+      }
+    }
+
+    if (userName && userName.trim()) {
+      const clean = userName.trim().split(/\s+/)[0].replace(/[0-9_\-.]/g, '');
+      if (clean.length >= 2) return clean.charAt(0).toUpperCase() + clean.slice(1);
+      return userName.trim();
+    }
+
+    return resolvedUserName.split(' ')[0];
+  }, [userName, userEmail, resolvedUserName]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -233,6 +306,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     [subjects, formatSubject, strings.common.allSubjects],
   );
 
+  const getBookDisplaySizeMb = (book: any) => {
+    const dlItem = DownloadsManager.listDownloadedBundles().find((d) => d.bookId === book.id);
+    if (dlItem?.sizeBytes && dlItem.sizeBytes > 0) {
+      return `${(dlItem.sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    const rawBytes = book.totalSizeBytes || book.sizeBytes || book.fileSizeBytes;
+    if (rawBytes && rawBytes > 0) {
+      return `${(rawBytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    const pages = Number(book.totalPages || 40);
+    const estimated = Math.max(12, Math.round((pages * 380 * 1024) / (1024 * 1024)));
+    return `~${estimated} MB`;
+  };
+
   const handleOpenBookCard = async (book: {
     id: string;
     title: string;
@@ -244,12 +331,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     initialPage?: number;
   }) => {
     await DownloadsManager.init().catch(() => {});
+    const isDl = DownloadsManager.isBundleDownloaded(book.gradeId, book.subjectId, book.id);
+
+    let online = !isOfflineMode;
+    if (online) {
+      online = await mobileApi.checkConnectivity();
+      if (!online) setIsOfflineMode(true);
+    }
+
+    if (!online && !isDl) {
+      notify.warning(
+        strings.modals.offlineTitle || 'Oflayn rejim',
+        'Bu kitob qurilmaga yuklanmagan. Oflayn rejimda faqat yuklab olingan darsliklarni öqişingiz mumkin.',
+      );
+      return;
+    }
+
     const { allowed, access } = await SubscriptionManager.checkBookAccess({
       bookId: book.id,
       gradeId: book.gradeId || 11,
       subjectId: book.subjectId,
     });
-    if (allowed) {
+    if (allowed || (!online && isDl && access.status !== 'EXPIRED')) {
       onOpenReader(book);
       return;
     }
@@ -316,15 +419,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         }
       : null;
 
-  const trimmedSearch = searchQuery.trim();
+  const trimmedSearch = debouncedSearch.trim();
 
-  const subscribedSearchResults = trimmedSearch
-    ? liveBooks.filter((b) => hasBookSubscription(b) && matchesBookSearch(b, trimmedSearch, subjects))
-    : [];
-  const lockedSearchResults = trimmedSearch
-    ? liveBooks.filter((b) => !hasBookSubscription(b) && matchesBookSearch(b, trimmedSearch, subjects))
-    : [];
-  const totalSearchMatches = subscribedSearchResults.length + lockedSearchResults.length;
+  const {
+    subscribedSearchResults,
+    lockedSearchResults,
+    totalSearchMatches,
+  } = useMemo<{
+    subscribedSearchResults: Book[];
+    lockedSearchResults: Book[];
+    totalSearchMatches: number;
+  }>(() => {
+    if (!trimmedSearch) {
+      return { subscribedSearchResults: [], lockedSearchResults: [], totalSearchMatches: 0 };
+    }
+    const sub = liveBooks.filter((b: Book) => hasBookSubscription(b) && matchesBookSearch(b, trimmedSearch, subjects));
+    const locked = liveBooks.filter((b: Book) => !hasBookSubscription(b) && matchesBookSearch(b, trimmedSearch, subjects));
+    return {
+      subscribedSearchResults: sub,
+      lockedSearchResults: locked,
+      totalSearchMatches: sub.length + locked.length,
+    };
+  }, [trimmedSearch, liveBooks, hasBookSubscription, subjects]);
 
   const findSavedPageForBook = (bookId: string): number | undefined => {
     const found = progressList.find((p) => p.bookId === bookId);
@@ -343,15 +459,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     (a, b) => a - b,
   );
 
-  const matchingGradesSearch = trimmedSearch
-    ? searchableGradeNums.filter((gradeNum) => {
-        const gradeSubIds = [
-          ...activeSubs.filter((a) => a.gradeId === gradeNum).map((s) => s.subjectId),
-          ...liveBooks.filter((b) => Number(b.gradeId) === gradeNum).map((b) => b.subjectId),
-        ];
-        return matchesGradeSearch(gradeNum, trimmedSearch, gradeSubIds, subjects);
-      })
-    : [];
+  const matchingGradesSearch = useMemo<number[]>(() => {
+    if (!trimmedSearch) return [];
+    return searchableGradeNums.filter((gradeNum: number) => {
+      const gradeSubIds = [
+        ...activeSubs.filter((a) => a.gradeId === gradeNum).map((s) => s.subjectId),
+        ...liveBooks.filter((b) => Number(b.gradeId) === gradeNum).map((b) => b.subjectId),
+      ];
+      return matchesGradeSearch(gradeNum, trimmedSearch, gradeSubIds, subjects);
+    });
+  }, [trimmedSearch, searchableGradeNums, activeSubs, liveBooks, subjects]);
 
   const displayedGrades = myGradesList.slice(0, 6);
 
@@ -365,7 +482,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -377,31 +494,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* TOP HEADER */}
         <View style={styles.topHeader}>
           <View style={styles.headerLeft}>
-            {onOpenMenu && (
-              <TouchableOpacity
-                style={[
-                  styles.menuIconBtn,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
-                onPress={onOpenMenu}
-                activeOpacity={0.7}
-              >
-                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M4 7h16M4 12h12M4 17h16"
-                    stroke={colors.textPrimary}
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                  />
-                </Svg>
-              </TouchableOpacity>
-            )}
             <View style={{ flex: 1 }}>
-              <Text style={[styles.greetingName, { color: colors.textPrimary }]} numberOfLines={1}>
-                {t('home.greeting', { name: firstName })} 👋
-              </Text>
               <Text style={[styles.greetingText, { color: colors.textSecondary }]} numberOfLines={1}>
                 {strings.home.subtitle}
+              </Text>
+              <Text style={[styles.greetingName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {`Salom, ${firstName}`}
               </Text>
             </View>
           </View>
@@ -415,7 +513,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View
           style={[
             styles.searchBar,
-            { backgroundColor: colors.inputBg, borderColor: colors.border },
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" style={{ marginRight: 9 }}>
@@ -462,7 +560,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 keyboardShouldPersistTaps="handled"
                 style={{ marginBottom: 10 }}
               >
-                {matchingGradesSearch.map((gradeNum) => {
+                {matchingGradesSearch.map((gradeNum: number) => {
                   const isSubscribedGrade = myGradesList.includes(gradeNum);
                   return (
                     <TouchableOpacity
@@ -521,7 +619,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </View>
             ) : (
               <>
-                {subscribedSearchResults.map((b) => {
+                {subscribedSearchResults.map((b: Book) => {
                   const savedPg = findSavedPageForBook(b.id);
                   const totalContent = getBookContentTotalPages(
                     b.totalPages || 96,
@@ -572,7 +670,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         </Text>
                         <Text style={[styles.continueSub, { color: colors.textSecondary }]}>
                           {formatGrade(b.gradeId)} • {resolveSubjectName(b.subjectId)} • {totalContent}{' '}
-                          {strings.common.pages}
+                          {strings.common.pages} • {getBookDisplaySizeMb(b)}
                           {isDl ? ` • ${strings.home.offlineReadyBadge}` : ''}
                         </Text>
                       </View>
@@ -585,7 +683,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   );
                 })}
 
-                {lockedSearchResults.map((b) => (
+                {lockedSearchResults.map((b: Book) => (
                   <TouchableOpacity
                     key={`locked_${b.id}`}
                     style={[
@@ -690,30 +788,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <TouchableOpacity
             style={[
               styles.heroActiveCard,
-              { backgroundColor: colors.primary, shadowColor: colors.primary },
+              {
+                backgroundColor: colors.subscriptionCard,
+                borderColor: colors.accentSoftBorder,
+                borderWidth: 1,
+                shadowColor: colors.shadowColor,
+              },
             ]}
             activeOpacity={0.9}
             onPress={() => onOpenGradeDetail(primarySub.gradeId, primarySub.subjectId || undefined)}
           >
             <View style={styles.heroTopRow}>
               <View style={{ flex: 1, marginRight: 10 }}>
-                <Text style={styles.heroOverline}>{strings.home.activePlanBadge}</Text>
-                <Text style={styles.heroMainTitle}>
-                  {formatGrade(primarySub.gradeId)} — {resolveSubjectName(primarySub.subjectId)}
+                <Text style={[styles.heroOverline, { color: isDark ? colors.accentText : colors.accentSoftText }]}>
+                  {strings.home.activePlanBadge}
+                </Text>
+                <Text style={[styles.heroMainTitle, { color: isDark ? colors.textPrimary : colors.accentSoftText }]}>
+                  {formatGrade(primarySub.gradeId)}, {resolveSubjectName(primarySub.subjectId)}
                 </Text>
               </View>
-              <View style={[styles.faolPill, { backgroundColor: colors.accent }]}>
-                <Text style={styles.faolPillText}>{strings.common.active}</Text>
+              <View style={[styles.faolPill, { backgroundColor: colors.successSoft }]}>
+                <Text style={[styles.faolPillText, { color: colors.successText }]}>{strings.common.active}</Text>
               </View>
             </View>
 
             <View style={styles.heroFooter}>
               <View style={{ flex: 1, marginRight: 14 }}>
-                <View style={styles.heroProgressBg}>
+                <View style={[styles.heroProgressBg, { backgroundColor: colors.progressTrack }]}>
                   <View
                     style={[
                       styles.heroProgressFill,
                       {
+                        backgroundColor: colors.progressFill,
                         width: `${Math.min(
                           100,
                           Math.max(12, Math.round((primarySub.daysRemaining / 30) * 100)),
@@ -722,16 +828,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     ]}
                   />
                 </View>
-                <Text style={styles.heroDaysLeft}>
-                  {primarySub.daysRemaining} d.
-                </Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[styles.heroDaysLeft, { color: colors.textSecondary }]}>
+                    {t('dashboard.daysRemaining', { n: primarySub.daysRemaining }) || `${primarySub.daysRemaining} kun qoldi`}
+                  </Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.accentText }}>
+                    {t('dashboard.extendSubscriptionBtn') || 'Uzaytirish'}
+                  </Text>
+                </View>
               </View>
-
-              <Svg width={44} height={44} viewBox="0 0 48 48" fill="none">
-                <Rect x="6" y="14" width="22" height="28" rx="4" fill="rgba(255,255,255,0.28)" />
-                <Rect x="16" y="8" width="24" height="32" rx="4" fill="#EEF4FF" />
-                <Rect x="20" y="14" width="16" height="4" rx="2" fill={colors.primaryDark} />
-              </Svg>
             </View>
           </TouchableOpacity>
         ) : (
@@ -739,9 +844,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             style={[
               styles.heroInactiveCard,
               {
-                backgroundColor: isDark ? '#1E222A' : DS.colors.navyMid,
-                borderWidth: isDark ? 1 : 0,
-                borderColor: colors.borderStrong,
+                backgroundColor: colors.subscriptionCard,
+                borderWidth: 1,
+                borderColor: colors.border,
               },
             ]}
             activeOpacity={0.9}
@@ -749,12 +854,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           >
             <View style={styles.heroTopRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.heroOverline}>{strings.home.freePlanBadge}</Text>
-                <Text style={styles.heroMainTitle}>{strings.home.upgradeBannerTitle}</Text>
-                <Text style={styles.heroSubDesc}>{strings.home.upgradeBannerDesc}</Text>
+                <Text style={[styles.heroOverline, { color: isDark ? colors.accentText : colors.accentSoftText }]}>
+                  {strings.home.freePlanBadge}
+                </Text>
+                <Text style={[styles.heroMainTitle, { color: isDark ? colors.textPrimary : colors.accentSoftText }]}>
+                  {strings.home.upgradeBannerTitle}
+                </Text>
+                <Text style={[styles.heroSubDesc, { color: colors.textSecondary }]}>{strings.home.upgradeBannerDesc}</Text>
               </View>
-              <View style={[styles.activatePill, { backgroundColor: DS.colors.gold }]}>
-                <Text style={styles.activatePillText}>{strings.home.upgradeBannerBtn}</Text>
+              <View style={[styles.activatePill, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.activatePillText, { color: colors.onPrimary }]}>{strings.home.upgradeBannerBtn}</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -774,7 +883,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 )
               }
             >
-              <Text style={[styles.seeAllText, { color: colors.primaryText }]}>
+              <Text style={[styles.seeAllText, { color: colors.accentText }]}>
                 {strings.home.seeAll} ›
               </Text>
             </TouchableOpacity>
@@ -832,12 +941,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   continueItem.contentStartPdfPage,
                 )}
               </Text>
-              <View style={[styles.miniProgressTrack, { backgroundColor: colors.primarySoft }]}>
+              <View style={[styles.miniProgressTrack, { backgroundColor: colors.progressTrack }]}>
                 <View
                   style={[
                     styles.miniProgressFill,
                     {
-                      backgroundColor: colors.primary,
+                      backgroundColor: colors.progressFill,
                       width: `${Math.min(
                         100,
                         Math.max(
@@ -853,8 +962,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </View>
             </View>
 
-            <View style={[styles.playCircle, { backgroundColor: colors.primarySoft }]}>
-              <Text style={[styles.playChevron, { color: colors.primary }]}>›</Text>
+            <View style={[styles.playCircle, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.playChevron, { color: colors.onPrimary }]}>›</Text>
             </View>
           </TouchableOpacity>
         ) : (
@@ -932,7 +1041,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   key={g}
                   style={[
                     styles.gradeTileCard,
-                    { backgroundColor: colors.cardBg, borderColor: colors.border },
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: isActive ? colors.primary : colors.border,
+                      borderWidth: 1,
+                    },
                   ]}
                   onPress={() => onOpenGradeDetail(g)}
                   activeOpacity={0.82}
@@ -941,13 +1054,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <View
                       style={[
                         styles.gradeNumberBadge,
-                        { backgroundColor: isActive ? colors.primary : colors.surfaceAlt },
+                        { backgroundColor: isActive ? colors.primary : colors.disabledChip },
                       ]}
                     >
                       <Text
                         style={[
                           styles.gradeNumberText,
-                          { color: isActive ? colors.onPrimary : colors.textPrimary },
+                          { color: isActive ? colors.onPrimary : colors.textMuted },
                         ]}
                       >
                         {g}
@@ -956,7 +1069,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <View
                       style={[
                         styles.gradeStatusDot,
-                        { backgroundColor: isActive ? colors.accent : colors.textMuted },
+                        { backgroundColor: isActive ? colors.successText : 'transparent' },
                       ]}
                     />
                   </View>
@@ -964,12 +1077,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   <Text style={[styles.gradeTileTitle, { color: colors.textPrimary }]}>
                     {formatGrade(g)}
                   </Text>
-                  <Text style={[styles.gradeTileSub, { color: colors.textSecondary }]}>
+                  <Text style={[styles.gradeTileSub, { color: isActive ? colors.textSecondary : colors.textMuted }]}>
                     {booksCount > 0
                       ? t('grades.booksCountLabel', { count: booksCount })
                       : isActive
                       ? strings.home.activePlanBadge
-                      : strings.grades.headerTitle}
+                      : strings.grades.lockedBadge}
                   </Text>
                 </TouchableOpacity>
               );
@@ -1000,6 +1113,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 14,
+    paddingBottom: 96,
   },
   topHeader: {
     flexDirection: 'row',
@@ -1130,23 +1244,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   heroActiveCard: {
-    borderRadius: DS.radius.xl,
+    borderRadius: 18,
     padding: 20,
     marginBottom: 22,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
   heroInactiveCard: {
-    borderRadius: DS.radius.xl,
+    borderRadius: 18,
     padding: 20,
     marginBottom: 22,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 18,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -1230,14 +1344,14 @@ const styles = StyleSheet.create({
   continueCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: DS.radius.lg,
+    borderRadius: 16,
     padding: 12,
     marginBottom: 14,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
   },
   continueCoverImg: {
     width: 54,
@@ -1310,7 +1424,7 @@ const styles = StyleSheet.create({
   emptyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: DS.radius.lg,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 22,
     borderWidth: 1,
@@ -1346,7 +1460,7 @@ const styles = StyleSheet.create({
   },
   gradeTileCard: {
     width: '48%',
-    borderRadius: DS.radius.lg,
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
   },

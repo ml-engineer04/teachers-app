@@ -141,7 +141,13 @@ export const TocSearchDrawer: React.FC<TocSearchDrawerProps> = ({
           </View>
 
           {/* Unit List */}
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={{ paddingBottom: 24 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+          >
             {effectiveToc.length === 0 ? (
               <View style={styles.emptyBox}>
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>

@@ -23,30 +23,30 @@ export const SmartBoardPreview: React.FC = () => {
       <div className="absolute -inset-4 bg-gradient-to-tr from-[#2A4FB8]/20 via-[#0E7C70]/15 to-[#F5B82E]/20 rounded-[2.5rem] blur-2xl opacity-75 pointer-events-none" />
 
       {/* SmartBoard Bezel Frame */}
-      <div className="relative rounded-3xl bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-elevated overflow-hidden transition-all">
+      <div className="relative rounded-3xl bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] shadow-elevated overflow-hidden transition-all">
         {/* Reader Top Chrome Bar */}
-        <div className="px-4 py-3 bg-[#ECEEEA]/90 dark:bg-[#272C36]/90 border-b border-[#D9DCD5] dark:border-[#353B47] flex items-center justify-between gap-2">
+        <div className="px-4 py-3 bg-[#EEF1F8]/90 dark:bg-[#10152A]/90 border-b border-[#E6E9F2] dark:border-[#262C42] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-[#2A4FB8] text-white flex items-center justify-center shrink-0">
               <BookOpen className="w-4 h-4" />
             </div>
-            <span className="text-xs sm:text-sm font-bold text-[#1F2933] dark:text-[#E6E8EC] truncate">
+            <span className="text-xs sm:text-sm font-bold text-[#1B2238] dark:text-[#E9ECF7] truncate">
               {t('landing.previewBookTitle')}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#223F94]">
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] border border-[#C9D6F5] dark:border-[#34478C]">
               {t('landing.previewPageTag')}
             </span>
           </div>
         </div>
 
         {/* Simulated Digital Textbook Canvas */}
-        <div className="p-5 sm:p-6 bg-[#F4F5F2] dark:bg-[#15181E] relative space-y-4">
+        <div className="p-5 sm:p-6 bg-[#F6F7FB] dark:bg-[#0E1220] relative space-y-4">
           {/* Interactive Page Header */}
           <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EDF9F1] dark:bg-[#166534]/50 text-[#15803D] dark:text-[#4ADE80] text-[11px] font-bold border border-[#22A45A]/30">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E3F5EE] dark:bg-[#12332B] text-[#0F6E56] dark:text-[#5FD1AC] text-[11px] font-bold border border-[#0F6E56]/30">
               <Sparkles className="w-3 h-3" />
               {t('landing.previewLiveBadge')}
             </span>
@@ -59,7 +59,7 @@ export const SmartBoardPreview: React.FC = () => {
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all border ${
                   markerHighlight
                     ? 'bg-[#FFFBEB] dark:bg-[#B45309]/30 text-[#B45309] dark:text-[#FBBF24] border-[#F5B82E]'
-                    : 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47]'
+                    : 'bg-[#FFFFFF] dark:bg-[#171C2E] text-[#7A8299] dark:text-[#8B93AD] border-[#E6E9F2] dark:border-[#262C42]'
                 }`}
               >
                 <PenTool className="w-3 h-3" />
@@ -71,7 +71,7 @@ export const SmartBoardPreview: React.FC = () => {
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all border ${
                   showAnswerTip
                     ? 'bg-[#6D3FD1] text-white border-[#6D3FD1] shadow-sm'
-                    : 'bg-[#FBFBF9] dark:bg-[#1E222A] text-[#5B6672] dark:text-[#9AA3B0] border-[#D9DCD5] dark:border-[#353B47]'
+                    : 'bg-[#FFFFFF] dark:bg-[#171C2E] text-[#7A8299] dark:text-[#8B93AD] border-[#E6E9F2] dark:border-[#262C42]'
                 }`}
               >
                 <KeyRound className="w-3 h-3" />
@@ -81,13 +81,13 @@ export const SmartBoardPreview: React.FC = () => {
           </div>
 
           {/* Mock Textbook Lesson Card */}
-          <div className="rounded-2xl bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] p-4 sm:p-5 shadow-soft space-y-4 relative overflow-hidden">
+          <div className="rounded-2xl bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] p-4 sm:p-5 shadow-soft space-y-4 relative overflow-hidden">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#2A4FB8] dark:text-[#5B93FA]">
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#2A4FB8] dark:text-[#8FA8F7]">
                   Unit 3 • Daily Routines
                 </p>
-                <h4 className="text-base sm:text-lg font-extrabold text-[#1F2933] dark:text-[#E6E8EC] mt-0.5">
+                <h4 className="text-base sm:text-lg font-extrabold text-[#1B2238] dark:text-[#E9ECF7] mt-0.5">
                   Exercise 4. Listen and complete the dialogue
                 </h4>
               </div>
@@ -107,7 +107,7 @@ export const SmartBoardPreview: React.FC = () => {
             </div>
 
             {/* Simulated Lesson Lines with Interactive Marker Highlight */}
-            <div className="space-y-2.5 text-xs sm:text-sm text-[#1F2933] dark:text-[#E6E8EC] leading-relaxed">
+            <div className="space-y-2.5 text-xs sm:text-sm text-[#1B2238] dark:text-[#E9ECF7] leading-relaxed">
               <p>
                 1. Every morning I{' '}
                 <span
@@ -126,7 +126,7 @@ export const SmartBoardPreview: React.FC = () => {
                 <span
                   className={`px-1.5 py-0.5 rounded font-bold transition-colors ${
                     markerHighlight
-                      ? 'bg-[#EDF9F1] dark:bg-[#15803D]/30 text-[#15803D] dark:text-[#4ADE80]'
+                      ? 'bg-[#E3F5EE] dark:bg-[#12332B] text-[#0F6E56] dark:text-[#5FD1AC]'
                       : 'underline decoration-[#2A4FB8]'
                   }`}
                 >

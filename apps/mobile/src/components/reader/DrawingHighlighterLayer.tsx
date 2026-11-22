@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
   denormalizeStrokePoints,
@@ -66,7 +67,7 @@ interface DrawingHighlighterLayerProps {
   onStrokesChange?: (strokes: DrawStroke[]) => void;
 }
 
-export const DrawingHighlighterLayer: React.FC<DrawingHighlighterLayerProps> = ({
+export const DrawingHighlighterLayer = React.memo<DrawingHighlighterLayerProps>(({
   activeTool,
   activeColor,
   strokeSize = 'MD',
@@ -166,7 +167,8 @@ export const DrawingHighlighterLayer: React.FC<DrawingHighlighterLayerProps> = (
     const currentDraft = draftRef.current;
     if (!currentDraft) return;
     const lastPx = currentDraft.pixelPoints[currentDraft.pixelPoints.length - 1];
-    if (lastPx && Math.hypot(px - lastPx.x, py - lastPx.y) < 1.25) {
+    const minDistance = tool === 'HIGHLIGHTER' ? 3.5 : 2.5;
+    if (lastPx && Math.hypot(px - lastPx.x, py - lastPx.y) < minDistance) {
       return;
     }
 
@@ -443,7 +445,7 @@ export const DrawingHighlighterLayer: React.FC<DrawingHighlighterLayerProps> = (
       </Svg>
     </View>
   );
-};
+});
 
 interface MarkerStudioToolbarProps {
   activeTool: DrawTool;
@@ -462,7 +464,7 @@ interface MarkerStudioToolbarProps {
   onSaveAndClose: () => void;
 }
 
-export const MarkerStudioToolbar: React.FC<MarkerStudioToolbarProps> = ({
+export const MarkerStudioToolbar = React.memo<MarkerStudioToolbarProps>(({
   activeTool,
   activeColor,
   strokeSize,
@@ -480,6 +482,7 @@ export const MarkerStudioToolbar: React.FC<MarkerStudioToolbarProps> = ({
 }) => {
   const { colors, isDark } = useTheme();
   const { strings } = useI18n();
+  const insets = useSafeAreaInsets();
   if (!activeTool) return null;
 
   const palette =
@@ -490,7 +493,13 @@ export const MarkerStudioToolbar: React.FC<MarkerStudioToolbarProps> = ({
       : HIGHLIGHTER_COLORS;
 
   return (
-    <View style={styles.toolbarWrap} pointerEvents="box-none">
+    <View
+      style={[
+        styles.toolbarWrap,
+        { bottom: Math.max(insets.bottom, 10) + 4 },
+      ]}
+      pointerEvents="box-none"
+    >
       <View
         style={[
           styles.toolbarCard,
@@ -686,7 +695,7 @@ export const MarkerStudioToolbar: React.FC<MarkerStudioToolbarProps> = ({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   surfaceOverlay: {

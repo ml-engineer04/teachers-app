@@ -821,16 +821,16 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
   const computedPageWidth = isMobile ? Math.min(targetWidth, maxAvailableWidth) : targetWidth;
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-[#F4F5F2] dark:bg-[#15181E] text-[#1F2933] dark:text-[#E6E8EC] select-none overflow-hidden">
+    <div className="fixed inset-0 z-40 flex flex-col bg-[#F6F7FB] dark:bg-[#0E1220] text-[#1B2238] dark:text-[#E6E8EC] select-none overflow-hidden">
       {/* =========================================================================
           Top SmartBoard Navigation Bar (Matching Design)
       ========================================================================= */}
-      <header className="h-14 sm:h-16 shrink-0 bg-[#FBFBF9] dark:bg-[#1E222A] border-b border-[#D9DCD5] dark:border-[#353B47] px-2 sm:px-4 flex items-center justify-between gap-1.5 sm:gap-3 shadow-sm dark:shadow-lg z-30">
+      <header className="h-14 sm:h-16 shrink-0 bg-[#FFFFFF] dark:bg-[#171C2E] border-b border-[#E6E9F2] dark:border-[#262C42] px-2 sm:px-4 flex items-center justify-between gap-1.5 sm:gap-3 shadow-sm dark:shadow-lg z-30">
         {/* Left: Exit & Book Details */}
         <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
           <button
             onClick={handleExit}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:hover:text-white dark:border-[#353B47] border transition-colors text-xs font-semibold shadow-xs shrink-0 cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:hover:text-white dark:border-[#262C42] border transition-colors text-xs font-semibold shadow-xs shrink-0 cursor-pointer"
             title="Çiqiş"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -839,14 +839,14 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <h1 className="text-xs sm:text-sm font-bold text-[#142452] dark:text-white truncate max-w-[120px] xs:max-w-[170px] sm:max-w-xs md:max-w-md">
+              <h1 className="text-xs sm:text-sm font-bold text-[#1B2238] dark:text-white truncate max-w-[120px] xs:max-w-[170px] sm:max-w-xs md:max-w-md">
                 {book.title}
               </h1>
-              <span className="inline-flex px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-[#EEF4FF] dark:bg-[#EEF4FF]/10 text-[#2A4FB8] dark:text-[#5B93FA] border border-[#BAD2FF] dark:border-[#5B93FA]/30 shrink-0">
+              <span className="inline-flex px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-[#EEF4FF] dark:bg-[#EEF4FF]/10 text-[#2A4FB8] dark:text-[#8FA8F7] border border-[#BAD2FF] dark:border-[#8FA8F7]/30 shrink-0">
                 {formatGrade(book.gradeId)}
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-[#5B6672] dark:text-[#9AA3B0] truncate hidden md:block">
+            <p className="text-[10px] sm:text-[11px] text-[#7A8299] dark:text-[#8B93AD] truncate hidden md:block">
               {book.type === 'TEACHER_BOOK'
                 ? "Öqituvçi kitobi (Teacher's Book)"
                 : book.type === 'WORKBOOK'
@@ -860,29 +860,29 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
         <button
           type="button"
           onClick={() => setIsMobileJumpOpen(true)}
-          className="lg:hidden flex items-center rounded-full bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#15181E] dark:hover:bg-[#272C36] dark:border-[#353B47] border px-3.5 py-1.5 gap-1.5 shadow-inner transition active:scale-95 cursor-pointer"
+          className="lg:hidden flex items-center rounded-full bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#10152A] dark:hover:bg-[#262C42] dark:border-[#262C42] border px-3.5 py-1.5 gap-1.5 shadow-inner transition active:scale-95 cursor-pointer"
           title="Başqa sahifaga ötiş"
         >
-          <span className="text-[#2A4FB8] dark:text-[#5B93FA] font-black text-xs sm:text-sm">
+          <span className="text-[#2A4FB8] dark:text-[#8FA8F7] font-black text-xs sm:text-sm">
             {pageDisplayInfo.isFrontMatter
               ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplayInfo.frontMatterIndex}`
               : `${pageDisplayInfo.bookPage}-bet`}
           </span>
-          <span className="text-[#5B6672] dark:text-[#5B6672] font-normal text-xs sm:text-sm">/</span>
-          <span className="text-[#1F2933] dark:text-[#E6E8EC] text-xs sm:text-sm font-semibold">
+          <span className="text-[#7A8299] dark:text-[#7A8299] font-normal text-xs sm:text-sm">/</span>
+          <span className="text-[#1B2238] dark:text-[#E6E8EC] text-xs sm:text-sm font-semibold">
             {pageDisplayInfo.isFrontMatter ? totalPages : contentTotalPages}
           </span>
         </button>
 
         {/* Center: Desktop Direct Indicator & Quick Jump Form */}
         <div className="hidden lg:flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 bg-[#ECEEEA] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] px-3 py-1.5 rounded-xl shadow-inner text-xs font-bold text-[#2A4FB8] dark:text-[#5B93FA]">
+          <div className="flex items-center gap-1.5 bg-[#EEF1F8] dark:bg-[#10152A] border border-[#E6E9F2] dark:border-[#262C42] px-3 py-1.5 rounded-xl shadow-inner text-xs font-bold text-[#2A4FB8] dark:text-[#8FA8F7]">
             <span>
               {pageDisplayInfo.isFrontMatter
                 ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplayInfo.frontMatterIndex}`
                 : `${pageDisplayInfo.bookPage} / ${contentTotalPages} bet`}
             </span>
-            <span className="text-[10px] text-[#5B6672] dark:text-[#9AA3B0] font-normal">
+            <span className="text-[10px] text-[#7A8299] dark:text-[#8B93AD] font-normal">
               (PDF {currentPage}/{totalPages})
             </span>
           </div>
@@ -895,11 +895,11 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               value={jumpInput}
               onChange={(e) => setJumpInput(e.target.value)}
               placeholder="Bet..."
-              className="w-16 h-8 text-center bg-[#ECEEEA] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] rounded-lg text-xs text-[#1F2933] dark:text-white placeholder-[#5B6672] dark:placeholder-[#9AA3B0] focus:outline-none focus:border-[#2A4FB8]"
+              className="w-16 h-8 text-center bg-[#EEF1F8] dark:bg-[#10152A] border border-[#E6E9F2] dark:border-[#262C42] rounded-lg text-xs text-[#1B2238] dark:text-white placeholder-[#7A8299] dark:placeholder-[#8B93AD] focus:outline-none focus:border-[#2A4FB8]"
             />
             <button
               type="submit"
-              className="h-8 px-3 rounded-lg bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-bold transition-colors shadow-sm cursor-pointer"
+              className="h-8 px-3 rounded-lg bg-[#2A4FB8] hover:bg-[#234399] text-white text-xs font-bold transition-colors shadow-sm cursor-pointer"
             >
               Ötiş
             </button>
@@ -910,10 +910,10 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
         <button
           type="button"
           onClick={() => setIsReaderMenuOpen(true)}
-          className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:hover:text-white dark:border-[#353B47] border transition-all text-xs font-bold shadow-xs shrink-0"
+          className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:hover:text-white dark:border-[#262C42] border transition-all text-xs font-bold shadow-xs shrink-0"
           title="Asboblar menyusi"
         >
-          <Menu className="h-4 w-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+          <Menu className="h-4 w-4 text-[#2A4FB8] dark:text-[#8FA8F7]" />
           <span className="hidden sm:inline">Menyu</span>
         </button>
 
@@ -925,7 +925,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             className={`p-1.5 sm:p-2 rounded-xl transition-colors border ${
               showThumbnails
                 ? 'bg-[#2A4FB8] text-white border-[#2A4FB8]'
-                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47]'
+                : 'bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:border-[#262C42]'
             }`}
             title="Sahifalar paneli"
           >
@@ -938,9 +938,9 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             className={`p-1.5 sm:p-2 rounded-xl transition-colors border ${
               isSearchOpen
                 ? 'bg-[#2A4FB8] text-white border-[#2A4FB8]'
-                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47]'
+                : 'bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:border-[#262C42]'
             }`}
-            title="Qidirish"
+            title="Qidiriş"
           >
             <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
@@ -949,7 +949,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           <button
             onClick={zoomOut}
             disabled={zoomLevel <= MIN_ZOOM}
-            className="p-1.5 sm:p-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] disabled:opacity-30 transition-colors border"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:border-[#262C42] disabled:opacity-30 transition-colors border"
             title="Kiçraytiriş (Ctrl / Cmd + -)"
           >
             <ZoomOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -960,7 +960,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             <select
               value={Math.round(zoomLevel * 100)}
               onChange={(e) => applyZoom(Number(e.target.value) / 100)}
-              className="appearance-none bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] text-xs font-bold pl-2.5 pr-6 py-1.5 rounded-xl border focus:outline-none cursor-pointer"
+              className="appearance-none bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:border-[#262C42] text-xs font-bold pl-2.5 pr-6 py-1.5 rounded-xl border focus:outline-none cursor-pointer"
               title="Masshtab (Zoom)"
             >
               {ZOOM_PRESETS.map((p) => {
@@ -972,14 +972,14 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                 );
               })}
             </select>
-            <ChevronDown className="w-3 h-3 text-[#5B6672] dark:text-[#9AA3B0] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3 h-3 text-[#7A8299] dark:text-[#8B93AD] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
           {/* Zoom In */}
           <button
             onClick={zoomIn}
             disabled={zoomLevel >= MAX_ZOOM}
-            className="p-1.5 sm:p-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] disabled:opacity-30 transition-colors border"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:border-[#262C42] disabled:opacity-30 transition-colors border"
             title="Kattalaştiriş (Ctrl / Cmd + +)"
           >
             <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1005,7 +1005,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             className={`p-1.5 sm:p-2 rounded-xl transition-colors border ${
               isTocOpen
                 ? 'bg-[#2A4FB8] text-white border-[#2A4FB8]'
-                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47]'
+                : 'bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:border-[#262C42]'
             }`}
             title="Mundarija (TOC)"
           >
@@ -1018,7 +1018,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             className={`p-1.5 sm:p-2 rounded-xl transition-colors relative border ${
               isBookmarksOpen
                 ? 'bg-[#2A4FB8] text-white border-[#2A4FB8]'
-                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47]'
+                : 'bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:border-[#262C42]'
             }`}
             title="Xatçöplar va izohlar"
           >
@@ -1036,7 +1036,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             className={`p-1.5 sm:p-2 rounded-xl transition-colors relative border ${
               isMediaOpen
                 ? 'bg-[#0E7C70] text-white border-[#0E7C70]'
-                : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#0E7C70] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#5ED3C4] dark:border-[#353B47]'
+                : 'bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#0E7C70] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#5ED3C4] dark:border-[#262C42]'
             }`}
             title="Media kutubxona"
           >
@@ -1051,7 +1051,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
-            className="p-1.5 sm:p-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] transition-colors border"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:border-[#262C42] transition-colors border"
             title={isDark ? "Yorug' rejim (Light mode)" : "Qorong'i rejim (Dark mode)"}
             aria-label="Rejimni almashtirish"
           >
@@ -1064,7 +1064,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
           {/* User Profile Avatar */}
           <div
-            className="w-7 h-7 rounded-full bg-[#2A4FB8] text-white font-black text-xs flex items-center justify-center ring-2 ring-[#5B93FA]/30 shrink-0 select-none"
+            className="w-7 h-7 rounded-full bg-[#2A4FB8] text-white font-black text-xs flex items-center justify-center ring-2 ring-[#8FA8F7]/30 shrink-0 select-none"
             title={currentUser?.fullName || currentUser?.email || "Öqituvçi"}
           >
             {userInitial}
@@ -1073,7 +1073,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 sm:p-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] border-[#D9DCD5] dark:bg-[#272C36] dark:hover:bg-[#353B47] dark:text-[#E6E8EC] dark:border-[#353B47] transition-colors border"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] border-[#E6E9F2] dark:bg-[#262C42] dark:hover:bg-[#262C42] dark:text-[#E6E8EC] dark:border-[#262C42] transition-colors border"
             title={isFullscreen ? 'Oynani kiçraytiriş' : 'Butun ekran (Fullscreen)'}
           >
             {isFullscreen ? (
@@ -1087,9 +1087,9 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
       {/* Quick Search Overlay Dropdown */}
       {isSearchOpen && (
-        <div className="bg-[#FBFBF9] dark:bg-[#0B101D] border-b border-[#D9DCD5] dark:border-slate-800 px-4 py-2.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 z-30">
-          <div className="flex-1 max-w-md flex items-center gap-2 bg-[#ECEEEA] dark:bg-[#060A14] border border-[#D9DCD5] dark:border-slate-700 px-3 py-1.5 rounded-xl">
-            <Search className="w-4 h-4 text-[#5B6672] dark:text-slate-400" />
+        <div className="bg-[#FFFFFF] dark:bg-[#0B101D] border-b border-[#E6E9F2] dark:border-slate-800 px-4 py-2.5 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 z-30">
+          <div className="flex-1 max-w-md flex items-center gap-2 bg-[#EEF1F8] dark:bg-[#060A14] border border-[#E6E9F2] dark:border-slate-700 px-3 py-1.5 rounded-xl">
+            <Search className="w-4 h-4 text-[#7A8299] dark:text-slate-400" />
             <input
               type="text"
               autoFocus
@@ -1103,17 +1103,17 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                 }
               }}
               placeholder="Sahifa raqamini kiriting (masalan: 3)..."
-              className="bg-transparent text-xs text-[#1F2933] dark:text-white placeholder-[#5B6672] dark:placeholder-slate-500 focus:outline-none w-full"
+              className="bg-transparent text-xs text-[#1B2238] dark:text-white placeholder-[#7A8299] dark:placeholder-slate-500 focus:outline-none w-full"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-[#5B6672] dark:text-slate-400 hover:text-[#1F2933] dark:hover:text-white">
+              <button onClick={() => setSearchQuery('')} className="text-[#7A8299] dark:text-slate-400 hover:text-[#1B2238] dark:hover:text-white">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
           <button
             onClick={() => setIsSearchOpen(false)}
-            className="text-xs font-semibold text-[#5B6672] dark:text-slate-400 hover:text-[#1F2933] dark:hover:text-white px-2.5 py-1 rounded-lg"
+            className="text-xs font-semibold text-[#7A8299] dark:text-slate-400 hover:text-[#1B2238] dark:hover:text-white px-2.5 py-1 rounded-lg"
           >
             Yopiş
           </button>
@@ -1142,16 +1142,16 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               isMobile
                 ? 'fixed inset-y-0 left-0 z-40 w-24 pt-16 shadow-2xl animate-in slide-in-from-left duration-200'
                 : 'w-20 sm:w-24 shrink-0 z-20'
-            } bg-[#FBFBF9] dark:bg-[#1E222A] border-r border-[#D9DCD5] dark:border-[#353B47] overflow-y-auto overflow-x-hidden py-3 px-2 flex flex-col items-center gap-3.5 select-none`}
+            } bg-[#FFFFFF] dark:bg-[#171C2E] border-r border-[#E6E9F2] dark:border-[#262C42] overflow-y-auto overflow-x-hidden py-3 px-2 flex flex-col items-center gap-3.5 select-none`}
             style={{ scrollbarWidth: 'thin' }}
           >
             {isMobile && (
-              <div className="w-full flex justify-between items-center px-1 pb-1 border-b border-[#D9DCD5] dark:border-[#353B47] mb-1">
-                <span className="text-[10px] font-bold text-[#5B6672] dark:text-[#9AA3B0]">Betlar</span>
+              <div className="w-full flex justify-between items-center px-1 pb-1 border-b border-[#E6E9F2] dark:border-[#262C42] mb-1">
+                <span className="text-[10px] font-bold text-[#7A8299] dark:text-[#8B93AD]">Betlar</span>
                 <button
                   type="button"
                   onClick={() => setShowThumbnails(false)}
-                  className="p-1 rounded text-[#5B6672] hover:text-[#1F2933] dark:text-[#9AA3B0] dark:hover:text-white"
+                  className="p-1 rounded text-[#7A8299] hover:text-[#1B2238] dark:text-[#8B93AD] dark:hover:text-white"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -1190,7 +1190,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     className={`w-16 h-20 sm:h-22 rounded-lg overflow-hidden bg-white relative transition-all duration-150 flex items-center justify-center ${
                       isActive
                         ? 'border-2 border-[#2A4FB8] ring-2 ring-[#2A4FB8]/40 shadow-lg shadow-[#2A4FB8]/30 scale-105'
-                        : 'border border-[#D9DCD5] dark:border-[#353B47] opacity-60 group-hover:opacity-100 group-hover:border-[#2A4FB8] dark:group-hover:border-[#5B93FA]'
+                        : 'border border-[#E6E9F2] dark:border-[#262C42] opacity-60 group-hover:opacity-100 group-hover:border-[#2A4FB8] dark:group-hover:border-[#8FA8F7]'
                     }`}
                   >
                     {shouldRenderThumb ? (
@@ -1210,7 +1210,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     <div
                       className={`thumb-fallback absolute inset-0 ${
                         shouldRenderThumb ? 'hidden' : 'flex'
-                      } flex-col items-center justify-center p-1 bg-[#ECEEEA] dark:bg-slate-800 text-[#5B6672] dark:text-slate-300 text-center`}
+                      } flex-col items-center justify-center p-1 bg-[#EEF1F8] dark:bg-slate-800 text-[#7A8299] dark:text-slate-300 text-center`}
                     >
                       <span className="text-[10px] font-bold">{pageNumberLabel}</span>
                     </div>
@@ -1221,7 +1221,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     className={`text-[11px] font-bold text-center mt-1 transition-colors ${
                       isActive
                         ? 'text-[#2A4FB8] dark:text-indigo-400 font-extrabold'
-                        : 'text-[#5B6672] hover:text-[#1F2933] dark:text-slate-400 dark:group-hover:text-white'
+                        : 'text-[#7A8299] hover:text-[#1B2238] dark:text-slate-400 dark:group-hover:text-white'
                     }`}
                   >
                     {pageNumberLabel}
@@ -1248,7 +1248,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               }
             }
           }}
-          className="flex-1 overflow-y-auto overflow-x-hidden bg-[#F4F5F2] dark:bg-[#15181E] py-4 sm:py-8 px-2 sm:px-4 flex flex-col items-center gap-6 sm:gap-8 relative select-none"
+          className="flex-1 overflow-y-auto overflow-x-hidden bg-[#F6F7FB] dark:bg-[#0E1220] py-4 sm:py-8 px-2 sm:px-4 flex flex-col items-center gap-6 sm:gap-8 relative select-none"
         >
         {Array.from({ length: totalPages }, (_, i) => {
           const pageNum = i + 1;
@@ -1277,11 +1277,11 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                 minHeight: `${computedPageHeight}px`,
                 maxHeight: `${computedPageHeight}px`,
               }}
-              className="relative shrink-0 rounded-2xl bg-white shadow-xl dark:shadow-2xl overflow-hidden border border-[#D9DCD5] dark:border-[#353B47]"
+              className="relative shrink-0 rounded-2xl bg-white shadow-xl dark:shadow-2xl overflow-hidden border border-[#E6E9F2] dark:border-[#262C42]"
             >
               {/* Page Header Ribbon */}
               <div className="absolute top-3 left-4 z-20 flex items-center gap-2">
-                <span className="rounded-full bg-[#1F2933]/85 dark:bg-[#15181E]/85 backdrop-blur-md px-3 py-1 text-[11px] font-bold text-white shadow-md border border-[#D9DCD5]/30 dark:border-[#353B47]">
+                <span className="rounded-full bg-[#1B2238]/85 dark:bg-[#10152A]/85 backdrop-blur-md px-3 py-1 text-[11px] font-bold text-white shadow-md border border-[#E6E9F2]/30 dark:border-[#262C42]">
                   {pageDisplay.isFrontMatter
                     ? `${strings.common?.introShort || 'Kiriş'} ${pageDisplay.frontMatterIndex}`
                     : `${pageDisplay.bookPage}-bet`}
@@ -1673,16 +1673,16 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
       {/* Mobile Quick Jump Modal Dialog */}
       {isMobileJumpOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] w-full max-w-xs rounded-3xl p-5 shadow-2xl space-y-4">
+          <div className="bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] w-full max-w-xs rounded-3xl p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-[#1F2933] dark:text-white flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+              <h3 className="text-sm font-bold text-[#1B2238] dark:text-white flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[#2A4FB8] dark:text-[#8FA8F7]" />
                 <span>Sahifaga ötiş</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setIsMobileJumpOpen(false)}
-                className="p-1 rounded-lg text-[#5B6672] hover:text-[#1F2933] dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                className="p-1 rounded-lg text-[#7A8299] hover:text-[#1B2238] dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1702,7 +1702,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               className="space-y-3"
             >
               <div>
-                <label className="text-[11px] text-[#5B6672] dark:text-slate-400 font-medium block mb-1">
+                <label className="text-[11px] text-[#7A8299] dark:text-slate-400 font-medium block mb-1">
                   1 dan {contentTotalPages} gaça bet raqami:
                 </label>
                 <input
@@ -1713,7 +1713,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                   value={jumpInput}
                   onChange={(e) => setJumpInput(e.target.value)}
                   placeholder={`Masalan: ${pageDisplayInfo.bookPage || 1}`}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#ECEEEA] dark:bg-[#15181E] border border-[#D9DCD5] dark:border-[#353B47] text-[#1F2933] dark:text-white text-sm font-bold placeholder-[#5B6672] dark:placeholder-slate-500 focus:outline-none focus:border-[#2A4FB8] text-center"
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#EEF1F8] dark:bg-[#10152A] border border-[#E6E9F2] dark:border-[#262C42] text-[#1B2238] dark:text-white text-sm font-bold placeholder-[#7A8299] dark:placeholder-slate-500 focus:outline-none focus:border-[#2A4FB8] text-center"
                 />
               </div>
 
@@ -1721,13 +1721,13 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsMobileJumpOpen(false)}
-                  className="flex-1 py-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                  className="flex-1 py-2 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
                 >
                   Bekor qiliş
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-[#2A4FB8] hover:bg-[#223F94] text-white text-xs font-bold shadow-md shadow-[#2A4FB8]/30 cursor-pointer"
+                  className="flex-1 py-2 rounded-xl bg-[#2A4FB8] hover:bg-[#234399] text-white text-xs font-bold shadow-md shadow-[#2A4FB8]/30 cursor-pointer"
                 >
                   Ötiş
                 </button>
@@ -1759,24 +1759,24 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
           />
 
           {/* Drawer Container */}
-          <div className="relative w-80 max-w-[85vw] h-full bg-[#FBFBF9] dark:bg-[#0B101D] border-l border-[#D9DCD5] dark:border-slate-800 shadow-2xl flex flex-col justify-between overflow-y-auto p-4 sm:p-5 z-10 animate-in slide-in-from-right duration-200">
+          <div className="relative w-80 max-w-[85vw] h-full bg-[#FFFFFF] dark:bg-[#0B101D] border-l border-[#E6E9F2] dark:border-slate-800 shadow-2xl flex flex-col justify-between overflow-y-auto p-4 sm:p-5 z-10 animate-in slide-in-from-right duration-200">
             {/* Top Area: Header & Navigation/Tool Actions */}
             <div className="space-y-5">
               {/* Drawer Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#D9DCD5] dark:border-slate-800/80">
+              <div className="flex items-center justify-between pb-3 border-b border-[#E6E9F2] dark:border-slate-800/80">
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-[#1F2933] dark:text-white flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+                  <h3 className="text-sm font-bold text-[#1B2238] dark:text-white flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-[#2A4FB8] dark:text-[#8FA8F7]" />
                     <span>Darslik asboblari</span>
                   </h3>
-                  <p className="text-[11px] text-[#5B6672] dark:text-slate-400 truncate mt-0.5">
+                  <p className="text-[11px] text-[#7A8299] dark:text-slate-400 truncate mt-0.5">
                     {book.title}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsReaderMenuOpen(false)}
-                  className="p-1.5 rounded-xl text-[#5B6672] hover:text-[#1F2933] dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-slate-800 transition"
+                  className="p-1.5 rounded-xl text-[#7A8299] hover:text-[#1B2238] dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-slate-800 transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1784,7 +1784,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
               {/* Section 1: Navigation & Search */}
               <div className="space-y-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6672] dark:text-slate-500 px-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7A8299] dark:text-slate-500 px-1">
                   Navigatsiya
                 </p>
 
@@ -1795,11 +1795,11 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     setIsReaderMenuOpen(false);
                     setIsSearchOpen(true);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Search className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
-                    <span>Qidirish</span>
+                    <Search className="w-4 h-4 text-[#2A4FB8] dark:text-[#8FA8F7]" />
+                    <span>Qidiriş</span>
                   </div>
                 </button>
 
@@ -1810,14 +1810,14 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     setIsReaderMenuOpen(false);
                     setIsTocOpen(true);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
                 >
                   <div className="flex items-center gap-2.5">
-                    <List className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+                    <List className="w-4 h-4 text-[#2A4FB8] dark:text-[#8FA8F7]" />
                     <span>Mundarija (TOC)</span>
                   </div>
                   {tocEntries.length > 0 && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#D9DCD5] dark:bg-slate-800 text-[#1F2933] dark:text-slate-400 font-mono">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#E6E9F2] dark:bg-slate-800 text-[#1B2238] dark:text-slate-400 font-mono">
                       {tocEntries.length}
                     </span>
                   )}
@@ -1833,11 +1833,11 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
                     showThumbnails
                       ? 'bg-[#EEF4FF] text-[#2A4FB8] border border-[#BAD2FF] dark:bg-indigo-600/20 dark:text-indigo-300 dark:border-indigo-500/30'
-                      : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200'
+                      : 'bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <LayoutGrid className="w-4 h-4 text-[#2A4FB8] dark:text-[#5B93FA]" />
+                    <LayoutGrid className="w-4 h-4 text-[#2A4FB8] dark:text-[#8FA8F7]" />
                     <span>Sahifalar lentasi</span>
                   </div>
                   <span className="text-[10px] font-bold">
@@ -1848,7 +1848,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
               {/* Section 2: SmartBoard & Interactive Tools */}
               <div className="space-y-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6672] dark:text-slate-500 px-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7A8299] dark:text-slate-500 px-1">
                   Interaktiv Asboblar
                 </p>
 
@@ -1862,7 +1862,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
                     isMarkerActive
                       ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30'
-                      : 'bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200'
+                      : 'bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1881,7 +1881,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     setIsReaderMenuOpen(false);
                     setIsBookmarksOpen(true);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
                 >
                   <div className="flex items-center gap-2.5">
                     <Bookmark className="w-4 h-4 text-[#B45309] dark:text-amber-400" />
@@ -1901,14 +1901,14 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     setIsReaderMenuOpen(false);
                     setIsMediaOpen(true);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
                 >
                   <div className="flex items-center gap-2.5">
                     <Headphones className="w-4 h-4 text-[#0E7C70] dark:text-[#5ED3C4]" />
                     <span>Media kutubxonasi (Audio/Video)</span>
                   </div>
                   {mediaList.length > 0 && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#D9DCD5] dark:bg-slate-800 text-[#1F2933] dark:text-slate-400 font-mono">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#E6E9F2] dark:bg-slate-800 text-[#1B2238] dark:text-slate-400 font-mono">
                       {mediaList.length}
                     </span>
                   )}
@@ -1921,7 +1921,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     setIsReaderMenuOpen(false);
                     setIsAnswersOpen(true);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition"
                 >
                   <div className="flex items-center gap-2.5">
                     <KeyRound className="w-4 h-4 text-[#6D3FD1] dark:text-[#B69CFF]" />
@@ -1937,7 +1937,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
 
               {/* Section 3: View & Zoom Controls */}
               <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6672] dark:text-slate-500 px-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7A8299] dark:text-slate-500 px-1">
                   Köriniş va Masshtab
                 </p>
 
@@ -1947,7 +1947,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                   onClick={() => {
                     toggleTheme();
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition cursor-pointer"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">
                     {isDark ? (
@@ -1957,20 +1957,20 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     )}
                     <span>{isDark ? "Yorug' rejim (Light mode)" : "Qorong'i rejim (Dark mode)"}</span>
                   </div>
-                  <span className="text-[10px] font-bold text-[#5B6672] dark:text-slate-400">
+                  <span className="text-[10px] font-bold text-[#7A8299] dark:text-slate-400">
                     {isDark ? "Qorong'i" : "Yorug'"}
                   </span>
                 </button>
 
                 {/* Zoom Controller */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-[#ECEEEA] dark:bg-slate-900/60 border border-[#D9DCD5] dark:border-slate-800">
-                  <span className="text-xs font-semibold text-[#1F2933] dark:text-slate-300">Masshtab</span>
-                  <div className="flex items-center gap-1 bg-[#FBFBF9] dark:bg-slate-950 p-1 rounded-lg border border-[#D9DCD5] dark:border-slate-800">
+                <div className="flex items-center justify-between p-2 rounded-xl bg-[#EEF1F8] dark:bg-slate-900/60 border border-[#E6E9F2] dark:border-slate-800">
+                  <span className="text-xs font-semibold text-[#1B2238] dark:text-slate-300">Masshtab</span>
+                  <div className="flex items-center gap-1 bg-[#FFFFFF] dark:bg-slate-950 p-1 rounded-lg border border-[#E6E9F2] dark:border-slate-800">
                     <button
                       type="button"
                       onClick={zoomOut}
                       disabled={zoomLevel <= MIN_ZOOM}
-                      className="p-1 rounded-md text-[#5B6672] hover:text-[#1F2933] hover:bg-[#ECEEEA] dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
+                      className="p-1 rounded-md text-[#7A8299] hover:text-[#1B2238] hover:bg-[#EEF1F8] dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
                       title="Kiçraytiriş"
                     >
                       <ZoomOut className="w-3.5 h-3.5" />
@@ -1987,7 +1987,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                       type="button"
                       onClick={zoomIn}
                       disabled={zoomLevel >= MAX_ZOOM}
-                      className="p-1 rounded-md text-[#5B6672] hover:text-[#1F2933] hover:bg-[#ECEEEA] dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
+                      className="p-1 rounded-md text-[#7A8299] hover:text-[#1B2238] hover:bg-[#EEF1F8] dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
                       title="Kattalaştiriş"
                     >
                       <ZoomIn className="w-3.5 h-3.5" />
@@ -2002,7 +2002,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
                     toggleFullscreen();
                     setIsReaderMenuOpen(false);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition cursor-pointer"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-900/60 dark:hover:bg-slate-800 dark:text-slate-200 text-xs font-semibold transition cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">
                     {isFullscreen ? (
@@ -2017,17 +2017,17 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
             </div>
 
             {/* Bottom Area: User Info & Exit */}
-            <div className="pt-4 border-t border-[#D9DCD5] dark:border-slate-800/80 space-y-3">
+            <div className="pt-4 border-t border-[#E6E9F2] dark:border-slate-800/80 space-y-3">
               {/* Teacher Profile */}
               <div className="flex items-center gap-2.5 px-1 py-1">
-                <div className="w-8 h-8 rounded-full bg-[#2A4FB8] text-white font-black text-xs flex items-center justify-center ring-2 ring-[#5B93FA]/30 shrink-0">
+                <div className="w-8 h-8 rounded-full bg-[#2A4FB8] text-white font-black text-xs flex items-center justify-center ring-2 ring-[#8FA8F7]/30 shrink-0">
                   {userInitial}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-[#1F2933] dark:text-white truncate">
+                  <p className="text-xs font-bold text-[#1B2238] dark:text-white truncate">
                     {currentUser?.fullName || currentUser?.email || 'Öqituvçi'}
                   </p>
-                  <p className="text-[10px] text-[#5B6672] dark:text-slate-400 truncate">
+                  <p className="text-[10px] text-[#7A8299] dark:text-slate-400 truncate">
                     {currentUser?.email || 'teacher@ilmchi.uz'}
                   </p>
                 </div>
@@ -2037,7 +2037,7 @@ export const InteractiveReader: React.FC<InteractiveReaderProps> = ({
               <button
                 type="button"
                 onClick={handleExit}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#ECEEEA] hover:bg-[#D9DCD5] text-[#1F2933] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#EEF1F8] hover:bg-[#E6E9F2] text-[#1B2238] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Darslikdan çiqiş</span>

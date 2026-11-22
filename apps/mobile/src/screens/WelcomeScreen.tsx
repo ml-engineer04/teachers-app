@@ -5,14 +5,15 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   ActivityIndicator,
   Platform,
   BackHandler,
   RefreshControl,
   KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Circle, Polygon } from 'react-native-svg';
 import { mobileApi } from '../services/api/mobileApi';
 import { googleAuthService, GoogleAuthOutcome } from '../services/auth/googleAuthService';
@@ -204,6 +205,32 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
 
   // Device limit & offline state
   const [limitModalVisible, setLimitModalVisible] = useState(false);
+
+  // Dynamic Keyboard Height & Scrolling Refs
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const welcomeScrollRef = useRef<ScrollView>(null);
+  const otpScrollRef = useRef<ScrollView>(null);
+  const forgotScrollRef = useRef<ScrollView>(null);
+  const linkScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      },
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      },
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -435,7 +462,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         setSuccessMsg(
           tr(
             language,
-            'Emailingiz hali tasdiqlanmagan. Pochtadagi 6 xonali kodni kiriting.',
+            'Emailingiz hali tasdiqlanmagan. Poçtadagi 6 xonali kodni kiriting.',
             'Email ещё не подтверждён. Введите 6-значный код из письма.',
             'Email not verified yet. Enter the 6-digit code sent to your inbox.',
           ),
@@ -447,7 +474,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         err,
         tr(
           language,
-          'Email yoki parol noto‘g‘ri.',
+          'Email yoki parol notöğri.',
           'Неверный email или пароль.',
           'Invalid email or password.',
         ),
@@ -469,7 +496,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
       setErrorMsg(
         tr(
           language,
-          'Parol kamida 8 ta belgidan iborat bo‘lishi kerak',
+          'Parol kamida 8 ta belgidan iborat bölişi kerak',
           'Пароль должен содержать минимум 8 символов',
           'Password must be at least 8 characters',
         ),
@@ -498,7 +525,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         err,
         tr(
           language,
-          'Ro‘yxatdan o‘tishda xatolik yuz berdi.',
+          'Röyxatdan ötişda xatolik yuz berdi.',
           'Ошибка при регистрации.',
           'Registration failed.',
         ),
@@ -537,7 +564,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         err,
         tr(
           language,
-          'Tasdiqlash kodini yuborishda xatolik yuz berdi.',
+          'Tasdiqlaş kodini yuborişda xatolik yuz berdi.',
           'Не удалось отправить код подтверждения.',
           'Failed to send verification code.',
         ),
@@ -580,7 +607,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
       setErrorMsg(
         tr(
           language,
-          '6 xonali tasdiqlash kodini to‘liq kiriting',
+          '6 xonali tasdiqlaş kodini töliq kiriting',
           'Введите 6-значный код подтверждения полностью',
           'Please enter all 6 verification digits',
         ),
@@ -607,7 +634,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         err,
         tr(
           language,
-          'Kiritilgan tasdiqlash kodi noto‘g‘ri yoki muddati o‘tgan!',
+          'Kiritilgan tasdiqlaş kodi notöğri yoki muddati ötgan!',
           'Неверный или просроченный код подтверждения!',
           'Invalid or expired verification code!',
         ),
@@ -638,7 +665,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         err,
         tr(
           language,
-          'Parolni tiklash kodini yuborishda xatolik yuz berdi.',
+          'Parolni tiklaş kodini yuborişda xatolik yuz berdi.',
           'Не удалось отправить код сброса пароля.',
           'Failed to send password reset code.',
         ),
@@ -658,7 +685,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
       setErrorMsg(
         tr(
           language,
-          'Yangi parol kamida 8 ta belgidan iborat bo‘lishi kerak',
+          'Yangi parol kamida 8 ta belgidan iborat bölişi kerak',
           'Новый пароль должен содержать минимум 8 символов',
           'New password must be at least 8 characters',
         ),
@@ -684,7 +711,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         err,
         tr(
           language,
-          'Parolni yangilashda xatolik yuz berdi.',
+          'Parolni yangilaşda xatolik yuz berdi.',
           'Ошибка при обновлении пароля.',
           'Failed to update password.',
         ),
@@ -710,7 +737,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         err,
         tr(
           language,
-          'Bog‘lash kodini yuborishda xatolik yuz berdi.',
+          'Boğlaş kodini yuborişda xatolik yuz berdi.',
           'Не удалось отправить код привязки.',
           'Failed to send linking code.',
         ),
@@ -759,7 +786,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         err,
         tr(
           language,
-          'Hisobni tasdiqlab bo‘lmadi. Ma’lumotlarni tekshiring.',
+          'Hisobni tasdiqlab bölmadi. Ma’lumotlarni tekşiring.',
           'Не удалось подтвердить владение аккаунтом.',
           'Could not verify account ownership.',
         ),
@@ -845,7 +872,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, { backgroundColor: colors.background }]}>
       {/* =================================================================== */}
       {/* SCREEN 0: INITIAL PREFERENCES (LANGUAGE & THEME SELECTION)          */}
       {/* =================================================================== */}
@@ -861,7 +888,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
           <Text style={[styles.prefAppSubtitle, { color: colors.textSecondary }]}>
             {tr(
               language,
-              "O'qituvchilar uchun zamonaviy raqamli ta'lim platformasi",
+              "Öqituvçilar uçun zamonaviy raqamli ta'lim platformasi",
               'Современная цифровая образовательная платформа для учителей',
               'Modern digital educational platform for teachers',
             )}
@@ -876,7 +903,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
               <Text style={[styles.prefSectionHint, { color: colors.textMuted }]}>
                 {tr(
                   language,
-                  'Ilova qaysi tilda ko‘rsatilsin?',
+                  'Ilova qaysi tilda körsatilsin?',
                   'На каком языке отображать интерфейс?',
                   'Which language would you prefer?',
                 )}
@@ -885,7 +912,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
 
             <View style={styles.prefOptionsGrid}>
               {[
-                { code: 'uz' as const, flag: '🇺🇿', label: "O'zbekcha", sub: 'Lotin alifbosida' },
+                { code: 'uz' as const, flag: '🇺🇿', label: "Özbekça", sub: 'Lotin alifbosida' },
                 { code: 'ru' as const, flag: '🇷🇺', label: 'Русский', sub: 'Интерфейс на русском' },
                 { code: 'en' as const, flag: '🇬🇧', label: 'English', sub: 'International English' },
               ].map((item) => {
@@ -958,14 +985,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                 {
                   mode: 'light' as const,
                   icon: '☀️',
-                  label: tr(language, "Yorug' rejim", 'Светлая', 'Light'),
-                  sub: tr(language, 'Kunduzgi', 'Дневная', 'Daytime'),
+                  label: tr(language, "Yoruğ", 'Светлая', 'Light'),
                 },
                 {
                   mode: 'dark' as const,
                   icon: '🌙',
-                  label: tr(language, 'Tungi rejim', 'Темная', 'Dark'),
-                  sub: tr(language, 'Qulay kontrast', 'Комфорт глаз', 'High contrast'),
+                  label: tr(language, 'Tungi', 'Темная', 'Dark'),
                 },
               ].map((th) => {
                 const isSelected = themeMode === th.mode;
@@ -978,7 +1003,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                       {
                         backgroundColor: colors.surface,
                         borderColor: isSelected ? colors.primary : colors.border,
-                        borderWidth: isSelected ? 2 : 1,
+                        borderWidth: isSelected ? 1.5 : 1,
                       },
                     ]}
                     onPress={() => setThemeMode(th.mode)}
@@ -989,23 +1014,20 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                         styles.themeTitle,
                         { color: isSelected ? colors.primary : colors.textPrimary },
                       ]}
+                      numberOfLines={1}
                     >
                       {th.label}
                     </Text>
-                    <Text style={[styles.themeSub, { color: colors.textSecondary }]}>
-                      {th.sub}
-                    </Text>
                     <View
                       style={[
-                        styles.prefRadio,
+                        styles.prefRadioCompact,
                         {
-                          marginTop: 10,
                           borderColor: isSelected ? colors.primary : colors.border,
                           backgroundColor: isSelected ? colors.primary : 'transparent',
                         },
                       ]}
                     >
-                      {isSelected && <Text style={styles.prefRadioCheck}>✓</Text>}
+                      {isSelected && <Text style={styles.prefRadioCheckSmall}>✓</Text>}
                     </View>
                   </TouchableOpacity>
                 );
@@ -1023,14 +1045,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
             activeOpacity={0.85}
           >
             <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
-              {tr(language, 'Davom etish →', 'Продолжить →', 'Continue →')}
+              {tr(language, 'Davom etiş →', 'Продолжить →', 'Continue →')}
             </Text>
           </TouchableOpacity>
 
           <Text style={[styles.prefFooterNote, { color: colors.textMuted }]}>
             {tr(
               language,
-              '💡 Bularni istalgan payt sozlamalardan o‘zgartirishingiz mumkin',
+              '💡 Bularni istalgan payt sozlamalardan özgartirişingiz mumkin',
               '💡 Эти настройки можно изменить в любое время в профиле',
               '💡 You can change these anytime in settings',
             )}
@@ -1038,15 +1060,22 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
         </ScrollView>
       )}
 
-      {/* Top Back Bar for Login (No language switcher) */}
-      {step === 'INPUT_EMAIL' && authMode === 'LOGIN' && (
+      {/* Top Back Bar for Login & Register (Pinned to top-left) */}
+      {step === 'INPUT_EMAIL' && (
         <View style={styles.topBackBar}>
           <TouchableOpacity
             style={[
               styles.backIconBtn,
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
-            onPress={() => setStep('PREFERENCES')}
+            onPress={() => {
+              clearFeedback();
+              if (authMode === 'REGISTER') {
+                setAuthMode('LOGIN');
+              } else {
+                setStep('PREFERENCES');
+              }
+            }}
             activeOpacity={0.75}
             accessibilityLabel="Ortga"
           >
@@ -1059,14 +1088,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
       {/* SCREEN 1: LOGIN / REGISTER / GOOGLE AUTH ENTRY                       */}
       {/* =================================================================== */}
       {step === 'INPUT_EMAIL' && (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1, width: '100%' }}
-        >
+        <View style={{ flex: 1, width: '100%' }}>
           <ScrollView
-            contentContainerStyle={styles.welcomeScroll}
+            contentContainerStyle={[
+              styles.welcomeScroll,
+              {
+                paddingBottom: keyboardHeight > 0 ? keyboardHeight + 24 : 32,
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -1075,8 +1107,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
               />
             }
           >
-            {authMode === 'LOGIN' ? (
-              <>
+            <View style={styles.formCenterWrapper}>
+              {authMode === 'LOGIN' ? (
+                <>
                 <View style={[styles.brandCenter, { marginBottom: 16 }]}>
                   <BrandLogo size={56} withContainer darkSurface={isDark} />
                 </View>
@@ -1222,7 +1255,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                       <Text style={[styles.googleLoadingText, { color: colors.primary }]}>
                         {tr(
                           language,
-                          'Google hisobingiz tekshirilmoqda...',
+                          'Google hisobingiz tekşirilmoqda...',
                           'Проверка аккаунта Google...',
                           'Verifying Google account...',
                         )}
@@ -1272,7 +1305,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
               <Text style={[styles.termsText, { color: colors.textMuted }]}>
                 {tr(
                   language,
-                  'Maxfiylik siyosati • Foydalanish shartlari',
+                  'Maxfiylik siyosati • Foydalaniş şartlari',
                   'Политика конфиденциальности • Условия использования',
                   'Privacy Policy • Terms of Service',
                 )}
@@ -1281,25 +1314,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
           ) : (
             <>
               {/* Register View */}
-              <View style={styles.topRegisterBar}>
-                <TouchableOpacity
-                  style={[
-                    styles.backIconBtn,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                  ]}
-                  onPress={() => {
-                    clearFeedback();
-                    setAuthMode('LOGIN');
-                  }}
-                  activeOpacity={0.75}
-                  accessibilityLabel="Ortga"
-                >
-                  <BackArrowIcon color={colors.textPrimary} />
-                </TouchableOpacity>
-                <View style={styles.brandCenter}>
-                  <BrandLogo size={38} withContainer darkSurface={isDark} />
-                </View>
-                <View style={{ width: 40 }} />
+              <View style={[styles.brandCenter, { marginBottom: 16 }]}>
+                <BrandLogo size={56} withContainer darkSurface={isDark} />
               </View>
 
               <Text style={[styles.welcomeTitle, { marginBottom: 4, color: colors.textPrimary }]}>
@@ -1451,8 +1467,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
               </TouchableOpacity>
             </>
           )}
+          </View>
         </ScrollView>
-        </KeyboardAvoidingView>
+        </View>
       )}
 
       {/* =================================================================== */}
@@ -1483,7 +1500,18 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
             </TouchableOpacity>
           </View>
 
-          <View style={styles.otpCenter}>
+          <ScrollView
+            ref={otpScrollRef}
+            contentContainerStyle={[
+              styles.otpCenter,
+              {
+                paddingBottom: keyboardHeight > 0 ? keyboardHeight + 24 : 32,
+              },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+          >
             <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft }]}>
               <Svg width={52} height={52} viewBox="0 0 64 64" fill="none">
                 <Rect x="8" y="16" width="44" height="32" rx="6" fill="#2A4FB8" />
@@ -1613,7 +1641,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
                 {strings.auth.backToLogin}
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       )}
 
@@ -1621,7 +1649,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
       {/* SCREEN 3: FORGOT / RESET PASSWORD                                    */}
       {/* =================================================================== */}
       {step === 'FORGOT_PASSWORD' && (
-        <ScrollView contentContainerStyle={styles.otpCenter} showsVerticalScrollIndicator={false}>
+        <View style={{ flex: 1, width: '100%' }}>
           <View style={styles.topBackBar}>
             <TouchableOpacity
               style={[
@@ -1640,9 +1668,22 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
             </TouchableOpacity>
           </View>
 
-          <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft }]}>
-            <Text style={{ fontSize: 32 }}>🔑</Text>
-          </View>
+          <ScrollView
+            ref={forgotScrollRef}
+            contentContainerStyle={[
+              styles.otpCenter,
+              {
+                paddingBottom: keyboardHeight > 0 ? keyboardHeight + 24 : 32,
+              },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+          >
+            <View style={styles.formCenterWrapper}>
+              <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft }]}>
+                <Text style={{ fontSize: 32 }}>🔑</Text>
+              </View>
 
           <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>
             {resetCodeSent ? strings.auth.resetTitle : strings.auth.forgotTitle}
@@ -1758,14 +1799,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
               </Text>
             )}
           </TouchableOpacity>
+          </View>
         </ScrollView>
+        </View>
       )}
 
       {/* =================================================================== */}
       {/* SCREEN 4: SECURE GOOGLE ACCOUNT LINKING (SCENARIO C)                 */}
       {/* =================================================================== */}
       {step === 'LINK_GOOGLE' && (
-        <ScrollView contentContainerStyle={styles.otpCenter} showsVerticalScrollIndicator={false}>
+        <View style={{ flex: 1, width: '100%' }}>
           <View style={styles.topBackBar}>
             <TouchableOpacity
               style={[
@@ -1784,6 +1827,19 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
             </TouchableOpacity>
           </View>
 
+          <ScrollView
+            ref={linkScrollRef}
+            contentContainerStyle={[
+              styles.otpCenter,
+              {
+                paddingBottom: keyboardHeight > 0 ? keyboardHeight + 24 : 32,
+              },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+          >
+
           <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft }]}>
             <GoogleLogoIcon size={34} />
           </View>
@@ -1791,7 +1847,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
           <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>
             {tr(
               language,
-              'Hisobni xavfsiz bog‘lash',
+              'Hisobni xavfsiz boğlaş',
               'Подтверждение владельца аккаунта',
               'Verify Account Ownership',
             )}
@@ -1955,7 +2011,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
               <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
                 {tr(
                   language,
-                  'Tasdiqlash va Google ulash',
+                  'Tasdiqlaş va Google ulaş',
                   'Подтвердить и привязать Google',
                   'Verify & Link Google',
                 )}
@@ -1963,6 +2019,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
             )}
           </TouchableOpacity>
         </ScrollView>
+        </View>
       )}
 
       {/* =================================================================== */}
@@ -2106,13 +2163,17 @@ const styles = StyleSheet.create({
   welcomeScroll: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  formCenterWrapper: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   topLangBar: {
     width: '100%',
@@ -2231,6 +2292,8 @@ const styles = StyleSheet.create({
   },
   nameRow: {
     width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
     flexDirection: 'row',
     gap: 8,
   },
@@ -2239,6 +2302,8 @@ const styles = StyleSheet.create({
   },
   emailInputWrap: {
     width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
     height: 44,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2274,6 +2339,8 @@ const styles = StyleSheet.create({
   },
   forgotRow: {
     width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
     alignItems: 'flex-end',
     marginTop: -2,
     marginBottom: 10,
@@ -2285,6 +2352,8 @@ const styles = StyleSheet.create({
   },
   primaryPillBtn: {
     width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
     backgroundColor: DS.colors.primary,
     borderRadius: DS.radius.pill,
     paddingVertical: 14,
@@ -2303,6 +2372,8 @@ const styles = StyleSheet.create({
   },
   dividerRow: {
     width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 14,
@@ -2321,6 +2392,8 @@ const styles = StyleSheet.create({
   },
   gisHostOuter: {
     width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
     alignItems: 'center',
     marginBottom: 14,
   },
@@ -2343,6 +2416,8 @@ const styles = StyleSheet.create({
   },
   googlePillBtn: {
     width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
     backgroundColor: DS.colors.white,
     borderRadius: DS.radius.pill,
     paddingVertical: 13,
@@ -2397,6 +2472,8 @@ const styles = StyleSheet.create({
   },
   errorBox: {
     width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
     backgroundColor: DS.colors.dangerSoft,
     borderRadius: DS.radius.sm,
     padding: 10,
@@ -2410,6 +2487,8 @@ const styles = StyleSheet.create({
   },
   successBox: {
     width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
     backgroundColor: DS.colors.successSoft,
     borderRadius: DS.radius.sm,
     borderWidth: 1,
@@ -2425,25 +2504,26 @@ const styles = StyleSheet.create({
   },
   topBackBar: {
     width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 4,
     alignItems: 'flex-start',
+    zIndex: 10,
   },
   topRegisterBar: {
     width: '100%',
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 4,
+    paddingBottom: 6,
     marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   backIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: DS.colors.border,
     justifyContent: 'center',
@@ -2466,11 +2546,6 @@ const styles = StyleSheet.create({
   otpCenter: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: 420,
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2720,29 +2795,45 @@ const styles = StyleSheet.create({
   },
   themeGridRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     width: '100%',
   },
   themeCard: {
     flex: 1,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowRadius: 4,
     elevation: 1,
   },
   themeIcon: {
-    fontSize: 26,
-    marginBottom: 6,
+    fontSize: 20,
+    marginRight: 6,
   },
   themeTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    textAlign: 'center',
+    flex: 1,
+  },
+  prefRadioCompact: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prefRadioCheckSmall: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+    lineHeight: 13,
   },
   themeSub: {
     fontSize: 11,

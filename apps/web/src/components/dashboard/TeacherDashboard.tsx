@@ -212,7 +212,7 @@ export const TeacherDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-[#F4F5F2] dark:bg-[#15181E] text-[#1F2933] dark:text-[#E6E8EC] transition-colors">
+    <div className="min-h-screen flex bg-[#F6F7FB] dark:bg-[#0E1220] text-[#1B2238] dark:text-[#E9ECF7] transition-colors">
       {/* Sidebar */}
       <Sidebar
         currentTab={currentTab}
@@ -233,9 +233,9 @@ export const TeacherDashboard: React.FC = () => {
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           {/* Top Banner: Expiring Subscription Warning (<= 3 days remaining) */}
           {expiringSubscription && (
-            <div className="p-4 rounded-2xl bg-[#FFFBEB] dark:bg-[#92400E]/30 border border-[#FCD34D]/60 dark:border-[#B45309]/50 text-[#B45309] dark:text-[#FBBF24] flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-300">
+            <div className="p-4 rounded-2xl bg-[#FDF3E1] dark:bg-[#3A2B10] border border-[#8A5A0B]/30 dark:border-[#F0B95B]/30 text-[#8A5A0B] dark:text-[#F0B95B] flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-300">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-[#B45309] dark:text-[#FBBF24] shrink-0" />
+                <AlertTriangle className="w-5 h-5 text-[#8A5A0B] dark:text-[#F0B95B] shrink-0" />
                 <div className="text-xs sm:text-sm">
                   <span className="font-black">{t('dashboard.expiringWarning')}{' '}</span>
                   {t('dashboard.expiringDesc', {
@@ -247,7 +247,7 @@ export const TeacherDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('/dashboard/plans')}
-                className="px-4 py-2 rounded-xl bg-[#B45309] hover:bg-[#92400E] text-white font-bold text-xs shrink-0 shadow-sm transition-all"
+                className="px-4 py-2 rounded-xl bg-[#8A5A0B] hover:bg-[#6D4507] dark:bg-[#F0B95B] dark:hover:bg-[#E5A844] text-white dark:text-[#171C2E] font-bold text-xs shrink-0 shadow-sm transition-all"
               >
                 {t('dashboard.extendSubscriptionBtn')}
               </button>
@@ -256,8 +256,8 @@ export const TeacherDashboard: React.FC = () => {
 
           {loading ? (
             <div className="h-64 flex flex-col items-center justify-center gap-3">
-              <Loader2 className="w-8 h-8 text-[#2A4FB8] dark:text-[#5B93FA] animate-spin" />
-              <p className="text-xs font-bold text-[#5B6672] dark:text-[#9AA3B0]">{t('common.loading')}</p>
+              <Loader2 className="w-8 h-8 text-[#2A4FB8] dark:text-[#4F72EE] animate-spin" />
+              <p className="text-xs font-bold text-[#7A8299] dark:text-[#8B93AD]">{t('common.loading')}</p>
             </div>
           ) : (
             <>
@@ -267,16 +267,16 @@ export const TeacherDashboard: React.FC = () => {
                   {/* Greeting & Quick Stats */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl sm:text-3xl font-black text-[#142452] dark:text-[#E6E8EC] tracking-tight">
+                      <h1 className="text-2xl sm:text-3xl font-black text-[#1B2238] dark:text-[#E9ECF7] tracking-tight">
                         {t('dashboard.greeting', { name: user?.fullName || user?.email || t('common.userFallback') })}
                       </h1>
-                      <p className="text-xs sm:text-sm text-[#5B6672] dark:text-[#9AA3B0] mt-1">
+                      <p className="text-xs sm:text-sm text-[#7A8299] dark:text-[#8B93AD] mt-1">
                         {t('dashboard.subtitle')}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="px-3.5 py-1.5 rounded-2xl bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] font-bold text-xs border border-[#BAD2FF] dark:border-[#223F94]">
+                      <span className="px-3.5 py-1.5 rounded-2xl bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#1D3A8F] dark:text-[#B3C4FA] font-bold text-xs border border-[#C9D6F5] dark:border-[#34478C]">
                         {t('dashboard.subscribedBooksCount', { count: visibleBooks.length })}
                       </span>
                     </div>
@@ -284,20 +284,20 @@ export const TeacherDashboard: React.FC = () => {
 
                   {visibleGrades.length === 0 ? (
                     /* No Subscriptions State */
-                    <div className="rounded-3xl p-8 sm:p-10 bg-[#FBFBF9] dark:bg-[#1E222A] border border-[#D9DCD5] dark:border-[#353B47] shadow-soft text-center max-w-xl mx-auto my-4 space-y-4">
-                      <div className="w-16 h-16 rounded-2xl bg-[#EEF4FF] dark:bg-[#142452] text-[#2A4FB8] dark:text-[#5B93FA] mx-auto flex items-center justify-center">
+                    <div className="rounded-3xl p-8 sm:p-10 bg-[#FFFFFF] dark:bg-[#171C2E] border border-[#E6E9F2] dark:border-[#262C42] shadow-sm text-center max-w-xl mx-auto my-4 space-y-4">
+                      <div className="w-16 h-16 rounded-2xl bg-[#E8EDFB] dark:bg-[#1E2A55] text-[#2A4FB8] dark:text-[#4F72EE] mx-auto flex items-center justify-center">
                         <CreditCard className="w-8 h-8" />
                       </div>
-                      <h3 className="text-xl font-bold text-[#142452] dark:text-[#E6E8EC]">
+                      <h3 className="text-xl font-bold text-[#1B2238] dark:text-[#E9ECF7]">
                         {t('dashboard.noSubscriptionsTitle')}
                       </h3>
-                      <p className="text-xs sm:text-sm text-[#5B6672] dark:text-[#9AA3B0] max-w-md mx-auto leading-relaxed">
+                      <p className="text-xs sm:text-sm text-[#7A8299] dark:text-[#8B93AD] max-w-md mx-auto leading-relaxed">
                         {t('dashboard.noSubscriptionsDesc')}
                       </p>
                       <button
                         type="button"
                         onClick={() => navigate('/dashboard/plans')}
-                        className="px-6 py-3 rounded-2xl bg-[#2A4FB8] hover:bg-[#223F94] text-white font-bold text-xs shadow-md shadow-[#2A4FB8]/25 active:scale-95 transition-all inline-flex items-center gap-2"
+                        className="px-6 py-3 rounded-2xl bg-[#2A4FB8] hover:bg-[#234399] dark:bg-[#4F72EE] dark:hover:bg-[#6384F1] text-white font-bold text-xs shadow-md shadow-[#2A4FB8]/25 active:scale-95 transition-all inline-flex items-center gap-2"
                       >
                         <span>{t('dashboard.goToPlansBtn')}</span>
                         <ArrowRight className="w-4 h-4" />
@@ -317,15 +317,15 @@ export const TeacherDashboard: React.FC = () => {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <GraduationCap className="w-5 h-5 text-[#2A4FB8] dark:text-[#5B93FA]" />
-                            <h2 className="text-lg sm:text-xl font-black text-[#142452] dark:text-[#E6E8EC]">
+                            <GraduationCap className="w-5 h-5 text-[#2A4FB8] dark:text-[#4F72EE]" />
+                            <h2 className="text-lg sm:text-xl font-black text-[#1B2238] dark:text-[#E9ECF7]">
                               {t('dashboard.myClassesTitle')}
                             </h2>
                           </div>
                           <button
                             type="button"
                             onClick={() => navigate('/dashboard/grades')}
-                            className="text-xs font-bold text-[#2A4FB8] dark:text-[#5B93FA] hover:underline"
+                            className="text-xs font-bold text-[#2A4FB8] dark:text-[#8FA8F7] hover:underline"
                           >
                             {t('dashboard.viewAllBtn')}
                           </button>
@@ -349,10 +349,10 @@ export const TeacherDashboard: React.FC = () => {
               {currentTab === 'GRADES' && (
                 <div className="space-y-6 animate-in fade-in duration-200">
                   <div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-[#142452] dark:text-[#E6E8EC] tracking-tight">
+                    <h1 className="text-2xl sm:text-3xl font-black text-[#1B2238] dark:text-[#E9ECF7] tracking-tight">
                       {t('dashboard.gradesTabTitle')}
                     </h1>
-                    <p className="text-xs sm:text-sm text-[#5B6672] dark:text-[#9AA3B0] mt-1">
+                    <p className="text-xs sm:text-sm text-[#7A8299] dark:text-[#8B93AD] mt-1">
                       {t('dashboard.gradesTabSubtitle')}
                     </p>
                   </div>

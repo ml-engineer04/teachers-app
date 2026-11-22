@@ -5,40 +5,103 @@
 @layer base {
   :root {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    --ilmchi-purple: #2A4FB8;
-    --ilmchi-purple-dark: #223F94;
-    --ilmchi-secondary-purple: #3461D6;
+
+    /* Web Teacher UI Color Tokens - Light Mode */
+    --bg: #F6F7FB;
+    --card: #FFFFFF;
+    --border: #E6E9F2;
+    --text: #1B2238;
+    --text-2: #7A8299;
+    --text-muted: #9AA1B5;
+    --primary: #2A4FB8;
+    --on-primary: #FFFFFF;
+    --accent-text: #2A4FB8;
+    --accent-soft: #E8EDFB;
+    --accent-soft-text: #1D3A8F;
+    --accent-soft-border: #C9D6F5;
+    --selected: #EEF2FD;
+    --success-soft: #E3F5EE;
+    --success-text: #0F6E56;
+    --field: #EEF1F8;
+    --progress-track: #E4E9F7;
+    --disabled-bg: #F0F2F8;
+
+    /* Web Extra Tokens - Light */
+    --primary-hover: #234399;
+    --row-hover: #F0F3FB;
+    --focus-ring: rgba(42, 79, 184, 0.35);
+    --warning-soft: #FDF3E1;
+    --warning-text: #8A5A0B;
+    --danger-soft: #FCEBEA;
+    --danger-text: #B3322A;
+    --danger: #C0392B;
+
+    /* Legacy mapping for backward-compatibility */
+    --ilmchi-purple: var(--primary);
+    --ilmchi-purple-dark: var(--primary-hover);
+    --ilmchi-secondary-purple: var(--primary);
     --ilmchi-blue: #0369A1;
-    --ilmchi-teal: #0E7C70;
-    --ilmchi-navy: #142452;
-    --ilmchi-text-primary: #1F2933;
-    --ilmchi-text-secondary: #5B6672;
-    --ilmchi-text-muted: #8DB5FF;
-    --ilmchi-bg: #F4F5F2;
-    --ilmchi-card: #FBFBF9;
-    --ilmchi-border: #D9DCD5;
-    --ilmchi-light-purple: #EEF4FF;
-    --ilmchi-light-blue: #EEF8FD;
-    --ilmchi-light-teal: #E6F6F4;
-    --gradient-primary: linear-gradient(135deg, #2A4FB8 0%, #223F94 100%);
-    --gradient-purple-blue: linear-gradient(135deg, #3461D6 0%, #0369A1 100%);
-    --gradient-blue-teal: linear-gradient(135deg, #0369A1 0%, #0E7C70 100%);
+    --ilmchi-teal: var(--success-text);
+    --ilmchi-navy: var(--text);
+    --ilmchi-text-primary: var(--text);
+    --ilmchi-text-secondary: var(--text-2);
+    --ilmchi-text-muted: var(--text-muted);
+    --ilmchi-bg: var(--bg);
+    --ilmchi-card: var(--card);
+    --ilmchi-border: var(--border);
+    --ilmchi-light-purple: var(--accent-soft);
+    --ilmchi-light-blue: var(--selected);
+    --ilmchi-light-teal: var(--success-soft);
+    --gradient-primary: linear-gradient(135deg, #2A4FB8 0%, #234399 100%);
+    --gradient-purple-blue: linear-gradient(135deg, #2A4FB8 0%, #0369A1 100%);
+    --gradient-blue-teal: linear-gradient(135deg, #0369A1 0%, #0F6E56 100%);
     --gradient-premium-dark: linear-gradient(135deg, #2A4FB8 0%, #1C3375 55%, #142452 100%);
-    --gradient-bg: linear-gradient(135deg, #EEF4FF 0%, #F4F5F2 50%, #E6F6F4 100%);
-    --shadow-purple: 0 8px 24px -4px rgba(42, 79, 184, 0.15);
-    --shadow-blue: 0 8px 24px -4px rgba(3, 105, 161, 0.15);
-    --shadow-teal: 0 8px 24px -4px rgba(14, 124, 112, 0.15);
+    --gradient-bg: linear-gradient(135deg, #E8EDFB 0%, #F6F7FB 50%, #E3F5EE 100%);
+    --shadow-purple: 0 4px 16px -2px rgba(42, 79, 184, 0.12);
+    --shadow-blue: 0 4px 16px -2px rgba(3, 105, 161, 0.12);
+    --shadow-teal: 0 4px 16px -2px rgba(15, 110, 86, 0.12);
   }
 
   html.dark {
-    --ilmchi-bg: #15181E;
-    --ilmchi-card: #1E222A;
-    --ilmchi-card-elevated: #272C36;
-    --ilmchi-text-primary: #E6E8EC;
-    --ilmchi-text-secondary: #9AA3B0;
-    --ilmchi-border: #353B47;
-    --ilmchi-primary: #5B93FA;
-    --ilmchi-teal: #5ED3C4;
+    /* Web Teacher UI Color Tokens - Dark Mode */
+    --bg: #0E1220;
+    --card: #171C2E;
+    --border: #262C42;
+    --text: #E9ECF7;
+    --text-2: #8B93AD;
+    --text-muted: #69718C;
+    --primary: #4F72EE;
+    --on-primary: #FFFFFF;
+    --accent-text: #8FA8F7;
+    --accent-soft: #1E2A55;
+    --accent-soft-text: #B3C4FA;
+    --accent-soft-border: #34478C;
+    --selected: #182252;
+    --success-soft: #12332B;
+    --success-text: #5FD1AC;
+    --field: #10152A;
+    --progress-track: #262C42;
+    --disabled-bg: #262C42;
+
+    /* Web Extra Tokens - Dark */
+    --primary-hover: #6384F1;
+    --row-hover: #1C2236;
+    --focus-ring: rgba(79, 114, 238, 0.45);
+    --warning-soft: #3A2B10;
+    --warning-text: #F0B95B;
+    --danger-soft: #3A1B1D;
+    --danger-text: #F0857A;
+    --danger: #F0857A;
+
+    /* Legacy mapping for backward-compatibility */
+    --ilmchi-bg: var(--bg);
+    --ilmchi-card: var(--card);
+    --ilmchi-card-elevated: #1E2A55;
+    --ilmchi-text-primary: var(--text);
+    --ilmchi-text-secondary: var(--text-2);
+    --ilmchi-border: var(--border);
+    --ilmchi-primary: var(--primary);
+    --ilmchi-teal: var(--success-text);
   }
 
   html {

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   AppLanguage,
   getCachedPreferences,
@@ -98,18 +98,21 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [language],
   );
 
+  const contextValue = useMemo(
+    () => ({
+      language,
+      strings,
+      setLanguage,
+      t,
+      formatGrade,
+      formatSubject,
+      formatBookType,
+    }),
+    [language, strings, setLanguage, t, formatGrade, formatSubject, formatBookType],
+  );
+
   return (
-    <I18nContext.Provider
-      value={{
-        language,
-        strings,
-        setLanguage,
-        t,
-        formatGrade,
-        formatSubject,
-        formatBookType,
-      }}
-    >
+    <I18nContext.Provider value={contextValue}>
       {children}
     </I18nContext.Provider>
   );

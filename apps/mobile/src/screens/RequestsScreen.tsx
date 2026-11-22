@@ -8,7 +8,10 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
+  Keyboard,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import {
   AccessRequest,
@@ -46,6 +49,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
   onBack,
   onRequestSubmittedAndApproved,
 }) => {
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { language, strings, t, formatGrade, formatSubject } = useI18n();
 
@@ -64,6 +68,26 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      },
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      },
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const [submittedInfo, setSubmittedInfo] = useState<{
     grade: number;
@@ -405,13 +429,17 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
       <View
         style={[
           styles.header,
-          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+          {
+            backgroundColor: colors.background,
+            borderBottomColor: colors.border,
+            paddingTop: Math.max(insets.top, 14),
+          },
         ]}
       >
         <View style={[styles.headerLeft, { flex: 1 }]}>
           {onBack && (
             <TouchableOpacity
-              style={[styles.iconBtn, { backgroundColor: colors.backgroundSecondary }]}
+              style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
               onPress={onBack}
             >
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -438,8 +466,18 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingBottom:
+              96 +
+              Math.max(insets.bottom, 12) +
+              (keyboardHeight > 0 ? keyboardHeight : 0),
+          },
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -470,7 +508,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                   key={g}
                   style={[
                     styles.gradePill,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    { backgroundColor: colors.card, borderColor: colors.border },
                     active && { backgroundColor: colors.primary, borderColor: colors.primary },
                   ]}
                   onPress={() => setGrade(g)}
@@ -502,8 +540,8 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                 key={sub.id}
                 style={[
                   styles.subjectChip,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                  active && { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  active && { backgroundColor: colors.accentSoft, borderColor: colors.accentSoftBorder },
                 ]}
                 onPress={() => setSelectedSubjectId(sub.id)}
                 activeOpacity={0.8}
@@ -512,7 +550,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                 <Text
                   style={[
                     styles.subjectName,
-                    { color: active ? colors.primaryText : colors.textSecondary },
+                    { color: active ? colors.accentSoftText : colors.textSecondary },
                   ]}
                 >
                   {formatSubject(sub.name, sub.id)}
@@ -535,8 +573,11 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                 style={[
                   styles.planCard,
                   {
-                    backgroundColor: isSelected ? colors.primarySoft : colors.cardBg,
+                    backgroundColor: isSelected
+                      ? (colors.isDark ? colors.selectedPlanFill : '#EEF2FD')
+                      : colors.card,
                     borderColor: isSelected ? colors.primary : colors.border,
+                    borderWidth: isSelected ? 1.5 : 1,
                   },
                 ]}
                 onPress={() => setSelectedPlan(plan.id)}
@@ -546,7 +587,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                   <View
                     style={[
                       styles.radioOuter,
-                      { borderColor: isSelected ? colors.primary : colors.textMuted },
+                      { borderColor: isSelected ? colors.primary : colors.border },
                     ]}
                   >
                     {isSelected && (
@@ -567,7 +608,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                 <Text
                   style={[
                     styles.planPrice,
-                    { color: isSelected ? colors.primaryText : colors.textPrimary },
+                    { color: isSelected ? colors.accentText : colors.textPrimary },
                   ]}
                 >
                   {Number(plan.priceUzs || 0).toLocaleString()} {strings.common.currencySom}
@@ -584,14 +625,14 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
         <View
           style={[
             styles.phoneCard,
-            { backgroundColor: colors.cardBg, borderColor: colors.border },
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
           <TextInput
             style={[
               styles.phoneInput,
               {
-                backgroundColor: colors.inputBg,
+                backgroundColor: colors.inputFill,
                 color: colors.textPrimary,
                 borderColor: colors.border,
               },
@@ -809,11 +850,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   planList: {
-    gap: 10,
+    gap: 8,
   },
   planCard: {
-    borderRadius: DS.radius.md,
-    padding: 14,
+    borderRadius: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
     borderWidth: 1.5,
     flexDirection: 'row',
     alignItems: 'center',
