@@ -3,9 +3,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { RequestTimingInterceptor } from './common/interceptors/request-timing.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.useGlobalInterceptors(new RequestTimingInterceptor());
 
   // Security Headers via Helmet (allow cross-origin media/cover/pdf streaming for mobile & admin web)
   app.use(

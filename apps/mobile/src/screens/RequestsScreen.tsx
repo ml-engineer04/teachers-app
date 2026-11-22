@@ -109,6 +109,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
 
   const loadData = useCallback(
     async (silent = false) => {
+      const t0 = typeof __DEV__ !== 'undefined' && __DEV__ ? Date.now() : 0;
       if (!silent) setLoading(true);
       try {
         const online = await mobileApi.checkConnectivity();
@@ -171,6 +172,9 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
         }
       } finally {
         if (!silent) setLoading(false);
+        if (t0 > 0) {
+          console.log(`⏱️ [SCREEN_LOAD] RequestsScreen | ${Date.now() - t0}ms`);
+        }
       }
     },
     [

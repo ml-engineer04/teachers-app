@@ -124,6 +124,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   }, [expiredModalVisible, searchQuery]);
 
   const loadHomeData = useCallback(async () => {
+    const t0 = typeof __DEV__ !== 'undefined' && __DEV__ ? Date.now() : 0;
     try {
       // 1. Instant Cache Hydration (stale-while-revalidate for frame-0 render)
       const [cachedGrades, cachedSubjects, cachedBooks, cachedProgress, localAccess] =
@@ -192,6 +193,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       notify.warning(strings.common.error, err?.message || strings.common.unknownError);
     } finally {
       setLoading(false);
+      if (t0 > 0) {
+        console.log(`⏱️ [SCREEN_LOAD] HomeScreen | ${Date.now() - t0}ms`);
+      }
     }
   }, [userEmail, strings.common.error, strings.common.unknownError]);
 

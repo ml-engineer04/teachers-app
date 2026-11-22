@@ -225,6 +225,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   }, [strings.common.noData, strings.common.warning]);
 
   const loadSubscriptions = useCallback(async () => {
+    const t0 = typeof __DEV__ !== 'undefined' && __DEV__ ? Date.now() : 0;
     setLoadingSubs(true);
     try {
       const [subs, subList] = await Promise.all([
@@ -237,6 +238,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       setSubscriptions([]);
     } finally {
       setLoadingSubs(false);
+      if (t0 > 0) {
+        console.log(`⏱️ [SCREEN_LOAD] SettingsScreen (Subscriptions) | ${Date.now() - t0}ms`);
+      }
     }
   }, []);
 

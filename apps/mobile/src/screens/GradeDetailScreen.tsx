@@ -170,6 +170,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
 
   const loadCatalogData = useCallback(
     async (silent = false) => {
+      const t0 = typeof __DEV__ !== 'undefined' && __DEV__ ? Date.now() : 0;
       try {
         await DownloadsManager.init();
         // 1. Instant Cache Hydration (stale-while-revalidate for frame-0 render)
@@ -226,6 +227,9 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
         setIsOfflineMode(true);
       } finally {
         if (!silent) setLoading(false);
+        if (t0 > 0) {
+          console.log(`⏱️ [SCREEN_LOAD] GradeDetailScreen | ${Date.now() - t0}ms`);
+        }
       }
     },
     [

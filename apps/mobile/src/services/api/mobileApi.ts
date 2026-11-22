@@ -158,6 +158,7 @@ async function executeRequest<T>(endpoint: string, options?: RequestInit, isRetr
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  const tStart = typeof __DEV__ !== 'undefined' && __DEV__ ? Date.now() : 0;
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${endpoint}`, {
@@ -165,7 +166,17 @@ async function executeRequest<T>(endpoint: string, options?: RequestInit, isRetr
       signal: options?.signal || controller.signal,
       ...options,
     });
+    if (tStart > 0) {
+      console.log(
+        `⏱️ [MOBILE_API] ${options?.method || 'GET'} ${endpoint} | ${res.status} | ${Date.now() - tStart}ms`,
+      );
+    }
   } catch (netErr: any) {
+    if (tStart > 0) {
+      console.warn(
+        `⏱️ [MOBILE_API_ERR] ${options?.method || 'GET'} ${endpoint} | ${Date.now() - tStart}ms | ${netErr?.message}`,
+      );
+    }
     const isTimeout = netErr?.name === 'AbortError';
     const error: ApiError = new Error(
       isTimeout ? 'Tarmoq so‘rovi vaqti tugadi (timeout)' : netErr?.message || 'Internet aloqasi mavjud emas',

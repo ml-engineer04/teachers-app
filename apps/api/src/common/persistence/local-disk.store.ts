@@ -41,12 +41,19 @@ export function readJsonDiskSync<T>(filename: string): T | null {
 }
 
 export function writeJsonDiskSync(filename: string, payload: unknown): void {
+  const t0 =
+    process.env.REQUEST_TIMING === '1' || process.env.REQUEST_TIMING === 'true'
+      ? Date.now()
+      : 0;
   const dir = resolveApiDataDir();
   fs.mkdirSync(dir, { recursive: true });
   const targetPath = path.join(dir, filename);
   const tempPath = `${targetPath}.tmp`;
   fs.writeFileSync(tempPath, JSON.stringify(payload, null, 2), 'utf-8');
   fs.renameSync(tempPath, targetPath);
+  if (t0 > 0) {
+    console.log(`⏱️ [DISK_WRITE_SYNC] ${filename} | ${Date.now() - t0}ms`);
+  }
 }
 
 export function writeBinaryDiskSync(subdir: string, filename: string, buffer: Buffer): void {
