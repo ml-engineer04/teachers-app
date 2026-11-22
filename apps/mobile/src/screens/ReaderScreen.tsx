@@ -260,6 +260,24 @@ const VERTICAL_WINDOW_BACKWARD = 2;
 const VERTICAL_WINDOW_FORWARD = 4;
 const EMPTY_HOTSPOTS: Hotspot[] = [];
 
+function buildPageImageUrl(
+  bookId: string,
+  pageNumber: number,
+  pageObj?: { imageHighUrl?: string; imageNormalUrl?: string; imageUrl?: string } | null,
+  versionParam?: string | number,
+): string {
+  let base =
+    pageObj?.imageHighUrl ||
+    pageObj?.imageNormalUrl ||
+    pageObj?.imageUrl ||
+    `/content/books/${bookId}/pages/${pageNumber}/image`;
+
+  if (versionParam && !base.includes('?v=') && !base.includes('&v=')) {
+    base = `${base}${base.includes('?') ? '&' : '?'}v=${encodeURIComponent(String(versionParam))}`;
+  }
+  return base;
+}
+
 interface ReaderVerticalPageCardProps {
   pageNumber: number;
   inWindow: boolean;
@@ -871,13 +889,15 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
 
     // Instant optimistic pages initialization: starts rendering page image at 0ms!
     const versionParam = (book as any).pagesVersion || (book as any).version || '';
-    const versionQuery = versionParam ? `?v=${versionParam}` : '';
-    const initialOptimisticPages = Array.from({ length: optimisticTotal }, (_, i) => ({
-      pageNumber: i + 1,
-      imageUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image${versionQuery}`,
-      imageNormalUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image${versionQuery}`,
-      imageHighUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image${versionQuery}`,
-    }));
+    const initialOptimisticPages = Array.from({ length: optimisticTotal }, (_, i) => {
+      const pageUrl = buildPageImageUrl(book.id, i + 1, null, versionParam);
+      return {
+        pageNumber: i + 1,
+        imageUrl: pageUrl,
+        imageNormalUrl: pageUrl,
+        imageHighUrl: pageUrl,
+      };
+    });
     setPages(initialOptimisticPages);
     setLoadingBook(false);
     pdfDocRef.current = null;
@@ -1230,19 +1250,6 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     initialPage,
     progressUserKey,
   ]);
-
-  // Adjacent Page Smart Pre-fetch: guarantees next/previous page is already in image cache
-  useEffect(() => {
-    if (!book?.id || totalPages <= 0 || isOfflineSession) return;
-    const nextPg = currentPage + 1;
-    const prevPg = currentPage - 1;
-    if (nextPg <= totalPages) {
-      Image.prefetch(`${mobileApi.API_BASE}/content/books/${book.id}/pages/${nextPg}/image`).catch(() => {});
-    }
-    if (prevPg >= 1) {
-      Image.prefetch(`${mobileApi.API_BASE}/content/books/${book.id}/pages/${prevPg}/image`).catch(() => {});
-    }
-  }, [currentPage, totalPages, book?.id, isOfflineSession]);
 
   const handlePullRefreshBook = useCallback(async () => {
     setRefreshingBook(true);
@@ -1609,34 +1616,33 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     [offlineAssetUrlMap],
   );
 
-  // Lightweight prefetch: only surrounding (+2 forward, -1 backward) pages, debounced to keep network free
+  // Lightweight prefetch: only forward pages outside the mount window (+5 to +7), debounced to keep network free
   useEffect(() => {
-    if (!book?.id || totalPages <= 0) return;
+    if (!book?.id || totalPages <= 0 || isOfflineSession) return;
+    const scheduledCurrentPage = currentPage;
     const timer = setTimeout(() => {
-      const start = Math.max(1, currentPage - 1);
-      const end = Math.min(totalPages, currentPage + 2);
+      // If user scrolled away during debounce, skip obsolete prefetch
+      if (Math.abs(currentPageRef.current - scheduledCurrentPage) > 2) return;
+
+      const start = scheduledCurrentPage + VERTICAL_WINDOW_FORWARD + 1;
+      const end = Math.min(totalPages, scheduledCurrentPage + VERTICAL_WINDOW_FORWARD + 3);
+      if (start > totalPages) return;
+
       const versionParam = (book as any).pagesVersion || (book as any).version || '';
-      const versionQuery = versionParam ? `?v=${versionParam}` : '';
 
       for (let p = start; p <= end; p++) {
-        if (p === currentPage) continue;
+        if (loadedPagesRef.current.has(p)) continue;
         const pgObj = pagesByNumberMap.get(p);
-        let rawUrl =
-          pgObj?.imageHighUrl ||
-          pgObj?.imageNormalUrl ||
-          `/content/books/${book.id}/pages/${p}/image`;
-        if (versionParam && !rawUrl.includes('?v=')) {
-          rawUrl = `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}v=${versionParam}`;
-        }
+        const rawUrl = buildPageImageUrl(book.id, p, pgObj, versionParam);
         const resolved = resolveMediaOrImageUrl(rawUrl);
         if (resolved && (resolved.startsWith('http://') || resolved.startsWith('https://'))) {
           Image.prefetch(resolved).catch(() => {});
         }
       }
-    }, 600);
+    }, 700);
 
     return () => clearTimeout(timer);
-  }, [currentPage, book.id, totalPages, pagesByNumberMap, resolveMediaOrImageUrl]);
+  }, [currentPage, book?.id, totalPages, isOfflineSession, pagesByNumberMap, resolveMediaOrImageUrl]);
 
   const activeUnitTitle = useMemo(() => {
     const customToc = [...tocItems]
@@ -1661,23 +1667,36 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     [getHotspotsForPage, currentPage],
   );
 
-  // Prefetch current page answer & transcript images so tapping "Javoblar" or "Transkript" opens instantly
+  const prefetchedAnswerUrlsRef = useRef<Set<string>>(new Set());
+
+  // Prefetch current page answer & transcript images so tapping "Javoblar" or "Transkript" opens instantly, debounced
   useEffect(() => {
-    if (!pageHotspots || pageHotspots.length === 0) return;
-    pageHotspots.forEach((h: any) => {
-      const urls: string[] = [];
-      if (h.imageUrl) urls.push(h.imageUrl);
-      if (Array.isArray(h.answerImages)) urls.push(...h.answerImages);
-      if (h.transcriptImageUrl) urls.push(h.transcriptImageUrl);
-      if (Array.isArray(h.transcriptImages)) urls.push(...h.transcriptImages);
-      urls.forEach((u) => {
-        const resolved = resolveMediaOrImageUrl(u);
-        if (resolved && (resolved.startsWith('http://') || resolved.startsWith('https://'))) {
-          Image.prefetch(resolved).catch(() => {});
-        }
+    if (!pageHotspots || pageHotspots.length === 0 || isOfflineSession) return;
+    const scheduledPage = currentPage;
+    const timer = setTimeout(() => {
+      if (currentPageRef.current !== scheduledPage) return;
+      pageHotspots.forEach((h: any) => {
+        const urls: string[] = [];
+        if (h.imageUrl) urls.push(h.imageUrl);
+        if (Array.isArray(h.answerImages)) urls.push(...h.answerImages);
+        if (h.transcriptImageUrl) urls.push(h.transcriptImageUrl);
+        if (Array.isArray(h.transcriptImages)) urls.push(...h.transcriptImages);
+        urls.forEach((u) => {
+          const resolved = resolveMediaOrImageUrl(u);
+          if (
+            resolved &&
+            (resolved.startsWith('http://') || resolved.startsWith('https://')) &&
+            !prefetchedAnswerUrlsRef.current.has(resolved)
+          ) {
+            prefetchedAnswerUrlsRef.current.add(resolved);
+            Image.prefetch(resolved).catch(() => {});
+          }
+        });
       });
-    });
-  }, [pageHotspots, resolveMediaOrImageUrl]);
+    }, 750);
+
+    return () => clearTimeout(timer);
+  }, [pageHotspots, currentPage, isOfflineSession, resolveMediaOrImageUrl]);
 
   const getAnswersForPage = useCallback(
     (pageNum: number): AnswerItem[] => {
@@ -2151,11 +2170,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   const renderPageContent = useCallback(
     (pageNum: number, explicitSize?: { width: number; height: number }) => {
       const pgObj = pagesByNumberMap.get(pageNum);
-    const baseImgUrl =
-      pgObj?.imageHighUrl ||
-      pgObj?.imageNormalUrl ||
-      `/content/books/${book.id}/pages/${pageNum}/image`;
-    const offlineLocalImg = resolveMediaOrImageUrl(baseImgUrl);
+      const versionParam = (book as any).pagesVersion || (book as any).version || '';
+      const baseImgUrl = buildPageImageUrl(book.id, pageNum, pgObj, versionParam);
+      const offlineLocalImg = resolveMediaOrImageUrl(baseImgUrl);
     const isLocalImg = Boolean(
       offlineLocalImg &&
         (offlineLocalImg.startsWith('file://') ||
@@ -2810,13 +2827,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                   pg <= currentPage + VERTICAL_WINDOW_FORWARD;
                 const pgObj = pagesByNumberMap.get(pg);
                 const versionParam = (book as any).pagesVersion || (book as any).version || '';
-                let basePgImgUrl =
-                  pgObj?.imageHighUrl ||
-                  pgObj?.imageNormalUrl ||
-                  `/content/books/${book.id}/pages/${pg}/image`;
-                if (versionParam && !basePgImgUrl.includes('?v=')) {
-                  basePgImgUrl = `${basePgImgUrl}${basePgImgUrl.includes('?') ? '&' : '?'}v=${versionParam}`;
-                }
+                const basePgImgUrl = buildPageImageUrl(book.id, pg, pgObj, versionParam);
                 const pgImgUrl = resolveMediaOrImageUrl(basePgImgUrl);
                 const hsList = getHotspotsForPage(pg);
                 const pgRatio = resolvePageAspectRatio(pgObj, pageImageRatios[pg], pdfAspectRatio);
