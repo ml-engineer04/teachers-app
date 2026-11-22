@@ -1448,6 +1448,24 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     [getHotspotsForPage, currentPage],
   );
 
+  // Prefetch current page answer & transcript images so tapping "Javoblar" or "Transkript" opens instantly
+  useEffect(() => {
+    if (!pageHotspots || pageHotspots.length === 0) return;
+    pageHotspots.forEach((h: any) => {
+      const urls: string[] = [];
+      if (h.imageUrl) urls.push(h.imageUrl);
+      if (Array.isArray(h.answerImages)) urls.push(...h.answerImages);
+      if (h.transcriptImageUrl) urls.push(h.transcriptImageUrl);
+      if (Array.isArray(h.transcriptImages)) urls.push(...h.transcriptImages);
+      urls.forEach((u) => {
+        const resolved = resolveMediaOrImageUrl(u);
+        if (resolved && (resolved.startsWith('http://') || resolved.startsWith('https://'))) {
+          Image.prefetch(resolved).catch(() => {});
+        }
+      });
+    });
+  }, [pageHotspots, resolveMediaOrImageUrl]);
+
   const getAnswersForPage = useCallback(
     (pageNum: number): AnswerItem[] => {
       const combined: AnswerItem[] = [];

@@ -686,12 +686,63 @@ export function VisualPdfEditor({
     setTimeout(() => setToast(null), 3500);
   }, []);
 
+  const compressImageBeforeUpload = async (file: File): Promise<Blob | File> => {
+    if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.size < 120 * 1024) {
+      return file;
+    }
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX_WIDTH = 1800;
+          const MAX_HEIGHT = 2400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+            const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(file);
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob && blob.size < file.size) {
+                resolve(blob);
+              } else {
+                resolve(file);
+              }
+            },
+            'image/jpeg',
+            0.82,
+          );
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleUploadHotspotImage = async (file: File, target: 'ANSWER' | 'TRANSCRIPT') => {
     if (!selectedHotspotId) return;
     setIsUploadingHotspotImg(true);
     try {
+      const optimizedBlob = await compressImageBeforeUpload(file);
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('image', optimizedBlob, (file.name || 'image').replace(/\.[^/.]+$/, '') + '.jpg');
       const token = typeof window !== 'undefined' ? localStorage.getItem('stb_admin_token') : null;
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
