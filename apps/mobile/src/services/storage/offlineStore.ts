@@ -284,78 +284,103 @@ class OfflineStoreEngine {
     onProgress?: (ratio: number) => void,
   ): Promise<BinaryDownloadResult> {
     if (Platform.OS === 'web') {
-      const res = await fetch(remoteUrl, { headers });
-      if (!res.ok) {
-        throw new Error(`Faylni yuklab bo‘lmadi (HTTP ${res.status})`);
-      }
+      let lastErr: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await fetch(remoteUrl, { headers });
+          if (!res.ok) {
+            throw new Error(`Faylni yuklab bo‘lmadi (HTTP ${res.status})`);
+          }
 
-      const mimeType =
-        res.headers.get('content-type')?.split(';')[0]?.trim() || 'application/octet-stream';
-      const contentLength = Number(res.headers.get('content-length') || 0);
+          const mimeType =
+            res.headers.get('content-type')?.split(';')[0]?.trim() || 'application/octet-stream';
+          const contentLength = Number(res.headers.get('content-length') || 0);
 
-      let buffer: ArrayBuffer;
-      if (res.body && typeof res.body.getReader === 'function' && contentLength > 0) {
-        const reader = res.body.getReader();
-        const chunks: Uint8Array[] = [];
-        let received = 0;
-        // Stream chunks to compute real byte-level download percentage
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            chunks.push(value);
-            received += value.byteLength;
-            onProgress?.(Math.min(1, received / contentLength));
+          let buffer: ArrayBuffer;
+          if (res.body && typeof res.body.getReader === 'function' && contentLength > 0) {
+            const reader = res.body.getReader();
+            const chunks: Uint8Array[] = [];
+            let received = 0;
+            // Stream chunks to compute real byte-level download percentage
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (value) {
+                chunks.push(value);
+                received += value.byteLength;
+                onProgress?.(Math.min(1, received / contentLength));
+              }
+            }
+            const merged = new Uint8Array(received);
+            let offset = 0;
+            for (const c of chunks) {
+              merged.set(c, offset);
+              offset += c.byteLength;
+            }
+            buffer = merged.buffer;
+          } else {
+            buffer = await res.arrayBuffer();
+            onProgress?.(1);
+          }
+
+          if (buffer.byteLength === 0) {
+            throw new Error('Yuklab olingan fayl bo‘sh');
+          }
+
+          await this.putBinary(key, buffer, mimeType);
+          return { key, sizeBytes: buffer.byteLength, mimeType };
+        } catch (err: any) {
+          lastErr = err;
+          if (attempt < 3) {
+            await new Promise((resolve) => setTimeout(resolve, attempt * 350));
           }
         }
-        const merged = new Uint8Array(received);
-        let offset = 0;
-        for (const c of chunks) {
-          merged.set(c, offset);
-          offset += c.byteLength;
-        }
-        buffer = merged.buffer;
-      } else {
-        buffer = await res.arrayBuffer();
-        onProgress?.(1);
       }
-
-      if (buffer.byteLength === 0) {
-        throw new Error('Yuklab olingan fayl bo‘sh');
-      }
-
-      await this.putBinary(key, buffer, mimeType);
-      return { key, sizeBytes: buffer.byteLength, mimeType };
+      throw lastErr || new Error('Faylni yuklab bo‘lmadi');
     }
 
     await this.ensureNativeDirs();
     const targetPath = `${this.getNativeBaseDir()}assets/${sanitizeKey(key)}`;
-    const downloadResumable = FileSystem.createDownloadResumable(
-      remoteUrl,
-      targetPath,
-      { headers },
-      (dp) => {
-        if (dp.totalBytesExpectedToWrite > 0) {
-          onProgress?.(
-            Math.min(1, dp.totalBytesWritten / dp.totalBytesExpectedToWrite),
-          );
-        }
-      },
-    );
+    let lastNativeErr: any = null;
 
-    const result = await downloadResumable.downloadAsync();
-    if (!result || (result.status !== 200 && result.status !== 206)) {
-      await FileSystem.deleteAsync(targetPath, { idempotent: true }).catch(() => {});
-      throw new Error(`Faylni yuklab bo‘lmadi (HTTP ${result?.status || 0})`);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const downloadResumable = FileSystem.createDownloadResumable(
+          remoteUrl,
+          targetPath,
+          { headers },
+          (dp) => {
+            if (dp.totalBytesExpectedToWrite > 0) {
+              onProgress?.(
+                Math.min(1, dp.totalBytesWritten / dp.totalBytesExpectedToWrite),
+              );
+            }
+          },
+        );
+
+        const result = await downloadResumable.downloadAsync();
+        if (!result || (result.status !== 200 && result.status !== 206)) {
+          await FileSystem.deleteAsync(targetPath, { idempotent: true }).catch(() => {});
+          throw new Error(`Faylni yuklab bo‘lmadi (HTTP ${result?.status || 0})`);
+        }
+        const info = await FileSystem.getInfoAsync(targetPath);
+        const sizeBytes = info.exists && 'size' in info ? Number(info.size || 0) : 0;
+        onProgress?.(1);
+        return {
+          key,
+          sizeBytes,
+          mimeType: result.headers?.['content-type'] || 'application/octet-stream',
+        };
+      } catch (err: any) {
+        lastNativeErr = err;
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 400));
+        }
+      }
     }
-    const info = await FileSystem.getInfoAsync(targetPath);
-    const sizeBytes = info.exists && 'size' in info ? Number(info.size || 0) : 0;
-    onProgress?.(1);
-    return {
-      key,
-      sizeBytes,
-      mimeType: result.headers?.['content-type'] || 'application/octet-stream',
-    };
+
+    await FileSystem.deleteAsync(targetPath, { idempotent: true }).catch(() => {});
+    throw lastNativeErr || new Error('Faylni yuklab bo‘lmadi');
   }
 
   async hasBinary(key: string): Promise<boolean> {
