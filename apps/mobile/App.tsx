@@ -30,6 +30,8 @@ import { mobileApi } from './src/services/api/mobileApi';
 import { SubscriptionManager } from './src/services/subscription/subscriptionManager';
 import { NotificationBanner } from './src/components/common/NotificationBanner';
 import { DownloadsManager } from './src/services/storage/downloadsManager';
+import { readingProgressStore } from './src/services/storage/readingProgressStore';
+import { offlineCatalogCache } from './src/services/storage/offlineCatalogCache';
 
 export type ScreenState =
   | 'SPLASH'
@@ -311,6 +313,8 @@ function AppShell() {
           // Non-blocking background sync and initialization
           refreshSubscriptionSummary().catch(() => {});
           DownloadsManager.init().catch(() => {});
+          readingProgressStore.getAllProgress(profile.email).catch(() => {});
+          offlineCatalogCache.preload().catch(() => {});
           mobileApi.getProfile().then(async (remote) => {
             const remoteUser = remote?.user || remote;
             if (remoteUser?.email && mounted) {
@@ -357,6 +361,8 @@ function AppShell() {
       photoUrl: resolvedPhoto,
     });
     await refreshSubscriptionSummary();
+    readingProgressStore.getAllProgress(user.email).catch(() => {});
+    offlineCatalogCache.preload().catch(() => {});
     const now = Date.now();
     lastActivityAtRef.current = now;
     lastPersistedActivityRef.current = now;
@@ -394,6 +400,8 @@ function AppShell() {
     type?: string;
     initialPage?: number;
   }) => {
+    const savedProgress = readingProgressStore.getBookProgressSync(userProfile.email, book.id);
+    const resolvedInitial = book.initialPage || savedProgress?.lastPageNumber || 1;
     setActiveBook({
       id: book.id,
       title: book.title,
@@ -402,7 +410,7 @@ function AppShell() {
       totalPages: book.totalPages || 6,
       contentStartPdfPage: book.contentStartPdfPage,
       type: book.type,
-      initialPage: book.initialPage,
+      initialPage: resolvedInitial,
     });
     navigateTo('READER');
   };
@@ -514,6 +522,7 @@ function AppShell() {
       {currentScreen === 'GRADE_DETAIL' && (
         <GradeDetailScreen
           grade={activeGrade}
+          userEmail={userProfile.email}
           userName={effectiveUserName}
           initialSubjectCode={activeSubjectCode}
           onBack={goBackScreen}

@@ -27,6 +27,7 @@ import { BookCardSkeleton } from '../components/common/Skeleton';
 import { mobileApi } from '../services/api/mobileApi';
 import { secureStorage } from '../services/storage/secureStorage';
 import { DownloadsManager, DownloadedItem } from '../services/storage/downloadsManager';
+import { readingProgressStore } from '../services/storage/readingProgressStore';
 import { SubscriptionManager } from '../services/subscription/subscriptionManager';
 import { notify } from '../services/notifications/notificationService';
 
@@ -43,6 +44,7 @@ interface SettingsScreenProps {
     totalPages: number;
     contentStartPdfPage?: number;
     type?: string;
+    initialPage?: number;
   }) => void;
   onProfileUpdated?: (updated: { name: string; photoUrl?: string }) => void;
   onOpenRequests?: (gradeId?: number, subjectId?: string) => void;
@@ -1030,6 +1032,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               return;
                             }
                             setOfflineModalOpen(false);
+                            const savedProgress = readingProgressStore.getBookProgressSync(userEmail, d.bookId);
                             onOpenReader({
                               id: d.bookId,
                               title: d.title,
@@ -1038,6 +1041,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                               totalPages: d.totalPages || 6,
                               contentStartPdfPage: d.contentStartPdfPage,
                               type: d.bookType,
+                              initialPage: savedProgress?.lastPageNumber || 1,
                             });
                           }}
                         >

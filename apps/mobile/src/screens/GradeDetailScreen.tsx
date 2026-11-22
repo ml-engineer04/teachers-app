@@ -19,6 +19,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { Book, Grade, getBookContentTotalPages } from '@smartteacherbook/shared';
 import { DownloadsManager } from '../services/storage/downloadsManager';
 import { offlineCatalogCache } from '../services/storage/offlineCatalogCache';
+import { readingProgressStore } from '../services/storage/readingProgressStore';
 import { SubscriptionManager, GradeAccessInfo } from '../services/subscription/subscriptionManager';
 import { ExpiredAccessModal } from '../components/ExpiredAccessModal';
 import { mobileApi } from '../services/api/mobileApi';
@@ -35,6 +36,7 @@ import {
 
 interface GradeDetailScreenProps {
   grade: number;
+  userEmail?: string;
   userName?: string;
   initialSubjectCode?: string;
   onBack: () => void;
@@ -53,6 +55,7 @@ interface GradeDetailScreenProps {
 
 export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
   grade: initialGrade,
+  userEmail,
   initialSubjectCode = 'ALL',
   onBack,
   onOpenReader,
@@ -78,9 +81,9 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<'MONTHLY' | 'THREE_MONTHS' | 'YEARLY'>('THREE_MONTHS');
   const [selectedBookTypeTab, setSelectedBookTypeTab] = useState<'STUDENT_BOOK' | 'TEACHER_BOOK' | 'WORKBOOK'>('STUDENT_BOOK');
 
-  const [availableGrades, setAvailableGrades] = useState<Grade[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [liveBooks, setLiveBooks] = useState<Book[]>([]);
+  const [availableGrades, setAvailableGrades] = useState<Grade[]>(() => offlineCatalogCache.getGradesSync() || []);
+  const [subjects, setSubjects] = useState<any[]>(() => offlineCatalogCache.getSubjectsSync() || []);
+  const [liveBooks, setLiveBooks] = useState<Book[]>(() => offlineCatalogCache.getBooksSync() || []);
   const [pricingPlans, setPricingPlans] = useState<any[]>([
     { id: 'MONTHLY', durationDays: 30, priceUzs: 119000, badge: '' },
     { id: 'THREE_MONTHS', durationDays: 90, priceUzs: 299000, badge: '★' },
@@ -98,7 +101,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
   const [offlineCovers, setOfflineCovers] = useState<Record<string, string>>({});
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [expiredModalVisible, setExpiredModalVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !offlineCatalogCache.getBooksSync()?.length);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -166,47 +169,60 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
 
   const loadCatalogData = useCallback(
     async (silent = false) => {
-      if (!silent) setLoading(true);
       try {
         await DownloadsManager.init();
-        const online = await mobileApi.checkConnectivity();
-        if (!online) {
-          setIsOfflineMode(true);
-          await hydrateOfflineCatalog();
-          notify.info(strings.common.offlineMode, strings.drawer.offlineNotice);
-          return;
-        }
-
-        setIsOfflineMode(false);
-        await SubscriptionManager.syncFromBackend().catch(() => {});
-        const [gradesData, subjs, books, access] = await Promise.all([
-          mobileApi.getGrades(),
-          mobileApi.getSubjects(),
-          mobileApi.getAllBooks(),
+        // 1. Instant Cache Hydration (stale-while-revalidate for frame-0 render)
+        const [cachedGrades, cachedSubjects, cachedBooks, localAccess] = await Promise.all([
+          offlineCatalogCache.getGrades(),
+          offlineCatalogCache.getSubjects(),
+          offlineCatalogCache.getBooks(),
           SubscriptionManager.getGradeAccess(selectedGrade),
         ]);
-        if (Array.isArray(gradesData)) {
-          const sortedGrades = [...gradesData].sort((a, b) => a.gradeNumber - b.gradeNumber);
+        const downloaded = DownloadsManager.listDownloadedBundles();
+        const booksList = offlineCatalogCache.mergeBooksWithDownloads(cachedBooks, downloaded);
+        if (booksList.length > 0) setLiveBooks(booksList);
+        if (cachedGrades && cachedGrades.length > 0) {
+          const sortedGrades = [...cachedGrades].sort((a, b) => a.gradeNumber - b.gradeNumber);
           setAvailableGrades(sortedGrades);
-          offlineCatalogCache.saveGrades(sortedGrades);
-          if (sortedGrades.length > 0 && !sortedGrades.some((g) => g.gradeNumber === selectedGrade)) {
-            setSelectedGrade(sortedGrades[0].gradeNumber);
+        }
+        if (cachedSubjects && cachedSubjects.length > 0) setSubjects(cachedSubjects);
+        if (localAccess) setGradeAccess(localAccess);
+        if (booksList.length > 0) {
+          if (!silent) setLoading(false);
+        }
+
+        // 2. Parallel network refresh with zero blocking ping
+        try {
+          const [gradesData, subjs, books, access] = await Promise.all([
+            mobileApi.getGrades(),
+            mobileApi.getSubjects(),
+            mobileApi.getAllBooks(),
+            SubscriptionManager.getGradeAccess(selectedGrade),
+          ]);
+          setIsOfflineMode(false);
+          if (Array.isArray(gradesData)) {
+            const sortedGrades = [...gradesData].sort((a, b) => a.gradeNumber - b.gradeNumber);
+            setAvailableGrades(sortedGrades);
+            offlineCatalogCache.saveGrades(sortedGrades);
+            if (sortedGrades.length > 0 && !sortedGrades.some((g) => g.gradeNumber === selectedGrade)) {
+              setSelectedGrade(sortedGrades[0].gradeNumber);
+            }
           }
+          if (Array.isArray(subjs)) {
+            setSubjects(subjs);
+            offlineCatalogCache.saveSubjects(subjs);
+          }
+          if (Array.isArray(books)) {
+            setLiveBooks(books);
+            offlineCatalogCache.saveBooks(books);
+          }
+          setGradeAccess(access);
+          setDownloadedTick((t) => t + 1);
+        } catch {
+          setIsOfflineMode(true);
         }
-        if (Array.isArray(subjs)) {
-          setSubjects(subjs);
-          offlineCatalogCache.saveSubjects(subjs);
-        }
-        if (Array.isArray(books)) {
-          setLiveBooks(books);
-          offlineCatalogCache.saveBooks(books);
-        }
-        setGradeAccess(access);
-        setDownloadedTick((t) => t + 1);
-      } catch (err: any) {
+      } catch {
         setIsOfflineMode(true);
-        await hydrateOfflineCatalog();
-        notify.warning(strings.common.warning, err?.message || strings.drawer.offlineNotice);
       } finally {
         if (!silent) setLoading(false);
       }
@@ -214,9 +230,6 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
     [
       selectedGrade,
       hydrateOfflineCatalog,
-      strings.common.offlineMode,
-      strings.drawer.offlineNotice,
-      strings.common.warning,
     ],
   );
 
@@ -351,12 +364,10 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
       book.subjectId,
       book.id,
     );
+    const online = !isOfflineMode;
 
-    let online = !isOfflineMode;
-    if (online) {
-      online = await mobileApi.checkConnectivity();
-      if (!online) setIsOfflineMode(true);
-    }
+    const savedProgress = readingProgressStore.getBookProgressSync(userEmail, book.id);
+    const resolvedInitialPage = savedProgress?.lastPageNumber || 1;
 
     if (!online && !isDl) {
       notify.warning(
@@ -381,6 +392,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
         totalPages: book.totalPages || 6,
         contentStartPdfPage: (book as any).contentStartPdfPage,
         type: book.type,
+        initialPage: resolvedInitialPage,
       });
     } else {
       notify.warning(

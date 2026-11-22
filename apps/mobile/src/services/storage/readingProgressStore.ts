@@ -76,7 +76,15 @@ class ReadingProgressStore {
         list = webList;
       }
     }
-    return (list || []).find((item) => item.bookId === bookId) || null;
+    const found = (list || []).find((item) => item.bookId === bookId);
+    if (found) return found;
+
+    // Fallback: check other loaded user scopes in memory (e.g. guest or single-user device)
+    for (const otherList of this.memoryByUser.values()) {
+      const match = otherList.find((item) => item.bookId === bookId);
+      if (match) return match;
+    }
+    return null;
   }
 
   /**

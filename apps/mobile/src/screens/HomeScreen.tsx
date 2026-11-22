@@ -82,14 +82,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }, 250);
     return () => clearTimeout(timer);
   }, [searchQuery]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(() => !offlineCatalogCache.getGradesSync()?.length);
   const [refreshing, setRefreshing] = useState(false);
 
   const [allAccess, setAllAccess] = useState<GradeAccessInfo[]>([]);
-  const [availableGrades, setAvailableGrades] = useState<Grade[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [liveBooks, setLiveBooks] = useState<Book[]>([]);
-  const [progressList, setProgressList] = useState<any[]>([]);
+  const [availableGrades, setAvailableGrades] = useState<Grade[]>(() => offlineCatalogCache.getGradesSync() || []);
+  const [subjects, setSubjects] = useState<any[]>(() => offlineCatalogCache.getSubjectsSync() || []);
+  const [liveBooks, setLiveBooks] = useState<Book[]>(() => offlineCatalogCache.getBooksSync() || []);
+  const [progressList, setProgressList] = useState<any[]>(() => offlineCatalogCache.getProgressSync() || []);
 
   const [expiredModalVisible, setExpiredModalVisible] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
@@ -124,85 +124,75 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const loadHomeData = useCallback(async () => {
     try {
-      setLoading((prev) => (allAccess.length === 0 && availableGrades.length === 0 ? true : prev));
-      const localProgress = await readingProgressStore.getAllProgress(userEmail).catch(() => []);
-      if (localProgress.length > 0) {
-        setProgressList((prev) => (prev.length > 0 ? prev : localProgress));
+      // 1. Instant Cache Hydration (stale-while-revalidate for frame-0 render)
+      const [cachedGrades, cachedSubjects, cachedBooks, cachedProgress, localAccess] =
+        await Promise.all([
+          offlineCatalogCache.getGrades(),
+          offlineCatalogCache.getSubjects(),
+          offlineCatalogCache.getBooks(),
+          offlineCatalogCache.getProgress(),
+          SubscriptionManager.getAllActiveAccess(),
+        ]);
+      const downloaded = DownloadsManager.listDownloadedBundles();
+      if (localAccess && localAccess.length > 0) setAllAccess(localAccess);
+      if (cachedGrades && cachedGrades.length > 0) {
+        setAvailableGrades([...cachedGrades].sort((a, b) => a.gradeNumber - b.gradeNumber));
+      } else if (downloaded.length > 0) {
+        const grades = Array.from(new Set(downloaded.map((d) => d.gradeId)))
+          .sort((a, b) => a - b)
+          .map((n) => ({ id: n, gradeNumber: n, label: `${n}`, isActive: true } as any));
+        setAvailableGrades(grades);
       }
-
-      await DownloadsManager.init().catch(() => {});
-      const online = await mobileApi.checkConnectivity();
-      setIsOfflineMode(!online);
-      if (!online) {
-        const [accessData, cachedGrades, cachedSubjects, cachedBooks, cachedProgress] =
-          await Promise.all([
-            SubscriptionManager.getAllActiveAccess(),
-            offlineCatalogCache.getGrades(),
-            offlineCatalogCache.getSubjects(),
-            offlineCatalogCache.getBooks(),
-            offlineCatalogCache.getProgress(),
-          ]);
-        const downloaded = DownloadsManager.listDownloadedBundles();
-        setAllAccess(accessData);
-        if (cachedGrades?.length) {
-          setAvailableGrades([...cachedGrades].sort((a, b) => a.gradeNumber - b.gradeNumber));
-        } else if (downloaded.length > 0) {
-          const grades = Array.from(new Set(downloaded.map((d) => d.gradeId)))
-            .sort((a, b) => a - b)
-            .map((n) => ({ id: n, gradeNumber: n, label: `${n}`, isActive: true } as any));
-          setAvailableGrades(grades);
-        }
-        if (cachedSubjects?.length) setSubjects(cachedSubjects);
+      if (cachedSubjects && cachedSubjects.length > 0) setSubjects(cachedSubjects);
+      if ((cachedBooks && cachedBooks.length > 0) || downloaded.length > 0) {
         setLiveBooks(offlineCatalogCache.mergeBooksWithDownloads(cachedBooks, downloaded));
-        const mergedOfflineProgress = await readingProgressStore.mergeRemoteAndLocal(
-          userEmail,
-          cachedProgress || [],
-        );
-        setProgressList(mergedOfflineProgress);
-        if (downloaded.length > 0) {
-          notify.info(
-            strings.common.offlineMode,
-            t('settings.offlineSummary', { count: downloaded.length, size: `${DownloadsManager.getTotalStorageUsedMb()} MB` }),
-          );
-        } else {
-          notify.warning(strings.modals.offlineTitle, strings.modals.offlineDesc);
-        }
-        return;
+      }
+      if (cachedProgress && cachedProgress.length > 0) {
+        setProgressList(cachedProgress);
+      }
+      if (cachedGrades?.length || cachedBooks?.length) {
+        setLoading(false);
       }
 
-      const [accessData, gradesData, subjData, booksData, progData] = await Promise.all([
-        SubscriptionManager.getAllActiveAccess(),
-        mobileApi.getGrades(),
-        mobileApi.getSubjects(),
-        mobileApi.getAllBooks(),
-        mobileApi.getReadingProgress(),
-      ]);
-      setAllAccess(accessData);
-      if (Array.isArray(gradesData)) {
-        const sorted = [...gradesData].sort((a, b) => a.gradeNumber - b.gradeNumber);
-        setAvailableGrades(sorted);
-        offlineCatalogCache.saveGrades(sorted);
+      // 2. Parallel network refresh with zero blocking ping
+      try {
+        const [accessData, gradesData, subjData, booksData, progData] = await Promise.all([
+          SubscriptionManager.syncFromBackend().catch(() => SubscriptionManager.getAllActiveAccess()),
+          mobileApi.getGrades(),
+          mobileApi.getSubjects(),
+          mobileApi.getAllBooks(),
+          mobileApi.getReadingProgress(),
+        ]);
+        setIsOfflineMode(false);
+        if (accessData) setAllAccess(accessData);
+        if (Array.isArray(gradesData) && gradesData.length > 0) {
+          const sorted = [...gradesData].sort((a, b) => a.gradeNumber - b.gradeNumber);
+          setAvailableGrades(sorted);
+          offlineCatalogCache.saveGrades(sorted);
+        }
+        if (Array.isArray(subjData) && subjData.length > 0) {
+          setSubjects(subjData);
+          offlineCatalogCache.saveSubjects(subjData);
+        }
+        if (Array.isArray(booksData) && booksData.length > 0) {
+          setLiveBooks(booksData);
+          offlineCatalogCache.saveBooks(booksData);
+        }
+        const mergedOnlineProgress = await readingProgressStore.mergeRemoteAndLocal(
+          userEmail,
+          Array.isArray(progData) ? progData : [],
+        );
+        setProgressList(mergedOnlineProgress);
+        offlineCatalogCache.saveProgress(mergedOnlineProgress);
+      } catch {
+        setIsOfflineMode(true);
       }
-      if (Array.isArray(subjData)) {
-        setSubjects(subjData);
-        offlineCatalogCache.saveSubjects(subjData);
-      }
-      if (Array.isArray(booksData)) {
-        setLiveBooks(booksData);
-        offlineCatalogCache.saveBooks(booksData);
-      }
-      const mergedOnlineProgress = await readingProgressStore.mergeRemoteAndLocal(
-        userEmail,
-        Array.isArray(progData) ? progData : [],
-      );
-      setProgressList(mergedOnlineProgress);
-      offlineCatalogCache.saveProgress(mergedOnlineProgress);
     } catch (err: any) {
       notify.warning(strings.common.error, err?.message || strings.common.unknownError);
     } finally {
       setLoading(false);
     }
-  }, [userEmail, strings.common.offlineMode, strings.modals.offlineTitle, strings.modals.offlineDesc, strings.common.error, strings.common.unknownError, t]);
+  }, [userEmail, strings.common.error, strings.common.unknownError]);
 
   useEffect(() => {
     loadHomeData();
@@ -332,12 +322,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   }) => {
     await DownloadsManager.init().catch(() => {});
     const isDl = DownloadsManager.isBundleDownloaded(book.gradeId, book.subjectId, book.id);
+    const online = !isOfflineMode;
 
-    let online = !isOfflineMode;
-    if (online) {
-      online = await mobileApi.checkConnectivity();
-      if (!online) setIsOfflineMode(true);
-    }
+    const savedProgress = readingProgressStore.getBookProgressSync(userEmail, book.id);
+    const resolvedInitialPage = book.initialPage || savedProgress?.lastPageNumber || 1;
 
     if (!online && !isDl) {
       notify.warning(
@@ -353,7 +341,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       subjectId: book.subjectId,
     });
     if (allowed || (!online && isDl && access.status !== 'EXPIRED')) {
-      onOpenReader(book);
+      onOpenReader({
+        ...book,
+        initialPage: resolvedInitialPage,
+      });
       return;
     }
     notify.warning(

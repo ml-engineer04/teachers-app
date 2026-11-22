@@ -449,10 +449,11 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   );
   const markPageLoaded = useCallback((pageNum: number) => {
     setLoadedPages((prev) => {
+      if (prev.has(pageNum)) return prev;
       const cur = currentPageRef.current;
       const next = new Set<number>();
       for (const p of prev) {
-        if (Math.abs(p - cur) <= 6) next.add(p);
+        if (Math.abs(p - cur) <= 40) next.add(p);
       }
       next.add(pageNum);
       return next;
@@ -572,6 +573,8 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   const currentPageRef = useRef<number>(currentPage);
   const totalPagesRef = useRef<number>(totalPages);
   const remoteProgressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastScrollUpdateRef = useRef<number>(0);
+  const initialScrollDoneRef = useRef<boolean>(false);
 
   currentPageRef.current = currentPage;
   totalPagesRef.current = totalPages;
@@ -773,7 +776,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
 
           currentPageRef.current = restoredPage;
           totalPagesRef.current = computedTotal;
-          pendingVerticalScrollPageRef.current = restoredPage > 1 ? restoredPage : null;
+          pendingVerticalScrollPageRef.current = null;
 
           setTotalPages(computedTotal);
           setCurrentPage(restoredPage);
@@ -782,6 +785,13 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
           setPages(bookPages);
           setPdfAspectRatio((prev) => extractInitialBookAspectRatio(bookPages, prev));
           setHotspots(bookHotspots);
+
+          if (restoredPage > 1 && restoredPage !== initialRestoredPage) {
+            scrollVerticalToPage(restoredPage, false);
+            setTimeout(() => {
+              if (active) scrollVerticalToPage(restoredPage, false);
+            }, 60);
+          }
 
           setMediaList((rawMedia || []).map((m: any) => ({
             id: m.id,
@@ -913,7 +923,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
 
         currentPageRef.current = restoredPage;
         totalPagesRef.current = computedTotal;
-        pendingVerticalScrollPageRef.current = restoredPage > 1 ? restoredPage : null;
+        pendingVerticalScrollPageRef.current = null;
 
         setTotalPages(computedTotal);
         setCurrentPage(restoredPage);
@@ -922,6 +932,13 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         setPages(bookPages?.length ? bookPages : initialOptimisticPages);
         setPdfAspectRatio((prev) => extractInitialBookAspectRatio(bookPages, prev));
         setHotspots(bookHotspots || []);
+
+        if (restoredPage > 1 && restoredPage !== initialRestoredPage) {
+          scrollVerticalToPage(restoredPage, false);
+          setTimeout(() => {
+            if (active) scrollVerticalToPage(restoredPage, false);
+          }, 60);
+        }
 
         setBookmarks(
           resolveMergedBookmarks({
@@ -1410,8 +1427,8 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   // Aggressively prefetch surrounding pages into native memory/disk cache for instant, zero-lag scrolling
   useEffect(() => {
     if (!book?.id || totalPages <= 0) return;
-    const start = Math.max(1, currentPage - 3);
-    const end = Math.min(totalPages, currentPage + 8);
+    const start = Math.max(1, currentPage - 4);
+    const end = Math.min(totalPages, currentPage + 12);
     for (let p = start; p <= end; p++) {
       const pgObj = pagesByNumberMap.get(p);
       const rawUrl =
@@ -1544,6 +1561,14 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     [vPageHeight],
   );
 
+  const handleVerticalContentSizeChange = useCallback(() => {
+    if (initialScrollDoneRef.current) return;
+    if (initialRestoredPage > 1) {
+      initialScrollDoneRef.current = true;
+      scrollVerticalToPage(initialRestoredPage, false);
+    }
+  }, [initialRestoredPage, scrollVerticalToPage]);
+
   const goToPage = useCallback(
     (next: number) => {
       const clamped = clampBookPage(next, totalPages);
@@ -1573,16 +1598,16 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [goToPage]);
 
-  // Scroll Vertical reader directly to restored page after book metadata & layout are ready
+  // Scroll Vertical reader directly to restored page after layout is ready
   useEffect(() => {
     const targetPage = pendingVerticalScrollPageRef.current;
-    if (loadingBook || targetPage === null || !verticalScrollRef.current) {
+    if (targetPage === null || !verticalScrollRef.current) {
       return;
     }
 
     pendingVerticalScrollPageRef.current = null;
     scrollVerticalToPage(targetPage, false);
-  }, [loadingBook, scrollVerticalToPage]);
+  }, [scrollVerticalToPage]);
 
   const handleToggleBookmark = async (pageNum: number) => {
     const exists = bookmarks.some((b) => b.pageNumber === pageNum);
@@ -2477,6 +2502,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
               ref={verticalScrollRef}
               scrollEnabled={activeDrawTool === null && !zoomLocked}
               contentOffset={initialScrollOffset}
+              onContentSizeChange={handleVerticalContentSizeChange}
               refreshControl={
                 <RefreshControl refreshing={refreshingBook} onRefresh={handlePullRefreshBook} />
               }
@@ -2492,9 +2518,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
               ]}
               contentContainerStyle={styles.verticalContent}
               showsVerticalScrollIndicator={activeDrawTool === null}
-              scrollEventThrottle={120}
+              scrollEventThrottle={80}
               onScroll={(e) => {
-                if (programmaticScrollRef.current || pendingVerticalScrollPageRef.current !== null) {
+                if (programmaticScrollRef.current) {
                   return;
                 }
                 const y = e.nativeEvent.contentOffset.y;
@@ -2502,15 +2528,39 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                   totalPages,
                   Math.max(1, Math.round(y / (vPageHeight + VERTICAL_GAP)) + 1),
                 );
-                if (approxPage !== currentPage) {
-                  currentPageRef.current = approxPage;
-                  setCurrentPage(approxPage);
+                currentPageRef.current = approxPage;
+                const now = Date.now();
+                if (now - lastScrollUpdateRef.current >= 160) {
+                  lastScrollUpdateRef.current = now;
+                  if (approxPage !== currentPage) {
+                    setCurrentPage(approxPage);
+                  }
                 }
+              }}
+              onMomentumScrollEnd={(e) => {
+                if (programmaticScrollRef.current) return;
+                const y = e.nativeEvent.contentOffset.y;
+                const approxPage = Math.min(
+                  totalPages,
+                  Math.max(1, Math.round(y / (vPageHeight + VERTICAL_GAP)) + 1),
+                );
+                currentPageRef.current = approxPage;
+                setCurrentPage(approxPage);
+              }}
+              onScrollEndDrag={(e) => {
+                if (programmaticScrollRef.current) return;
+                const y = e.nativeEvent.contentOffset.y;
+                const approxPage = Math.min(
+                  totalPages,
+                  Math.max(1, Math.round(y / (vPageHeight + VERTICAL_GAP)) + 1),
+                );
+                currentPageRef.current = approxPage;
+                setCurrentPage(approxPage);
               }}
             >
               {Array.from({ length: totalPages }, (_, idx) => {
                 const pg = idx + 1;
-                const inWindow = Math.abs(pg - currentPage) <= 2;
+                const inWindow = Math.abs(pg - currentPage) <= 6 || loadedPages.has(pg);
                 const pgObj = pagesByNumberMap.get(pg);
                 const basePgImgUrl =
                   pgObj?.imageHighUrl ||

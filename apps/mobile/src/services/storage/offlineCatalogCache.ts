@@ -13,6 +13,10 @@ class OfflineCatalogCache {
   private memBooks: Book[] | null = null;
   private memProgress: any[] | null = null;
 
+  getGradesSync(): Grade[] | null {
+    return this.memGrades;
+  }
+
   async saveGrades(grades: Grade[]): Promise<void> {
     if (Array.isArray(grades) && grades.length > 0) {
       this.memGrades = grades;
@@ -25,6 +29,10 @@ class OfflineCatalogCache {
     const data = await offlineStore.getJson<Grade[]>(KEY_GRADES);
     if (data) this.memGrades = data;
     return data;
+  }
+
+  getSubjectsSync(): any[] | null {
+    return this.memSubjects;
   }
 
   async saveSubjects(subjects: any[]): Promise<void> {
@@ -41,6 +49,10 @@ class OfflineCatalogCache {
     return data;
   }
 
+  getBooksSync(): Book[] | null {
+    return this.memBooks;
+  }
+
   async saveBooks(books: Book[]): Promise<void> {
     if (Array.isArray(books) && books.length > 0) {
       this.memBooks = books;
@@ -55,6 +67,10 @@ class OfflineCatalogCache {
     return data;
   }
 
+  getProgressSync(): any[] | null {
+    return this.memProgress;
+  }
+
   async saveProgress(progress: any[]): Promise<void> {
     if (Array.isArray(progress)) {
       this.memProgress = progress;
@@ -67,6 +83,15 @@ class OfflineCatalogCache {
     const data = await offlineStore.getJson<any[]>(KEY_PROGRESS);
     if (data) this.memProgress = data;
     return data;
+  }
+
+  async preload(): Promise<void> {
+    await Promise.all([
+      this.getGrades(),
+      this.getSubjects(),
+      this.getBooks(),
+      this.getProgress(),
+    ]).catch(() => {});
   }
 
   clearMemoryCache(): void {
