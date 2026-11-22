@@ -587,4 +587,25 @@ export class RequestsService implements OnModuleInit {
     this.logger.log(`Request ${requestId} rejected by admin ${adminId}: ${reason}`);
     return req;
   }
+
+  async deleteRequest(requestId: string): Promise<{ success: boolean; message: string }> {
+    const idx = this.requestsStore.findIndex((r) => r.id === requestId);
+    if (idx !== -1) {
+      this.requestsStore.splice(idx, 1);
+      this.persistDisk();
+    }
+
+    if (this.prisma.isConnected) {
+      try {
+        await this.prisma.accessRequest.delete({
+          where: { id: requestId },
+        });
+      } catch (err) {
+        // Fallback
+      }
+    }
+
+    this.logger.log(`Request ${requestId} deleted by admin`);
+    return { success: true, message: `So'rov muvaffaqiyatli o'chirildi` };
+  }
 }

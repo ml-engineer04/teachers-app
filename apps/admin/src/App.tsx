@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import { AdminLoginScreen } from './components/AdminLoginScreen';
 import { ModernAdminPortal } from './components/ModernAdminPortal';
 
@@ -24,12 +25,14 @@ export default function App() {
   }
 
   return (
-    <ModernAdminPortal
-      onLogout={() => {
-        localStorage.removeItem('stb_admin_session');
-        localStorage.removeItem('stb_admin_token');
-        setAdminUser(null);
-      }}
-    />
+    <BrowserRouter>
+      <ModernAdminPortal
+        onLogout={() => {
+          localStorage.removeItem('stb_admin_session');
+          localStorage.removeItem('stb_admin_token');
+          setAdminUser(null);
+        }}
+      />
+    </BrowserRouter>
   );
 }

@@ -694,20 +694,29 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     setCurrentPage(startPage);
     setActiveAnswerPage(startPage);
     setTotalPages(optimisticTotal);
-    setLoadingBook(true);
+
+    // Instant optimistic pages initialization: starts rendering page image at 0ms!
+    const initialOptimisticPages = Array.from({ length: optimisticTotal }, (_, i) => ({
+      pageNumber: i + 1,
+      imageUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image`,
+      imageNormalUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image`,
+      imageHighUrl: `${mobileApi.API_BASE}/content/books/${book.id}/pages/${i + 1}/image`,
+    }));
+    setPages(initialOptimisticPages);
+    setLoadingBook(false);
     pdfDocRef.current = null;
     setPdfReady(false);
 
     const loadAll = async () => {
       try {
-        const [accessResult, , localAsyncEntry, localAnnotations] = await Promise.all([
+        const [accessResult, offlinePkg, localAsyncEntry, localAnnotations] = await Promise.all([
           SubscriptionManager.checkBookAccess({
             bookId: book.id,
             gradeId: book.gradeId || 11,
             subjectId: book.subjectId,
             forceSync: false,
           }),
-          DownloadsManager.init().catch(() => {}),
+          DownloadsManager.getOfflineBookPackage(book.id).catch(() => null),
           readingProgressStore.getBookProgress(progressUserKey, book.id).catch(() => localSyncEntry),
           annotationsStore.getBookAnnotations(progressUserKey, book.id).catch(() => null),
         ]);
@@ -722,20 +731,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         }
         setSubscriptionLocked(false);
 
-        const offlinePkg = await DownloadsManager.getOfflineBookPackage(book.id);
-        const online = await mobileApi.checkConnectivity();
-        if (online) {
-          SubscriptionManager.syncFromBackend().catch(() => {});
-        }
-
-        setOfflineMissing(false);
-
-        // CASE 1: Book is already downloaded to local storage (Offline or Online Fast-Path)
+        // CASE 1: Book is already downloaded to local storage (Offline Fast-Path)
         if (offlinePkg) {
-          setIsOfflineSession(!online);
-          if (!online) {
-            notify.info(strings.common.offlineMode, strings.reader.offlineBanner);
-          }
+          setIsOfflineSession(true);
 
           const pdfInfo = offlinePkg.pdfInfo || { hasPdf: false, totalPages: offlinePkg.pages?.length || book.totalPages || 96 };
           const bookPages = offlinePkg.pages || [];
@@ -822,8 +820,6 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
           );
 
           restoredBookRef.current = book.id;
-          setLoadingBook(false); // First page ready in <25ms!
-
           readingProgressStore.saveBookProgress(
             progressUserKey,
             book.id,
@@ -831,65 +827,68 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             computedTotal,
           );
 
-          if (online) {
-            mobileApi.saveReadingProgress(book.id, restoredPage);
-            Promise.all([
-              mobileApi.getBookmarks(book.id).catch(() => []),
-              mobileApi.getNotes(book.id).catch(() => []),
-              mobileApi.getDrawings(book.id).catch(() => []),
-              mobileApi.getReadingProgress().catch(() => []),
-            ]).then(([bmList, noteList, drawList]) => {
-              if (!active) return;
-              if (bmList?.length) {
-                setBookmarks(
-                  resolveMergedBookmarks({
-                    localPayload: localAnnotations,
-                    offlineBookmarks: offlinePkg.bookmarks,
-                    remoteBookmarks: bmList,
-                  }),
-                );
-              }
-              if (noteList?.length) {
-                setNotes(
-                  resolveMergedNotes({
-                    localPayload: localAnnotations,
-                    offlineNotes: offlinePkg.notes,
-                    remoteNotes: noteList,
-                  }),
-                );
-              }
-              if (drawList?.length) {
-                setDrawingsMap(
-                  mergeBookDrawings({
-                    localPayload: localAnnotations,
-                    offlineDrawList: offlinePkg.drawings,
-                    remoteDrawList: drawList,
-                  }) as Record<number, DrawStroke[]>,
-                );
-              }
-            }).catch(() => {});
-          }
+          // Non-blocking sync when internet is present
+          mobileApi.saveReadingProgress(book.id, restoredPage).catch(() => {});
+          Promise.all([
+            mobileApi.getBookmarks(book.id).catch(() => []),
+            mobileApi.getNotes(book.id).catch(() => []),
+            mobileApi.getDrawings(book.id).catch(() => []),
+          ]).then(([bmList, noteList, drawList]) => {
+            if (!active) return;
+            if (bmList?.length) {
+              setBookmarks(
+                resolveMergedBookmarks({
+                  localPayload: localAnnotations,
+                  offlineBookmarks: offlinePkg.bookmarks,
+                  remoteBookmarks: bmList,
+                }),
+              );
+            }
+            if (noteList?.length) {
+              setNotes(
+                resolveMergedNotes({
+                  localPayload: localAnnotations,
+                  offlineNotes: offlinePkg.notes,
+                  remoteNotes: noteList,
+                }),
+              );
+            }
+            if (drawList?.length) {
+              setDrawingsMap(
+                mergeBookDrawings({
+                  localPayload: localAnnotations,
+                  offlineDrawList: offlinePkg.drawings,
+                  remoteDrawList: drawList,
+                }) as Record<number, DrawStroke[]>,
+              );
+            }
+          }).catch(() => {});
           return;
         }
 
-        // CASE 2: Offline and not downloaded
-        if (!online) {
+        // CASE 2: Online Book — Priority Stage 1 Core Rendering
+        setIsOfflineSession(false);
+        setOfflineMissing(false);
+
+        let pdfInfo: any = null;
+        let bookPages: any[] = [];
+        let bookHotspots: any[] = [];
+
+        try {
+          const [pi, bp, bh] = await Promise.all([
+            mobileApi.getBookPdfInfo(book.id),
+            mobileApi.getBookPages(book.id),
+            mobileApi.getBookHotspots(book.id),
+          ]);
+          pdfInfo = pi;
+          bookPages = bp;
+          bookHotspots = bh;
+        } catch {
+          // If network failed and book is not downloaded
           setOfflineMissing(true);
           notify.error(strings.modals.offlineTitle, strings.modals.offlineDesc);
-          setTotalPages(book.totalPages || 6);
-          setPages([]);
-          setHotspots([]);
-          setLoadingBook(false);
           return;
         }
-
-        // CASE 3: Online Book — Priority Stage 1 Core Rendering
-        setIsOfflineSession(false);
-        const [pdfInfo, bookPages, bookHotspots] = await Promise.all([
-          mobileApi.getBookPdfInfo(book.id),
-          mobileApi.getBookPages(book.id),
-          mobileApi.getBookHotspots(book.id),
-        ]);
 
         if (!active) return;
 
@@ -920,7 +919,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         setCurrentPage(restoredPage);
         setActiveAnswerPage(restoredPage);
         setHasPdf(!!pdfInfo?.hasPdf);
-        setPages(bookPages || []);
+        setPages(bookPages?.length ? bookPages : initialOptimisticPages);
         setPdfAspectRatio((prev) => extractInitialBookAspectRatio(bookPages, prev));
         setHotspots(bookHotspots || []);
 
@@ -944,7 +943,6 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         );
 
         restoredBookRef.current = book.id;
-        setLoadingBook(false); // Online First Page ready!
 
         readingProgressStore.saveBookProgress(
           progressUserKey,
@@ -952,7 +950,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
           restoredPage,
           computedTotal,
         );
-        mobileApi.saveReadingProgress(book.id, restoredPage);
+        mobileApi.saveReadingProgress(book.id, restoredPage).catch(() => {});
 
         // Background Stage 2: Non-blocking secondary metadata hydration
         Promise.all([
@@ -963,53 +961,50 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
           mobileApi.getBookmarks(book.id).catch(() => []),
           mobileApi.getNotes(book.id).catch(() => []),
           mobileApi.getDrawings(book.id).catch(() => []),
-          mobileApi.getReadingProgress().catch(() => []),
-        ]).then(
-          ([rawMedia, mappings, keys, toc, bmList, noteList, drawList, remoteProgressList]) => {
-            if (!active) return;
-            if (rawMedia && rawMedia.length > 0) {
-              setMediaList(
-                (rawMedia || []).map((m: any) => ({
-                  id: m.id,
-                  type: m.type === 'VIDEO' ? 'VIDEO' : 'AUDIO',
-                  title: m.title || m.filename || 'Media',
-                  filename: m.filename,
-                  subtitle: m.unitLabel || (m.pageNumber ? `${m.pageNumber}` : undefined),
-                  durationSeconds: m.durationSeconds,
-                  pageNumber: m.pageNumber,
-                  url: m.url,
-                })),
-              );
-            }
-            if (mappings && mappings.length > 0) setAnswerMappings(mappings);
-            if (keys && keys.length > 0) setAnswerKeys(keys);
-            if (toc && toc.length > 0) setTocItems(toc);
-            if (bmList && bmList.length > 0) {
-              setBookmarks(
-                resolveMergedBookmarks({
-                  localPayload: localAnnotations,
-                  remoteBookmarks: bmList,
-                }),
-              );
-            }
-            if (noteList && noteList.length > 0) {
-              setNotes(
-                resolveMergedNotes({
-                  localPayload: localAnnotations,
-                  remoteNotes: noteList,
-                }),
-              );
-            }
-            if (drawList && drawList.length > 0) {
-              setDrawingsMap(
-                mergeBookDrawings({
-                  localPayload: localAnnotations,
-                  remoteDrawList: drawList,
-                }) as Record<number, DrawStroke[]>,
-              );
-            }
-          },
-        ).catch(() => {});
+        ]).then(([rawMedia, mappings, keys, toc, bmList, noteList, drawList]) => {
+          if (!active) return;
+          if (rawMedia && rawMedia.length > 0) {
+            setMediaList(
+              (rawMedia || []).map((m: any) => ({
+                id: m.id,
+                type: m.type === 'VIDEO' ? 'VIDEO' : 'AUDIO',
+                title: m.title || m.filename || 'Media',
+                filename: m.filename,
+                subtitle: m.unitLabel || (m.pageNumber ? `${m.pageNumber}` : undefined),
+                durationSeconds: m.durationSeconds,
+                pageNumber: m.pageNumber,
+                url: m.url,
+              })),
+            );
+          }
+          if (mappings && mappings.length > 0) setAnswerMappings(mappings);
+          if (keys && keys.length > 0) setAnswerKeys(keys);
+          if (toc && toc.length > 0) setTocItems(toc);
+          if (bmList && bmList.length > 0) {
+            setBookmarks(
+              resolveMergedBookmarks({
+                localPayload: localAnnotations,
+                remoteBookmarks: bmList,
+              }),
+            );
+          }
+          if (noteList && noteList.length > 0) {
+            setNotes(
+              resolveMergedNotes({
+                localPayload: localAnnotations,
+                remoteNotes: noteList,
+              }),
+            );
+          }
+          if (drawList && drawList.length > 0) {
+            setDrawingsMap(
+              mergeBookDrawings({
+                localPayload: localAnnotations,
+                remoteDrawList: drawList,
+              }) as Record<number, DrawStroke[]>,
+            );
+          }
+        }).catch(() => {});
       } catch {
         if (active && restoredBookRef.current !== book.id) {
           pendingVerticalScrollPageRef.current = startPage > 1 ? startPage : null;
@@ -1033,6 +1028,19 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     initialPage,
     progressUserKey,
   ]);
+
+  // Adjacent Page Smart Pre-fetch: guarantees next/previous page is already in image cache
+  useEffect(() => {
+    if (!book?.id || totalPages <= 0 || isOfflineSession) return;
+    const nextPg = currentPage + 1;
+    const prevPg = currentPage - 1;
+    if (nextPg <= totalPages) {
+      Image.prefetch(`${mobileApi.API_BASE}/content/books/${book.id}/pages/${nextPg}/image`).catch(() => {});
+    }
+    if (prevPg >= 1) {
+      Image.prefetch(`${mobileApi.API_BASE}/content/books/${book.id}/pages/${prevPg}/image`).catch(() => {});
+    }
+  }, [currentPage, totalPages, book?.id, isOfflineSession]);
 
   const handlePullRefreshBook = useCallback(async () => {
     setRefreshingBook(true);

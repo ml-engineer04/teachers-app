@@ -297,6 +297,16 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
     });
   }, [liveBooks, selectedGrade, selectedSubject, debouncedSearch, subjects]);
 
+  // Instant Pre-fetch: pre-fetches page 1 for visible books in this grade
+  useEffect(() => {
+    if (filteredBooks && filteredBooks.length > 0) {
+      filteredBooks.slice(0, 3).forEach((b) => {
+        const page1Url = `${mobileApi.API_BASE}/content/books/${b.id}/pages/1/image`;
+        Image.prefetch(page1Url).catch(() => {});
+      });
+    }
+  }, [filteredBooks]);
+
   const isGradeActive = SubscriptionManager.isAccessValid(gradeAccess);
 
   const handleDownloadBook = async (book: Book) => {

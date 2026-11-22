@@ -83,19 +83,61 @@ interface ModernAdminPortalProps {
 }
 
 export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
-  const [adminSession] = useState<{ email: string; name: string }>(() => {
+  const [adminSession] = useState<{
+    id?: string;
+    email: string;
+    name: string;
+    role?: string;
+    permissions?: string[];
+  }>(() => {
     try {
       const saved = localStorage.getItem('stb_admin_session');
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
+          id: parsed.id,
           email: parsed.email || 'mlrahmonjon@gmail.com',
           name: parsed.name || 'Super Admin',
+          role: parsed.role || 'SUPER_ADMIN',
+          permissions:
+            parsed.permissions ||
+            (parsed.role === 'SUPER_ADMIN'
+              ? ['*']
+              : ['my_books', 'add_book', 'page_editor', 'audio_video', 'manage_content']),
         };
       }
     } catch {}
-    return { email: 'mlrahmonjon@gmail.com', name: 'Super Admin' };
+    return {
+      email: 'mlrahmonjon@gmail.com',
+      name: 'Super Admin',
+      role: 'SUPER_ADMIN',
+      permissions: ['*'],
+    };
   });
+
+  const isSuperAdmin = adminSession.role === 'SUPER_ADMIN';
+  const hasPermission = (nav: AdminPortalNav): boolean => {
+    if (isSuperAdmin) return true;
+    if (nav === 'admins') return false; // Faqat Super Admin adminlarni boshqara oladi
+    if (!adminSession.permissions || adminSession.permissions.includes('*')) return true;
+    return adminSession.permissions.includes(nav);
+  };
+
+  const assignablePermissions: Array<{ id: AdminPortalNav; label: string }> = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'my_books', label: 'Mening kitoblarim' },
+    { id: 'add_book', label: 'Kitob qo‘shish' },
+    { id: 'page_editor', label: 'Visual Hotspot Editor' },
+    { id: 'audio_video', label: 'Media (Audio/Video)' },
+    { id: 'manage_content', label: 'Javoblar bazasi' },
+    { id: 'grades', label: 'Sinflar boshqaruvi' },
+    { id: 'subjects', label: 'Fanlar boshqaruvi' },
+    { id: 'subscriptions', label: 'Obunalar & So‘rovlar' },
+    { id: 'users', label: 'O‘qituvchilar & Qurilmalar' },
+    { id: 'pricing', label: 'Tariflar & Narxlar' },
+    { id: 'analytics', label: 'Statistika' },
+    { id: 'system_logs', label: 'Audit jurnali' },
+  ];
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -155,6 +197,31 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
       navigate(targetPath);
     }
   };
+
+  useEffect(() => {
+    if (!hasPermission(activeNav)) {
+      const allowedOrder: AdminPortalNav[] = [
+        'dashboard',
+        'my_books',
+        'add_book',
+        'page_editor',
+        'audio_video',
+        'manage_content',
+        'grades',
+        'subjects',
+        'subscriptions',
+        'users',
+        'pricing',
+        'analytics',
+        'system_logs',
+      ];
+      const nextAllowed = allowedOrder.find((n) => hasPermission(n));
+      if (nextAllowed) {
+        setActiveNav(nextAllowed);
+      }
+    }
+  }, [activeNav, adminSession]);
+
   const [contentManagerOpen, setContentManagerOpen] = useState(true);
   const [globalSearch, setGlobalSearch] = useState('');
 
@@ -322,7 +389,19 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<'ADMIN' | 'SUPER_ADMIN'>('ADMIN');
+  const [newAdminPermissions, setNewAdminPermissions] = useState<string[]>([
+    'my_books',
+    'add_book',
+    'page_editor',
+    'audio_video',
+    'manage_content',
+  ]);
   const [isSavingAdmin, setIsSavingAdmin] = useState(false);
+
+  // Book Rename State
+  const [editingBook, setEditingBook] = useState<any | null>(null);
+  const [editingBookTitle, setEditingBookTitle] = useState('');
+  const [isSavingBookTitle, setIsSavingBookTitle] = useState(false);
 
   // Database Reset Modal
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -1095,6 +1174,36 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     }
   };
 
+  // Handlers: Book Renaming
+  const handleSaveBookTitle = async () => {
+    if (!editingBook || !editingBookTitle.trim()) return;
+    setIsSavingBookTitle(true);
+    try {
+      await api.updateBook(editingBook.id, { title: editingBookTitle.trim() });
+      setBooks((prev) =>
+        prev.map((b) => (b.id === editingBook.id ? { ...b, title: editingBookTitle.trim() } : b)),
+      );
+      showToast('Kitob nomi muvaffaqiyatli o‘zgartirildi');
+      setEditingBook(null);
+    } catch (err: any) {
+      alert('Kitob nomini o‘zgartirishda xatolik: ' + err.message);
+    } finally {
+      setIsSavingBookTitle(false);
+    }
+  };
+
+  // Handlers: Delete Request
+  const handleDeleteRequest = async (requestId: string) => {
+    if (!window.confirm('Haqiqatan ham bu obuna so‘rovini butunlay o‘chirib tashlamoqchimisiz?')) return;
+    try {
+      await api.deleteRequest(requestId);
+      setRequestsList((prev) => prev.filter((r) => r.id !== requestId));
+      showToast('So‘rov xabari muvaffaqiyatli o‘chirildi');
+    } catch (err: any) {
+      alert('So‘rovni o‘chirishda xatolik: ' + err.message);
+    }
+  };
+
   // Handlers: Admin Management
   const handleSaveAdmin = async () => {
     if (!newAdminEmail.trim() || !newAdminPassword.trim()) {
@@ -1108,12 +1217,20 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         email: newAdminEmail.trim(),
         password: newAdminPassword.trim(),
         role: newAdminRole,
+        permissions: newAdminRole === 'SUPER_ADMIN' ? ['*'] : newAdminPermissions,
       });
       await loadAdmins();
       setIsAddAdminModalOpen(false);
       setNewAdminFullName('');
       setNewAdminEmail('');
       setNewAdminPassword('');
+      setNewAdminPermissions([
+        'my_books',
+        'add_book',
+        'page_editor',
+        'audio_video',
+        'manage_content',
+      ]);
       showToast('🎉 Yangi administrator muvaffaqiyatli yaratildi!');
     } catch (err: any) {
       alert('Admin yaratishda xatolik: ' + err.message);
@@ -1238,260 +1355,301 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
             </p>
 
             {/* Nav: Dashboard */}
-            <button
-              onClick={() => setActiveNav('dashboard')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeNav === 'dashboard'
-                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4 shrink-0" />
-              <span>Dashboard</span>
-            </button>
+            {hasPermission('dashboard') && (
+              <button
+                onClick={() => setActiveNav('dashboard')}
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  activeNav === 'dashboard'
+                    ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4 shrink-0" />
+                <span>Dashboard</span>
+              </button>
+            )}
 
             {/* Nav: Content Manager (Group Dropdown) */}
-            <div className="pt-1">
+            {(hasPermission('add_book') ||
+              hasPermission('my_books') ||
+              hasPermission('page_editor') ||
+              hasPermission('grades') ||
+              hasPermission('subjects')) && (
+              <div className="pt-1">
+                <button
+                  onClick={() => setContentManagerOpen(!contentManagerOpen)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                    activeNav === 'add_book' ||
+                    activeNav === 'my_books' ||
+                    activeNav === 'page_editor' ||
+                    activeNav === 'grades' ||
+                    activeNav === 'subjects'
+                      ? 'text-white'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <BookOpen className="w-4 h-4 shrink-0 text-slate-400" />
+                    <span>Darsliklar & Kontent</span>
+                  </div>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                      contentManagerOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {contentManagerOpen && (
+                  <div className="pt-1 pb-1 space-y-1">
+                    {hasPermission('add_book') && (
+                      <button
+                        onClick={() => setActiveNav('add_book')}
+                        className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2.5 ${
+                          activeNav === 'add_book'
+                            ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <PlusCircle className="w-4 h-4 shrink-0 text-slate-400" />
+                        <span>Kitob qo‘shish</span>
+                      </button>
+                    )}
+
+                    {hasPermission('my_books') && (
+                      <button
+                        onClick={() => setActiveNav('my_books')}
+                        className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
+                          activeNav === 'my_books'
+                            ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <span className="flex items-center space-x-2.5">
+                          <Library className="w-4 h-4 shrink-0 text-slate-400" />
+                          <span>Mening kitoblarim</span>
+                        </span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
+                          {books.length}
+                        </span>
+                      </button>
+                    )}
+
+                    {hasPermission('page_editor') && (
+                      <button
+                        onClick={() => setActiveNav('page_editor')}
+                        className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2.5 ${
+                          activeNav === 'page_editor'
+                            ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <Crosshair className="w-4 h-4 shrink-0 text-slate-300" />
+                        <span>Visual Hotspot Editor</span>
+                      </button>
+                    )}
+
+                    {hasPermission('grades') && (
+                      <button
+                        onClick={() => setActiveNav('grades')}
+                        className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
+                          activeNav === 'grades'
+                            ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <span className="flex items-center space-x-2.5">
+                          <Layers className="w-4 h-4 shrink-0 text-slate-400" />
+                          <span>Sinflar boshqaruvi</span>
+                        </span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
+                          {activeGradesList.length}
+                        </span>
+                      </button>
+                    )}
+
+                    {hasPermission('subjects') && (
+                      <button
+                        onClick={() => setActiveNav('subjects')}
+                        className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
+                          activeNav === 'subjects'
+                            ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <span className="flex items-center space-x-2.5">
+                          <Tag className="w-4 h-4 shrink-0 text-slate-400" />
+                          <span>Fanlar boshqaruvi</span>
+                        </span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
+                          {subjectsList.length}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(hasPermission('users') ||
+              hasPermission('admins') ||
+              hasPermission('subscriptions') ||
+              hasPermission('pricing')) && (
+              <p className="px-3.5 pt-4 pb-1 text-[11px] font-bold text-slate-400">
+                Obuna va foydalanuvchilar
+              </p>
+            )}
+
+            {/* Nav: Users */}
+            {hasPermission('users') && (
               <button
-                onClick={() => setContentManagerOpen(!contentManagerOpen)}
-                className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeNav === 'add_book' ||
-                  activeNav === 'my_books' ||
-                  activeNav === 'page_editor' ||
-                  activeNav === 'grades' ||
-                  activeNav === 'subjects'
-                    ? 'text-white'
+                onClick={() => setActiveNav('users')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  activeNav === 'users'
+                    ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                 }`}
               >
                 <div className="flex items-center space-x-2.5">
-                  <BookOpen className="w-4 h-4 shrink-0 text-slate-400" />
-                  <span>Darsliklar & Kontent</span>
+                  <Users className="w-4 h-4 shrink-0 text-slate-400" />
+                  <span>O‘qituvchilar</span>
                 </div>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
-                    contentManagerOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-
-              {contentManagerOpen && (
-                <div className="pt-1 pb-1 space-y-1">
-                  <button
-                    onClick={() => setActiveNav('add_book')}
-                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2.5 ${
-                      activeNav === 'add_book'
-                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <PlusCircle className="w-4 h-4 shrink-0 text-slate-400" />
-                    <span>Kitob qo‘shish</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveNav('my_books')}
-                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
-                      activeNav === 'my_books'
-                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <span className="flex items-center space-x-2.5">
-                      <Library className="w-4 h-4 shrink-0 text-slate-400" />
-                      <span>Mening kitoblarim</span>
-                    </span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
-                      {books.length}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveNav('page_editor')}
-                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2.5 ${
-                      activeNav === 'page_editor'
-                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <Crosshair className="w-4 h-4 shrink-0 text-slate-300" />
-                    <span>Visual Hotspot Editor</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveNav('grades')}
-                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
-                      activeNav === 'grades'
-                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <span className="flex items-center space-x-2.5">
-                      <Layers className="w-4 h-4 shrink-0 text-slate-400" />
-                      <span>Sinflar boshqaruvi</span>
-                    </span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
-                      {activeGradesList.length}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveNav('subjects')}
-                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between ${
-                      activeNav === 'subjects'
-                        ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <span className="flex items-center space-x-2.5">
-                      <Tag className="w-4 h-4 shrink-0 text-slate-400" />
-                      <span>Fanlar boshqaruvi</span>
-                    </span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold">
-                      {subjectsList.length}
-                    </span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <p className="px-3.5 pt-4 pb-1 text-[11px] font-bold text-slate-400">
-              Obuna va foydalanuvchilar
-            </p>
-
-            {/* Nav: Users */}
-            <button
-              onClick={() => setActiveNav('users')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeNav === 'users'
-                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <Users className="w-4 h-4 shrink-0 text-slate-400" />
-                <span>O‘qituvchilar</span>
-              </div>
-              <span
-                className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                  activeNav === 'users'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                }`}
-              >
-                {usersList.length}
-              </span>
-            </button>
-
-            {/* Nav: Admins Management */}
-            <button
-              onClick={() => setActiveNav('admins')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeNav === 'admins'
-                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <ShieldCheck className="w-4 h-4 shrink-0 text-slate-400" />
-                <span>Adminlar</span>
-              </div>
-              <span
-                className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                  activeNav === 'admins'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-blue-600/30 text-blue-300 border border-blue-500/30'
-                }`}
-              >
-                {adminsList.length}
-              </span>
-            </button>
-
-            {/* Nav: Subscriptions */}
-            <button
-              onClick={() => setActiveNav('subscriptions')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeNav === 'subscriptions'
-                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <Crown className="w-4 h-4 shrink-0 text-slate-400" />
-                <span>Obunalar & To‘lovlar</span>
-              </div>
-              {pendingRequestsCount > 0 ? (
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse">
-                  {pendingRequestsCount} yangi
-                </span>
-              ) : (
                 <span
                   className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                    activeNav === 'subscriptions'
+                    activeNav === 'users'
                       ? 'bg-white/20 text-white'
-                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                   }`}
                 >
-                  {requestsList.length}
+                  {usersList.length}
                 </span>
-              )}
-            </button>
+              </button>
+            )}
+
+            {/* Nav: Admins Management */}
+            {hasPermission('admins') && (
+              <button
+                onClick={() => setActiveNav('admins')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  activeNav === 'admins'
+                    ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-slate-400" />
+                  <span>Adminlar</span>
+                </div>
+                <span
+                  className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                    activeNav === 'admins'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-blue-600/30 text-blue-300 border border-blue-500/30'
+                  }`}
+                >
+                  {adminsList.length}
+                </span>
+              </button>
+            )}
+
+            {/* Nav: Subscriptions */}
+            {hasPermission('subscriptions') && (
+              <button
+                onClick={() => setActiveNav('subscriptions')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  activeNav === 'subscriptions'
+                    ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <Crown className="w-4 h-4 shrink-0 text-slate-400" />
+                  <span>Obunalar & To‘lovlar</span>
+                </div>
+                {pendingRequestsCount > 0 ? (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black animate-pulse">
+                    {pendingRequestsCount} yangi
+                  </span>
+                ) : (
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                      activeNav === 'subscriptions'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    }`}
+                  >
+                    {requestsList.length}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Nav: Pricing & Tariffs */}
-            <button
-              onClick={() => setActiveNav('pricing')}
-              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeNav === 'pricing'
-                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <CreditCard className="w-4 h-4 shrink-0 text-slate-400" />
-              <span>Tariflar & Narxlar</span>
-            </button>
+            {hasPermission('pricing') && (
+              <button
+                onClick={() => setActiveNav('pricing')}
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  activeNav === 'pricing'
+                    ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <CreditCard className="w-4 h-4 shrink-0 text-slate-400" />
+                <span>Tariflar & Narxlar</span>
+              </button>
+            )}
 
-            <p className="px-3.5 pt-4 pb-1 text-[11px] font-bold text-slate-400">
-              Tizim
-            </p>
+            {(hasPermission('analytics') ||
+              hasPermission('system_logs') ||
+              hasPermission('settings')) && (
+              <p className="px-3.5 pt-4 pb-1 text-[11px] font-bold text-slate-400">
+                Tizim
+              </p>
+            )}
 
             {/* Nav: Analytics */}
-            <button
-              onClick={() => setActiveNav('analytics')}
-              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeNav === 'analytics'
-                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <BarChart2 className="w-4 h-4 shrink-0 text-slate-400" />
-              <span>Statistika</span>
-            </button>
+            {hasPermission('analytics') && (
+              <button
+                onClick={() => setActiveNav('analytics')}
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  activeNav === 'analytics'
+                    ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <BarChart2 className="w-4 h-4 shrink-0 text-slate-400" />
+                <span>Statistika</span>
+              </button>
+            )}
 
             {/* Nav: System Logs */}
-            <button
-              onClick={() => setActiveNav('system_logs')}
-              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeNav === 'system_logs'
-                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <FileText className="w-4 h-4 shrink-0 text-slate-400" />
-              <span>Audit Jurnali</span>
-            </button>
+            {hasPermission('system_logs') && (
+              <button
+                onClick={() => setActiveNav('system_logs')}
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  activeNav === 'system_logs'
+                    ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <FileText className="w-4 h-4 shrink-0 text-slate-400" />
+                <span>Audit Jurnali</span>
+              </button>
+            )}
 
             {/* Nav: Settings */}
-            <button
-              onClick={() => setActiveNav('settings')}
-              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeNav === 'settings'
-                  ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <Settings className="w-4 h-4 shrink-0 text-slate-400" />
-              <span>Sozlamalar</span>
-            </button>
+            {hasPermission('settings') && (
+              <button
+                onClick={() => setActiveNav('settings')}
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  activeNav === 'settings'
+                    ? 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-600/30 font-semibold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <Settings className="w-4 h-4 shrink-0 text-slate-400" />
+                <span>Sozlamalar</span>
+              </button>
+            )}
           </div>
 
           {/* User Profile Footer Card */}
@@ -2236,7 +2394,20 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                         )}
 
                         <div className="min-w-0">
-                          <h4 className="text-sm font-extrabold text-slate-900 truncate">{book.title}</h4>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <h4 className="text-sm font-extrabold text-slate-900 truncate">{book.title}</h4>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingBook(book);
+                                setEditingBookTitle(book.title);
+                              }}
+                              className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition shrink-0"
+                              title="Kitob nomini o‘zgartirish"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                           <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                             {book.grade}-sinf • {book.subject} • {book.type}
                           </p>
@@ -2547,6 +2718,16 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                               </button>
                             </div>
                           )}
+
+                          {/* Delete Request Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRequest(req.id)}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all shrink-0"
+                            title="So‘rov xabarini o‘chirish"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     );
@@ -3373,59 +3554,6 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                 </button>
               </div>
 
-              {/* Global Default Plans */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {pricingPlans.map((plan, idx) => (
-                  <div
-                    key={plan.id || idx}
-                    className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 hover:border-indigo-300 transition-all relative overflow-hidden"
-                  >
-                    {plan.badge && (
-                      <div className="absolute top-4 right-4 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-extrabold uppercase">
-                        {plan.badge}
-                      </div>
-                    )}
-
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                        Bazaviy tarif • {plan.durationDays} kun
-                      </span>
-                      <h3 className="text-sm font-black text-slate-900 mt-0.5">{plan.name}</h3>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={plan.priceUzs}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10) || 0;
-                          setPricingPlans((prev) =>
-                            prev.map((p, i) => (i === idx ? { ...p, priceUzs: val } : p)),
-                          );
-                        }}
-                        className="w-full pl-3.5 pr-14 py-2 rounded-xl border border-slate-200 text-slate-900 font-black text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-[#F5F7FF]/60"
-                      />
-                      <span className="absolute right-3.5 top-2.5 text-[11px] font-bold text-slate-400">
-                        UZS
-                      </span>
-                    </div>
-
-                    <input
-                      type="text"
-                      value={plan.name}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setPricingPlans((prev) =>
-                          prev.map((p, i) => (i === idx ? { ...p, name: val } : p)),
-                        );
-                      }}
-                      placeholder="Tarif nomi"
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                ))}
-              </div>
-
               {/* Per-(Grade × Subject) Individual Pricing Matrix */}
               <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -4133,6 +4261,49 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                         <p className="text-[10px] text-slate-500 mt-0.5">To‘liq ruxsat (baza, narx, adminlar)</p>
                       </button>
                     </div>
+
+                    {newAdminRole === 'ADMIN' && (
+                      <div className="pt-2">
+                        <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                          <span>Ruxsat etilgan bo‘limlar</span>
+                          <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full">
+                            {newAdminPermissions.length} ta tanlandi
+                          </span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-2xl custom-scrollbar">
+                          {assignablePermissions.map((perm) => {
+                            const isChecked = newAdminPermissions.includes(perm.id);
+                            return (
+                              <label
+                                key={perm.id}
+                                className={`flex items-center gap-2 p-2 rounded-xl text-xs cursor-pointer transition select-none ${
+                                  isChecked
+                                    ? 'bg-indigo-50 border border-indigo-200 text-indigo-900 font-bold shadow-xs'
+                                    : 'hover:bg-white text-slate-700 font-medium'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    setNewAdminPermissions((prev) =>
+                                      isChecked
+                                        ? prev.filter((p) => p !== perm.id)
+                                        : [...prev, perm.id],
+                                    );
+                                  }}
+                                  className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 shrink-0 cursor-pointer"
+                                />
+                                <span className="truncate">{perm.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10.5px] text-slate-400 mt-1">
+                          Yangi administrator faqat o‘ziga ruxsat berilgan sahifalarni ko‘ra oladi.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -4274,6 +4445,63 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   >
                     <Check className="w-4 h-4" />
                     <span>{isCancellingSub ? "Bekor qilinmoqda..." : "Tasdiqlash (Bekor qilish)"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Book Title Modal */}
+          {editingBook && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-scaleIn">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-base font-black text-slate-900 flex items-center space-x-2">
+                    <Edit3 className="w-4 h-4 text-blue-600" />
+                    <span>Kitob Nomini O‘zgartirish</span>
+                  </h3>
+                  <button
+                    onClick={() => setEditingBook(null)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Yangi Kitob Nomi <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editingBookTitle}
+                      onChange={(e) => setEditingBookTitle(e.target.value)}
+                      placeholder="Darslik nomini kiriting..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      autoFocus
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      {editingBook.grade}-sinf • {editingBook.subject} • {editingBook.type}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setEditingBook(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingBookTitle || !editingBookTitle.trim()}
+                    onClick={handleSaveBookTitle}
+                    className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-all"
+                  >
+                    {isSavingBookTitle ? 'Saqlanmoqda...' : 'Nomni Saqlash'}
                   </button>
                 </div>
               </div>

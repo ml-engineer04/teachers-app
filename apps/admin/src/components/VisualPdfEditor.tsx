@@ -23,6 +23,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   HelpCircle,
   Smartphone,
   Tablet,
@@ -135,6 +136,206 @@ async function adminFetchJson<T = any>(endpoint: string, options?: RequestInit):
     throw new Error(errText || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+function SearchableBookSelect({
+  books,
+  selectedBookId,
+  onSelectBook,
+  className = '',
+  variant = 'sidebar',
+}: {
+  books: any[];
+  selectedBookId: string;
+  onSelectBook: (id: string) => void;
+  className?: string;
+  variant?: 'header' | 'sidebar';
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedGrade, setSelectedGrade] = useState<number | 'ALL'>('ALL');
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedBook = useMemo(
+    () => books.find((b) => b.id === selectedBookId) || books[0],
+    [books, selectedBookId],
+  );
+
+  const availableGrades = useMemo(() => {
+    const gradesSet = new Set<number>();
+    books.forEach((b) => {
+      if (b.gradeId) gradesSet.add(Number(b.gradeId));
+    });
+    return Array.from(gradesSet).sort((a, b) => a - b);
+  }, [books]);
+
+  const filteredBooks = useMemo(() => {
+    let list = books;
+    if (selectedGrade !== 'ALL') {
+      list = list.filter((b) => Number(b.gradeId) === selectedGrade);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (b) =>
+          b.title?.toLowerCase().includes(q) ||
+          String(b.gradeId).includes(q) ||
+          b.subject?.toLowerCase().includes(q) ||
+          b.type?.toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [books, search, selectedGrade]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={
+          variant === 'header'
+            ? 'flex items-center justify-between gap-1.5 text-xs font-bold bg-indigo-50/90 hover:bg-indigo-100/90 text-indigo-700 border border-indigo-200/80 rounded-xl px-2.5 py-1 max-w-[210px] sm:max-w-[280px] truncate cursor-pointer shrink-0 transition outline-none shadow-xs'
+            : 'w-full px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-white hover:border-indigo-400 text-xs font-extrabold text-slate-900 shadow-xs flex items-center justify-between gap-1.5 transition outline-none cursor-pointer'
+        }
+        title="Kitobni qidirish va tanlash"
+      >
+        <span className="truncate text-left flex items-center gap-1.5">
+          <Search className="w-3 h-3 text-indigo-500 shrink-0" />
+          <span className="truncate">
+            {selectedBook ? `${selectedBook.gradeId}-sinf • ${selectedBook.title}` : 'Kitobni tanlang...'}
+          </span>
+        </span>
+        <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60 ml-1" />
+      </button>
+
+      {isOpen && (
+        <div
+          className={
+            variant === 'header'
+              ? 'absolute top-full left-0 mt-1.5 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-fadeIn'
+              : 'absolute top-full left-0 mt-1.5 w-80 sm:w-88 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-fadeIn'
+          }
+        >
+          {/* Search Input */}
+          <div className="relative mb-2">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Kitob nomi, sinfi yoki fanini qidiring (1000+)..."
+              className="w-full pl-9 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Quick Grade Filter Tabs */}
+          {availableGrades.length > 1 && (
+            <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-2 custom-scrollbar text-[10px]">
+              <button
+                type="button"
+                onClick={() => setSelectedGrade('ALL')}
+                className={`px-2 py-0.5 rounded-lg font-bold shrink-0 transition ${
+                  selectedGrade === 'ALL'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Barchasi ({books.length})
+              </button>
+              {availableGrades.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setSelectedGrade(g)}
+                  className={`px-2 py-0.5 rounded-lg font-bold shrink-0 transition ${
+                    selectedGrade === g
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {g}-sinf
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Books List Count */}
+          <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-400 px-1 mb-1.5">
+            <span>TOPILGAN DARSLIKLAR</span>
+            <span>{filteredBooks.length} ta kitob</span>
+          </div>
+
+          {/* Scrollable Books List */}
+          <div className="max-h-64 overflow-y-auto space-y-1 custom-scrollbar pr-0.5">
+            {filteredBooks.map((b) => {
+              const isSelected = b.id === selectedBookId;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectBook(b.id);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  className={`w-full text-left p-2 rounded-xl transition flex items-center justify-between gap-2.5 ${
+                    isSelected
+                      ? 'bg-indigo-50/90 text-indigo-950 font-black border border-indigo-200/80 shadow-xs'
+                      : 'hover:bg-slate-50 text-slate-800 font-semibold'
+                  }`}
+                >
+                  <div className="min-w-0 flex items-center gap-2">
+                    <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-black">
+                      {b.gradeId}-sinf
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs truncate font-bold leading-tight">{b.title}</p>
+                      <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">
+                        {b.subject || 'Fan'} • {b.type || "Student's Book"}
+                      </p>
+                    </div>
+                  </div>
+                  {isSelected && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
+                </button>
+              );
+            })}
+
+            {filteredBooks.length === 0 && (
+              <div className="text-center py-6 text-slate-400">
+                <Search className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
+                <p className="text-xs font-bold text-slate-600">Mos kitob topilmadi</p>
+                <p className="text-[10.5px] text-slate-400 mt-0.5">Boshqa so'z bilan qidirib ko'ring</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export interface VisualPage {
@@ -1590,18 +1791,12 @@ export function VisualPdfEditor({
                 Hotspot Editor
               </h2>
               {booksList.length > 0 ? (
-                <select
-                  aria-label="Kitobni tanlang"
-                  value={selectedBookId}
-                  onChange={(e) => handleSwitchBook(e.target.value)}
-                  className="text-xs font-bold bg-indigo-50/80 text-indigo-700 border border-indigo-200/80 rounded-xl px-2.5 py-1 max-w-[190px] sm:max-w-[240px] truncate cursor-pointer shrink-0 hover:bg-indigo-100/70 transition outline-none"
-                >
-                  {booksList.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.gradeId}-sinf • {b.title}
-                    </option>
-                  ))}
-                </select>
+                <SearchableBookSelect
+                  books={booksList}
+                  selectedBookId={selectedBookId}
+                  onSelectBook={handleSwitchBook}
+                  variant="header"
+                />
               ) : (
                 <button
                   onClick={() => pdfFileInputRef.current?.click()}
@@ -1736,18 +1931,12 @@ export function VisualPdfEditor({
               )}
             </div>
             {booksList.length > 0 ? (
-              <select
-                aria-label="Tahrirlanayotgan kitobni tanlang"
-                value={selectedBookId}
-                onChange={(e) => handleSwitchBook(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-white text-xs font-extrabold text-slate-900 shadow-xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 outline-none cursor-pointer"
-              >
-                {booksList.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.gradeId}-sinf • {b.title}
-                  </option>
-                ))}
-              </select>
+              <SearchableBookSelect
+                books={booksList}
+                selectedBookId={selectedBookId}
+                onSelectBook={handleSwitchBook}
+                variant="sidebar"
+              />
             ) : (
               <button
                 onClick={() => pdfFileInputRef.current?.click()}

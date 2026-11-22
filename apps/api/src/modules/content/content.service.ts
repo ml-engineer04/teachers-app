@@ -1271,14 +1271,14 @@ export class ContentService implements OnModuleInit {
 
         let rendered = false;
 
-        // Method 1: pdftoppm (poppler-utils) - standard on Linux VPS, renders crisp JPEG (85 quality, 120 DPI)
+        // Method 1: pdftoppm (poppler-utils) - standard on Linux VPS, renders crisp, optimized JPEG (82 quality, 130 DPI, ~100KB)
         try {
           await execFileAsync('pdftoppm', [
             '-jpeg',
             '-r',
-            '120',
+            '130',
             '-jpegopt',
-            'quality=85',
+            'quality=82',
             '-f',
             String(safePage),
             '-l',

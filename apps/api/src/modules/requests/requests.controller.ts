@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { RequestsService } from './requests.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -83,6 +83,12 @@ export class RequestsController {
   ) {
     const adminId = admin?.userId || admin?.id || 'admin_1';
     return this.requestsService.rejectAccess(id, adminId, body?.reason || 'Sabab ko‘rsatilmadi');
+  }
+
+  @Delete('admin/requests/:id')
+  @ApiOperation({ summary: 'Delete access request (Admin)' })
+  async deleteRequest(@Param('id') id: string) {
+    return this.requestsService.deleteRequest(id);
   }
 
   @Post('admin/subscriptions/manual')

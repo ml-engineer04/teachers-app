@@ -134,8 +134,10 @@ export interface AdminLoginResponse {
   admin: {
     id: string;
     email: string;
+    fullName?: string;
     role: AdminRole;
     totpEnabled: boolean;
+    permissions?: string[];
   };
 }
 

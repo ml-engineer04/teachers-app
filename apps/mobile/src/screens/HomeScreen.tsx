@@ -419,6 +419,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         }
       : null;
 
+  // Instant Pre-fetch: pre-fetches the active reading page in the background while user browses Home
+  useEffect(() => {
+    if (continueItem?.id && continueItem?.lastPage) {
+      const pageNum = continueItem.lastPage;
+      const url = `${mobileApi.API_BASE}/content/books/${continueItem.id}/pages/${pageNum}/image`;
+      Image.prefetch(url).catch(() => {});
+      if (pageNum < (continueItem.totalPages || 96)) {
+        Image.prefetch(`${mobileApi.API_BASE}/content/books/${continueItem.id}/pages/${pageNum + 1}/image`).catch(() => {});
+      }
+    }
+  }, [continueItem?.id, continueItem?.lastPage, continueItem?.totalPages]);
+
   const trimmedSearch = debouncedSearch.trim();
 
   const {

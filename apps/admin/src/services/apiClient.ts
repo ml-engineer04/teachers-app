@@ -15,55 +15,18 @@ export async function getOrFetchAdminToken(): Promise<string | null> {
       if (parts.length === 3) {
         const payload = JSON.parse(atob(parts[1]));
         if (payload.exp && payload.exp * 1000 < Date.now()) {
-          token = null;
+          localStorage.removeItem(ADMIN_TOKEN_KEY);
+          localStorage.removeItem('stb_admin_session');
+          return null;
         }
       }
     } catch {
-      token = null;
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      localStorage.removeItem('stb_admin_session');
+      return null;
     }
   }
-
-  if (token) return token;
-
-  if (isFetchingTokenPromise) {
-    return isFetchingTokenPromise;
-  }
-
-  isFetchingTokenPromise = (async () => {
-    try {
-      const res = await fetch(`${API_BASE}/admin/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@smartteacherbook.uz',
-          password: 'Admin@SmartTeacher2026!',
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.accessToken) {
-          localStorage.setItem(ADMIN_TOKEN_KEY, data.accessToken);
-          if (!localStorage.getItem('stb_admin_session')) {
-            localStorage.setItem(
-              'stb_admin_session',
-              JSON.stringify({
-                email: 'admin@smartteacherbook.uz',
-                name: 'Super Admin',
-              }),
-            );
-          }
-          return data.accessToken;
-        }
-      }
-    } catch (e) {
-      console.warn('Auto admin authentication error:', e);
-    } finally {
-      isFetchingTokenPromise = null;
-    }
-    return null;
-  })();
-
-  return isFetchingTokenPromise;
+  return token;
 }
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -80,22 +43,17 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
 
   if (res.status === 401 && typeof window !== 'undefined') {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
-    token = await getOrFetchAdminToken();
-    if (token) {
-      res = await fetch(`${API_BASE}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-          ...options?.headers,
-        },
-        ...options,
-      });
-    }
+    localStorage.removeItem('stb_admin_session');
   }
 
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`API Error ${res.status}: ${errorText}`);
+    let msg = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      msg = parsed.message || errorText;
+    } catch {}
+    throw new Error(msg || `API Error ${res.status}`);
   }
   return res.json();
 }
@@ -103,15 +61,33 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
 export const api = {
   // Authentication
   async login(email: string, password: string) {
-    const data = await fetchJson<{ accessToken: string; admin: { id: string; email: string; role: string } }>(
-      '/admin/auth/login',
-      {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      },
-    );
+    const res = await fetch(`${API_BASE}/admin/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      let msg = errText;
+      try {
+        const parsed = JSON.parse(errText);
+        msg = parsed.message || errText;
+      } catch {}
+      throw new Error(msg || 'Noto‘g‘ri administrator login yoki paroli');
+    }
+    const data = await res.json();
     if (data.accessToken && typeof window !== 'undefined') {
       localStorage.setItem(ADMIN_TOKEN_KEY, data.accessToken);
+      localStorage.setItem(
+        'stb_admin_session',
+        JSON.stringify({
+          id: data.admin?.id,
+          email: data.admin?.email,
+          name: data.admin?.fullName || (data.admin?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'),
+          role: data.admin?.role,
+          permissions: data.admin?.permissions,
+        }),
+      );
     }
     return data;
   },
@@ -156,6 +132,12 @@ export const api = {
     return fetchJson<any>(`/admin/requests/${requestId}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
+    });
+  },
+
+  async deleteRequest(requestId: string) {
+    return fetchJson<{ success: boolean; message: string }>(`/admin/requests/${requestId}`, {
+      method: 'DELETE',
     });
   },
 
@@ -551,7 +533,13 @@ export const api = {
     return fetchJson<any[]>('/admin/auth/admins');
   },
 
-  async createAdmin(data: { email: string; fullName: string; password: string; role?: string }) {
+  async createAdmin(data: {
+    email: string;
+    fullName: string;
+    password: string;
+    role?: string;
+    permissions?: string[];
+  }) {
     return fetchJson<any>('/admin/auth/admins', {
       method: 'POST',
       body: JSON.stringify(data),
