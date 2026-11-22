@@ -29,7 +29,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Content & Ingestion Pipeline')
-@Controller('api/v1/content')
+@Controller(['api/v1/content', 'api/content', 'api/v1/api/content'])
 export class ContentController {
   private readonly logger = new Logger(ContentController.name);
   constructor(private readonly contentService: ContentService) {}

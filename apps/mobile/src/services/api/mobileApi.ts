@@ -85,8 +85,13 @@ export const API_ORIGIN = API_BASE.replace(/\/api\/v1\/?$/, '');
 
 export function resolveAssetUrl(url?: string | null): string | undefined {
   if (!url) return undefined;
-  const trimmed = url.trim();
+  let trimmed = url.trim();
   if (!trimmed) return undefined;
+
+  // Clean any legacy duplicate /api/v1/api/ prefix
+  if (trimmed.includes('/api/v1/api/')) {
+    trimmed = trimmed.replace('/api/v1/api/', '/api/v1/');
+  }
 
   // Replace any loopback / local IP or localhost (with any port) with API_ORIGIN
   if (/^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?/i.test(trimmed)) {
@@ -95,8 +100,14 @@ export function resolveAssetUrl(url?: string | null): string | undefined {
 
   // Handle relative paths
   if (trimmed.startsWith('/')) {
-    if (trimmed.startsWith('/api/v1')) {
+    if (trimmed.startsWith('/api/v1/')) {
       return `${API_ORIGIN}${trimmed}`;
+    }
+    if (trimmed.startsWith('/api/')) {
+      return `${API_ORIGIN}/api/v1${trimmed.slice(4)}`;
+    }
+    if (trimmed.startsWith('/content/')) {
+      return `${API_ORIGIN}/api/v1${trimmed}`;
     }
     return `${API_BASE}${trimmed}`;
   }

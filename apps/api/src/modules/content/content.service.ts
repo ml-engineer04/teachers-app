@@ -1074,8 +1074,8 @@ export class ContentService implements OnModuleInit {
       answerHotspotsCount: 0,
       hasHotspots: false,
       titleSnippet: titleSnippet?.trim() || `Page ${nextPageNumber}`,
-      imageHighUrl: `/api/content/books/${bookId}/pages/${nextPageNumber}/image`,
-      imageNormalUrl: `/api/content/books/${bookId}/pages/${nextPageNumber}/image`,
+      imageHighUrl: `/api/v1/content/books/${bookId}/pages/${nextPageNumber}/image`,
+      imageNormalUrl: `/api/v1/content/books/${bookId}/pages/${nextPageNumber}/image`,
     };
     pages.push(newPage);
     this.pagesStore.set(bookId, pages);
@@ -1139,8 +1139,8 @@ export class ContentService implements OnModuleInit {
         answerHotspotsCount: 0,
         hasHotspots: false,
         titleSnippet: `Page ${idx + 1}`,
-        imageHighUrl: `/api/content/books/${bookId}/pages/${idx + 1}/image`,
-        imageNormalUrl: `/api/content/books/${bookId}/pages/${idx + 1}/image`,
+        imageHighUrl: `/api/v1/content/books/${bookId}/pages/${idx + 1}/image`,
+        imageNormalUrl: `/api/v1/content/books/${bookId}/pages/${idx + 1}/image`,
       };
     });
 
