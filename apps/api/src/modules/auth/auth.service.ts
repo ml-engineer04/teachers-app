@@ -420,14 +420,40 @@ export class AuthService implements OnModuleInit {
     const codeHash = this.hashChallengeCode(purpose, cleanEmail, code);
     const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS);
 
+    // Resilient memory cache (always active alongside database)
+    const key = `${purpose}:${cleanEmail}`;
+    this.memChallenges.set(key, {
+      id: crypto.randomUUID(),
+      userId: userId || null,
+      email: cleanEmail,
+      purpose,
+      codeHash,
+      attempts: 0,
+      expiresAt,
+      consumedAt: null,
+      createdAt: new Date(),
+    });
+
     if (this.prisma.isConnected) {
       try {
         await this.prisma.authChallenge.deleteMany({
           where: { email: cleanEmail, purpose, consumedAt: null },
         });
+
+        let validPrismaUserId: string | null = null;
+        if (userId) {
+          const userExists = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+          });
+          if (userExists) {
+            validPrismaUserId = userExists.id;
+          }
+        }
+
         await this.prisma.authChallenge.create({
           data: {
-            userId: userId || null,
+            userId: validPrismaUserId,
             email: cleanEmail,
             purpose,
             codeHash,
@@ -441,18 +467,6 @@ export class AuthService implements OnModuleInit {
       }
     }
 
-    const key = `${purpose}:${cleanEmail}`;
-    this.memChallenges.set(key, {
-      id: crypto.randomUUID(),
-      userId: userId || null,
-      email: cleanEmail,
-      purpose,
-      codeHash,
-      attempts: 0,
-      expiresAt,
-      consumedAt: null,
-      createdAt: new Date(),
-    });
     return code;
   }
 
@@ -468,36 +482,37 @@ export class AuthService implements OnModuleInit {
           orderBy: { createdAt: 'desc' },
         });
 
-        if (!record) {
-          throw new UnauthorizedException('VERIFICATION_CODE_INVALID: Tasdiqlash kodi topilmadi yoki muddati o‘tgan.');
-        }
+        if (record) {
+          if (record.expiresAt.getTime() < Date.now()) {
+            await this.prisma.authChallenge.delete({ where: { id: record.id } }).catch(() => {});
+            throw new UnauthorizedException('VERIFICATION_CODE_EXPIRED: Tasdiqlash kodi muddati o‘tib ketgan.');
+          }
 
-        if (record.expiresAt.getTime() < Date.now()) {
-          await this.prisma.authChallenge.delete({ where: { id: record.id } }).catch(() => {});
-          throw new UnauthorizedException('VERIFICATION_CODE_EXPIRED: Tasdiqlash kodi muddati o‘tib ketgan.');
-        }
+          if (record.attempts >= MAX_CHALLENGE_ATTEMPTS) {
+            throw new UnauthorizedException('VERIFICATION_ATTEMPTS_EXCEEDED: Urinishlar soni tugadi. Yangi kod so‘rang.');
+          }
 
-        if (record.attempts >= MAX_CHALLENGE_ATTEMPTS) {
-          throw new UnauthorizedException('VERIFICATION_ATTEMPTS_EXCEEDED: Urinishlar soni tugadi. Yangi kod so‘rang.');
-        }
+          const storedBuf = Buffer.from(record.codeHash, 'utf8');
+          const incomingBuf = Buffer.from(incomingHash, 'utf8');
+          const matches = storedBuf.length === incomingBuf.length && crypto.timingSafeEqual(storedBuf, incomingBuf);
 
-        const storedBuf = Buffer.from(record.codeHash, 'utf8');
-        const incomingBuf = Buffer.from(incomingHash, 'utf8');
-        const matches = storedBuf.length === incomingBuf.length && crypto.timingSafeEqual(storedBuf, incomingBuf);
+          if (!matches) {
+            await this.prisma.authChallenge.update({
+              where: { id: record.id },
+              data: { attempts: { increment: 1 } },
+            });
+            throw new UnauthorizedException('VERIFICATION_CODE_INVALID: Kiritilgan tasdiqlash kodi noto‘g‘ri.');
+          }
 
-        if (!matches) {
           await this.prisma.authChallenge.update({
             where: { id: record.id },
-            data: { attempts: { increment: 1 } },
+            data: { consumedAt: new Date() },
           });
-          throw new UnauthorizedException('VERIFICATION_CODE_INVALID: Kiritilgan tasdiqlash kodi noto‘g‘ri.');
-        }
 
-        await this.prisma.authChallenge.update({
-          where: { id: record.id },
-          data: { consumedAt: new Date() },
-        });
-        return record;
+          const key = `${purpose}:${cleanEmail}`;
+          this.memChallenges.delete(key);
+          return record;
+        }
       } catch (err: any) {
         if (err instanceof UnauthorizedException) throw err;
         this.logger.warn(`Prisma verifyChallenge error, using fallback: ${err.message}`);
@@ -1053,6 +1068,34 @@ export class AuthService implements OnModuleInit {
     if (this.prisma.isConnected) {
       try {
         linkedUser = await this.prisma.$transaction(async (tx) => {
+          await tx.user.upsert({
+            where: { id: user.id },
+            update: {
+              googleId: payload.googleSub,
+              emailVerified: true,
+              authProvider: mergedProvider,
+              firstName: updatedNames.firstName,
+              lastName: updatedNames.lastName,
+              fullName: updatedNames.fullName,
+              avatarUrl: user.avatarUrl || payload.avatarUrl || null,
+              lastLoginAt: new Date(),
+            },
+            create: {
+              id: user.id,
+              email: user.email,
+              role: user.role || 'TEACHER',
+              passwordHash: user.passwordHash || null,
+              googleId: payload.googleSub,
+              emailVerified: true,
+              authProvider: mergedProvider,
+              firstName: updatedNames.firstName,
+              lastName: updatedNames.lastName,
+              fullName: updatedNames.fullName,
+              avatarUrl: user.avatarUrl || payload.avatarUrl || null,
+              lastLoginAt: new Date(),
+            },
+          });
+
           await tx.externalAccount.upsert({
             where: {
               provider_providerSubject: {
@@ -1069,19 +1112,7 @@ export class AuthService implements OnModuleInit {
             },
           });
 
-          return await tx.user.update({
-            where: { id: user.id },
-            data: {
-              googleId: payload.googleSub,
-              emailVerified: true,
-              authProvider: mergedProvider,
-              firstName: updatedNames.firstName,
-              lastName: updatedNames.lastName,
-              fullName: updatedNames.fullName,
-              avatarUrl: user.avatarUrl || payload.avatarUrl || null,
-              lastLoginAt: new Date(),
-            },
-          });
+          return await tx.user.findUnique({ where: { id: user.id } });
         });
       } catch (err: any) {
         this.logger.warn(`Prisma linkGoogleAccount error, using fallback: ${err.message}`);

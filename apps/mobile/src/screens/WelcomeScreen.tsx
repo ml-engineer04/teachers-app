@@ -169,6 +169,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
   const [linkingPassword, setLinkingPassword] = useState('');
   const [linkingCode, setLinkingCode] = useState('');
   const [linkingCodeSent, setLinkingCodeSent] = useState(false);
+  const [linkResendSeconds, setLinkResendSeconds] = useState(45);
 
   // 6-box OTP state
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
@@ -332,10 +333,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
       setLinkingMethod(hasPwd ? 'PASSWORD' : 'CODE');
       setLinkingPassword('');
       setLinkingCode('');
-      setLinkingCodeSent(false);
+      setLinkingCodeSent(!hasPwd);
+      setLinkResendSeconds(45);
       setErrorMsg(null);
       setSuccessMsg(null);
       setStep('LINK_GOOGLE');
+
+      if (!hasPwd) {
+        mobileApi.sendGoogleLinkCode(outcome.linkToken).catch(() => {});
+      }
       return;
     }
 
@@ -398,12 +404,19 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
 
   // Countdown timer for 6-digit verification resend
   useEffect(() => {
-    if (step !== 'INPUT_CODE' || resendSeconds <= 0) return;
-    const t = setInterval(() => {
-      setResendSeconds((s) => Math.max(0, s - 1));
-    }, 1000);
-    return () => clearInterval(t);
-  }, [step, resendSeconds]);
+    if (step === 'INPUT_CODE' && resendSeconds > 0) {
+      const t = setInterval(() => {
+        setResendSeconds((s) => Math.max(0, s - 1));
+      }, 1000);
+      return () => clearInterval(t);
+    }
+    if (step === 'LINK_GOOGLE' && linkResendSeconds > 0) {
+      const t = setInterval(() => {
+        setLinkResendSeconds((s) => Math.max(0, s - 1));
+      }, 1000);
+      return () => clearInterval(t);
+    }
+  }, [step, resendSeconds, linkResendSeconds]);
 
   const formatTimer = (secs: number) => {
     const mm = String(Math.floor(secs / 60)).padStart(2, '0');
@@ -723,13 +736,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
   // Verified Google Account Linking (Scenario C)
   // ---------------------------------------------------------------------------
   const handleSendGoogleLinkCode = async () => {
-    if (!linkingToken) return;
+    if (!linkingToken || linkResendSeconds > 0) return;
     clearFeedback();
     setAuthLoading(true);
     try {
       const res = await mobileApi.sendGoogleLinkCode(linkingToken);
       setAuthLoading(false);
       setLinkingCodeSent(true);
+      setLinkResendSeconds(45);
       setSuccessMsg(res.message);
     } catch (err: any) {
       setAuthLoading(false);
@@ -1839,186 +1853,208 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGoogleSignIn }) 
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="none"
           >
+            <View style={styles.formCenterWrapper}>
+              <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft, width: 68, height: 68, borderRadius: 20, marginBottom: 14 }]}>
+                <GoogleLogoIcon size={32} />
+              </View>
 
-          <View style={[styles.otpIconBadge, { backgroundColor: colors.primarySoft }]}>
-            <GoogleLogoIcon size={34} />
-          </View>
+              <Text style={[styles.stepTitle, { color: colors.textPrimary, fontSize: 20, marginBottom: 6 }]}>
+                {tr(
+                  language,
+                  'Hisobni xavfsiz boğlaş',
+                  'Подтверждение владельца аккаунта',
+                  'Verify Account Ownership',
+                )}
+              </Text>
+              <Text style={[styles.stepSub, { color: colors.textSecondary, marginBottom: 16, lineHeight: 19 }]}>
+                {tr(
+                  language,
+                  `${linkingEmail} manzili tizimda mavjud. Google hisobini ulaşdan oldin egasi ekanligingizni tasdiqlang.`,
+                  `${linkingEmail} уже зарегистрирован. Подтвердите владение аккаунтом перед привязкой Google.`,
+                  `${linkingEmail} already exists. Please prove account ownership before linking your Google account.`,
+                )}
+              </Text>
 
-          <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>
-            {tr(
-              language,
-              'Hisobni xavfsiz boğlaş',
-              'Подтверждение владельца аккаунта',
-              'Verify Account Ownership',
-            )}
-          </Text>
-          <Text style={[styles.stepSub, { color: colors.textSecondary }]}>
-            {tr(
-              language,
-              `${linkingEmail} manzili tizimda mavjud. Google hisobini ulashdan oldin egasi ekanligingizni tasdiqlang.`,
-              `${linkingEmail} уже зарегистрирован. Подтвердите владение аккаунтом перед привязкой Google.`,
-              `${linkingEmail} already exists. Please prove account ownership before linking your Google account.`,
-            )}
-          </Text>
-
-          {errorMsg && (
-            <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft }]}>
-              <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {errorMsg}</Text>
-            </View>
-          )}
-          {successMsg && (
-            <View
-              style={[
-                styles.successBox,
-                { backgroundColor: colors.accentSoft, borderColor: colors.accent + '44' },
-              ]}
-            >
-              <Text style={[styles.successText, { color: colors.accent }]}>✅ {successMsg}</Text>
-            </View>
-          )}
-
-          {linkingHasPassword && (
-            <View
-              style={[
-                styles.authModeTabs,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.authModeTab,
-                  linkingMethod === 'PASSWORD' && { backgroundColor: colors.primary },
-                ]}
-                onPress={() => {
-                  clearFeedback();
-                  setLinkingMethod('PASSWORD');
-                }}
-              >
-                <Text
+              {errorMsg && (
+                <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft, marginBottom: 12 }]}>
+                  <Text style={[styles.errorText, { color: colors.danger }]}>
+                    ⚠️ {errorMsg.replace(/^[A-Z0-9_]+:\s*/, '')}
+                  </Text>
+                </View>
+              )}
+              {successMsg && (
+                <View
                   style={[
-                    styles.authModeTabText,
+                    styles.successBox,
+                    { backgroundColor: colors.accentSoft, borderColor: colors.accent + '44', marginBottom: 12 },
+                  ]}
+                >
+                  <Text style={[styles.successText, { color: colors.accent }]}>✅ {successMsg}</Text>
+                </View>
+              )}
+
+              {linkingHasPassword && (
+                <View
+                  style={[
+                    styles.authModeTabs,
+                    { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: 14 },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.authModeTab,
+                      linkingMethod === 'PASSWORD' && { backgroundColor: colors.primary },
+                    ]}
+                    onPress={() => {
+                      clearFeedback();
+                      setLinkingMethod('PASSWORD');
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.authModeTabText,
+                        {
+                          color:
+                            linkingMethod === 'PASSWORD' ? colors.onPrimary : colors.textSecondary,
+                        },
+                      ]}
+                    >
+                      {tr(language, 'Parol orqali', 'Через пароль', 'With Password')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.authModeTab,
+                      linkingMethod === 'CODE' && { backgroundColor: colors.primary },
+                    ]}
+                    onPress={() => {
+                      clearFeedback();
+                      setLinkingMethod('CODE');
+                      if (!linkingCodeSent && linkingToken) {
+                        handleSendGoogleLinkCode();
+                      }
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.authModeTabText,
+                        { color: linkingMethod === 'CODE' ? colors.onPrimary : colors.textSecondary },
+                      ]}
+                    >
+                      {tr(language, 'Email kod bilan', 'Через код на email', 'With Email Code')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {linkingMethod === 'PASSWORD' && linkingHasPassword ? (
+                <View
+                  style={[
+                    styles.emailInputWrap,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border, marginBottom: 14 },
+                  ]}
+                >
+                  <Text style={styles.emailIcon}>🔒</Text>
+                  <TextInput
+                    style={[styles.emailInput, { color: colors.textPrimary }]}
+                    value={linkingPassword}
+                    onChangeText={(t) => {
+                      clearFeedback();
+                      setLinkingPassword(t);
+                    }}
+                    placeholder={tr(
+                      language,
+                      'Mavjud hisob paroli',
+                      'Пароль от аккаунта',
+                      'Existing account password',
+                    )}
+                    placeholderTextColor={colors.placeholder}
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+                </View>
+              ) : (
+                <View
+                  style={[
+                    styles.emailInputWrap,
                     {
-                      color:
-                        linkingMethod === 'PASSWORD' ? colors.onPrimary : colors.textSecondary,
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.border,
+                      marginBottom: 14,
+                      justifyContent: 'center',
                     },
                   ]}
                 >
-                  {tr(language, 'Parol orqali', 'Через пароль', 'With Password')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.authModeTab,
-                  linkingMethod === 'CODE' && { backgroundColor: colors.primary },
-                ]}
-                onPress={() => {
-                  clearFeedback();
-                  setLinkingMethod('CODE');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.authModeTabText,
-                    { color: linkingMethod === 'CODE' ? colors.onPrimary : colors.textSecondary },
-                  ]}
-                >
-                  {tr(language, 'Email kod bilan', 'Через код на email', 'With Email Code')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                  <TextInput
+                    style={[
+                      styles.emailInput,
+                      {
+                        color: colors.textPrimary,
+                        textAlign: 'center',
+                        fontSize: 22,
+                        fontWeight: '700',
+                        letterSpacing: 8,
+                        paddingHorizontal: 8,
+                      },
+                    ]}
+                    value={linkingCode}
+                    onChangeText={(t) => {
+                      clearFeedback();
+                      setLinkingCode(t.replace(/[^0-9]/g, '').slice(0, 6));
+                    }}
+                    placeholder="· · · · · ·"
+                    placeholderTextColor={colors.placeholder}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    autoFocus
+                  />
+                </View>
+              )}
 
-          {linkingMethod === 'PASSWORD' && linkingHasPassword ? (
-            <View
-              style={[
-                styles.emailInputWrap,
-                { backgroundColor: colors.inputBg, borderColor: colors.border },
-              ]}
-            >
-              <Text style={styles.emailIcon}>🔒</Text>
-              <TextInput
-                style={[styles.emailInput, { color: colors.textPrimary }]}
-                value={linkingPassword}
-                onChangeText={(t) => {
-                  clearFeedback();
-                  setLinkingPassword(t);
-                }}
-                placeholder={tr(
-                  language,
-                  'Mavjud hisob paroli',
-                  'Пароль от аккаунта',
-                  'Existing account password',
-                )}
-                placeholderTextColor={colors.placeholder}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
-          ) : (
-            <>
               <TouchableOpacity
                 style={[
-                  styles.googlePillBtn,
-                  {
-                    marginBottom: 12,
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
+                  styles.primaryPillBtn,
+                  { width: '100%', maxWidth: 380, backgroundColor: colors.primary, shadowColor: colors.primary },
                 ]}
-                onPress={handleSendGoogleLinkCode}
+                onPress={handleConfirmLinkGoogle}
                 disabled={authLoading}
+                activeOpacity={0.85}
               >
-                <Text style={[styles.googlePillText, { color: colors.textPrimary }]}>
-                  {linkingCodeSent ? strings.auth.resendCodeButton : strings.auth.sendCodeButton}
-                </Text>
+                {authLoading ? (
+                  <ActivityIndicator color={colors.onPrimary} />
+                ) : (
+                  <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
+                    {tr(
+                      language,
+                      'Tasdiqlaş va Google ulaş',
+                      'Подтвердить и привязать Google',
+                      'Verify & Link Google',
+                    )}
+                  </Text>
+                )}
               </TouchableOpacity>
 
-              <View
-                style={[
-                  styles.emailInputWrap,
-                  { backgroundColor: colors.inputBg, borderColor: colors.border },
-                ]}
-              >
-                <Text style={styles.emailIcon}>🔢</Text>
-                <TextInput
-                  style={[styles.emailInput, { color: colors.textPrimary }]}
-                  value={linkingCode}
-                  onChangeText={(t) => {
-                    clearFeedback();
-                    setLinkingCode(t.replace(/[^0-9]/g, '').slice(0, 6));
-                  }}
-                  placeholder={strings.auth.codePlaceholder}
-                  placeholderTextColor={colors.placeholder}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                />
-              </View>
-            </>
-          )}
-
-          <TouchableOpacity
-            style={[
-              styles.primaryPillBtn,
-              { backgroundColor: colors.primary, shadowColor: colors.primary },
-            ]}
-            onPress={handleConfirmLinkGoogle}
-            disabled={authLoading}
-            activeOpacity={0.85}
-          >
-            {authLoading ? (
-              <ActivityIndicator color={colors.onPrimary} />
-            ) : (
-              <Text style={[styles.primaryPillText, { color: colors.onPrimary }]}>
-                {tr(
-                  language,
-                  'Tasdiqlaş va Google ulaş',
-                  'Подтвердить и привязать Google',
-                  'Verify & Link Google',
-                )}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
+              {linkingMethod === 'CODE' && (
+                <TouchableOpacity
+                  disabled={linkResendSeconds > 0 || authLoading}
+                  onPress={handleSendGoogleLinkCode}
+                  style={[styles.resendWrap, { marginTop: 14 }]}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.resendLink,
+                      { color: linkResendSeconds > 0 ? colors.textSecondary : colors.primaryText },
+                    ]}
+                  >
+                    {linkResendSeconds > 0
+                      ? `${strings.auth.resendCodeButton} (${formatTimer(linkResendSeconds)})`
+                      : strings.auth.resendCodeButton}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
         </View>
       )}
 
