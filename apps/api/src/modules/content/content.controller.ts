@@ -15,6 +15,7 @@ import {
   NotFoundException,
   Res,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger';
@@ -29,6 +30,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 @ApiTags('Content & Ingestion Pipeline')
 @Controller('api/v1/content')
 export class ContentController {
+  private readonly logger = new Logger(ContentController.name);
   constructor(private readonly contentService: ContentService) {}
 
   @Get('books')
@@ -92,6 +94,7 @@ export class ContentController {
     @Param('pageNumber') pageNumber: string,
     @Res() res: Response,
   ) {
+    const tStart = Date.now();
     const pageNum = parseInt(pageNumber, 10);
     const imageBuffer = await this.contentService.getRenderedPdfPageImage(bookId, pageNum);
     if (!imageBuffer) {
@@ -101,6 +104,8 @@ export class ContentController {
     res.setHeader('Content-Type', isJpeg ? 'image/jpeg' : 'image/png');
     res.setHeader('Content-Length', imageBuffer.length);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    const elapsed = Date.now() - tStart;
+    this.logger.log(`⏱️ [BASELINE_API_IMAGE] Book: ${bookId} Page: ${pageNumber} | Time: ${elapsed}ms | Size: ${imageBuffer.length}B`);
     res.end(imageBuffer);
   }
 

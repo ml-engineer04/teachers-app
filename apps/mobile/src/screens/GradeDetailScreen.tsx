@@ -20,6 +20,7 @@ import { Book, Grade, getBookContentTotalPages } from '@smartteacherbook/shared'
 import { DownloadsManager } from '../services/storage/downloadsManager';
 import { offlineCatalogCache } from '../services/storage/offlineCatalogCache';
 import { readingProgressStore } from '../services/storage/readingProgressStore';
+import { readerBenchmark } from '../utils/readerBenchmark';
 import { SubscriptionManager, GradeAccessInfo } from '../services/subscription/subscriptionManager';
 import { ExpiredAccessModal } from '../components/ExpiredAccessModal';
 import { mobileApi } from '../services/api/mobileApi';
@@ -359,6 +360,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
   };
 
   const handleBookOpenPress = async (book: Book) => {
+    readerBenchmark.markT0(book.id);
     const isDl = DownloadsManager.isBundleDownloaded(
       book.gradeId || selectedGrade,
       book.subjectId,
@@ -382,6 +384,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
       gradeId: book.gradeId || selectedGrade,
       subjectId: book.subjectId,
     });
+    readerBenchmark.markT1();
     setGradeAccess(access);
     if (allowed || (!online && isDl && access.status !== 'EXPIRED')) {
       onOpenReader({

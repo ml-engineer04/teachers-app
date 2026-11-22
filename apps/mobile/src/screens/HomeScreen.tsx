@@ -27,6 +27,7 @@ import { mobileApi } from '../services/api/mobileApi';
 import { DownloadsManager } from '../services/storage/downloadsManager';
 import { offlineCatalogCache } from '../services/storage/offlineCatalogCache';
 import { readingProgressStore } from '../services/storage/readingProgressStore';
+import { readerBenchmark } from '../utils/readerBenchmark';
 import { notify } from '../services/notifications/notificationService';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { DS } from '../theme/designSystem';
@@ -320,6 +321,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     type?: string;
     initialPage?: number;
   }) => {
+    readerBenchmark.markT0(book.id);
     await DownloadsManager.init().catch(() => {});
     const isDl = DownloadsManager.isBundleDownloaded(book.gradeId, book.subjectId, book.id);
     const online = !isOfflineMode;
@@ -340,6 +342,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       gradeId: book.gradeId || 11,
       subjectId: book.subjectId,
     });
+    readerBenchmark.markT1();
     if (allowed || (!online && isDl && access.status !== 'EXPIRED')) {
       onOpenReader({
         ...book,

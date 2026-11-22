@@ -1272,6 +1272,7 @@ export class ContentService implements OnModuleInit {
         let rendered = false;
 
         // Method 1: pdftoppm (poppler-utils) - standard on Linux VPS, renders crisp, optimized JPEG (82 quality, 130 DPI, ~100KB)
+        const renderStart = Date.now();
         try {
           await execFileAsync('pdftoppm', [
             '-jpeg',
@@ -1289,6 +1290,7 @@ export class ContentService implements OnModuleInit {
           ]);
           if (fs.existsSync(targetJpgPath)) {
             rendered = true;
+            this.logger.log(`⏱️ [BASELINE_PDFTOPPM] Book: ${bookId} Page: ${safePage} | RenderTime: ${Date.now() - renderStart}ms`);
           }
         } catch {
           // pdftoppm not found or failed; fallback below

@@ -33,6 +33,7 @@ import { DownloadsManager, OfflineBookPackage } from '../services/storage/downlo
 import { readingProgressStore } from '../services/storage/readingProgressStore';
 import { annotationsStore } from '../services/storage/annotationsStore';
 import { SubscriptionManager } from '../services/subscription/subscriptionManager';
+import { readerBenchmark } from '../utils/readerBenchmark';
 import {
   mergeBookDrawings,
   resolveMergedBookmarks,
@@ -303,6 +304,7 @@ const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
 }) => {
   const handleLoad = useCallback(
     (e: any) => {
+      readerBenchmark.markT3(pageNumber);
       onMarkLoaded(pageNumber);
       onImageDimensionLoaded(pageNumber, e);
     },
@@ -414,6 +416,10 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { strings, formatGrade } = useI18n();
+
+  useEffect(() => {
+    readerBenchmark.markT2();
+  }, []);
   const progressUserKey = useMemo(
     () =>
       normalizeProgressUserKey(
