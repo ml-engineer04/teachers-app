@@ -258,6 +258,7 @@ let devCardRenderCount = 0;
 
 const VERTICAL_WINDOW_BACKWARD = 2;
 const VERTICAL_WINDOW_FORWARD = 4;
+const EMPTY_HOTSPOTS: Hotspot[] = [];
 
 interface ReaderVerticalPageCardProps {
   pageNumber: number;
@@ -282,6 +283,46 @@ interface ReaderVerticalPageCardProps {
   onHotspotPress: (h: Hotspot) => void;
   onStrokesChange: (pg: number, next: DrawStroke[]) => void;
   renderCustomFallback?: (pg: number, size: { width: number; height: number }) => React.ReactNode;
+}
+
+function areCardPropsEqual(
+  prev: ReaderVerticalPageCardProps,
+  next: ReaderVerticalPageCardProps,
+): boolean {
+  // If both cards are out of window, they only render an empty placeholder
+  if (!prev.inWindow && !next.inWindow) {
+    return (
+      prev.pageNumber === next.pageNumber &&
+      prev.pageWidth === next.pageWidth &&
+      prev.cardHeight === next.cardHeight &&
+      prev.placeholderBg === next.placeholderBg &&
+      prev.borderColor === next.borderColor
+    );
+  }
+
+  // inWindow state toggled (entered or left window): must re-render
+  if (prev.inWindow !== next.inWindow) {
+    return false;
+  }
+
+  // Both cards are in window: check visual props
+  return (
+    prev.pageNumber === next.pageNumber &&
+    prev.pageWidth === next.pageWidth &&
+    prev.cardHeight === next.cardHeight &&
+    prev.pageImgUrl === next.pageImgUrl &&
+    prev.hasPdf === next.hasPdf &&
+    prev.pdfDoc === next.pdfDoc &&
+    prev.pageBadgeText === next.pageBadgeText &&
+    prev.borderColor === next.borderColor &&
+    prev.cardBg === next.cardBg &&
+    prev.placeholderBg === next.placeholderBg &&
+    prev.activeDrawTool === next.activeDrawTool &&
+    prev.drawColor === next.drawColor &&
+    prev.drawSize === next.drawSize &&
+    prev.pageStrokes === next.pageStrokes &&
+    prev.hotspots === next.hotspots
+  );
 }
 
 const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
@@ -523,7 +564,7 @@ const ReaderVerticalPageCard = React.memo<ReaderVerticalPageCardProps>(({
       </View>
     </View>
   );
-});
+}, areCardPropsEqual);
 
 export const ReaderScreen: React.FC<ReaderScreenProps> = ({
   book = DEFAULT_BOOK,
@@ -1610,7 +1651,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
 
   const getHotspotsForPage = useCallback(
     (pageNum: number): Hotspot[] => {
-      return hotspotsByPageMap.get(pageNum) || [];
+      return hotspotsByPageMap.get(pageNum) || EMPTY_HOTSPOTS;
     },
     [hotspotsByPageMap],
   );
@@ -1911,7 +1952,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         resolveMediaOrImageUrl(rawTargetUrl) ||
         (await DownloadsManager.resolveOfflineAssetUri(book.id, rawTargetUrl)) ||
         mobileApi.resolveAssetUrl(rawTargetUrl);
-      const hsPage = Number((hotspot as any).pageNumber) || currentPage;
+      const hsPage = Number((hotspot as any).pageNumber) || currentPageRef.current;
       const hsPageLabel = formatPdfPageBadge(hsPage);
 
       if (hotspot.type === HotspotType.AUDIO) {
@@ -1992,7 +2033,6 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
       resolveMediaOrImageUrl,
       book.id,
       book.title,
-      currentPage,
       formatPdfPageBadge,
       strings,
       activeUnitTitle,
@@ -2108,8 +2148,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
     methodologyNotes: strings.reader.noAnswerKeys,
   };
 
-  const renderPageContent = (pageNum: number, explicitSize?: { width: number; height: number }) => {
-    const pgObj = pages.find((p) => Number(p.pageNumber) === pageNum) || (pageNum === currentPage ? currentPageObj : undefined);
+  const renderPageContent = useCallback(
+    (pageNum: number, explicitSize?: { width: number; height: number }) => {
+      const pgObj = pagesByNumberMap.get(pageNum);
     const baseImgUrl =
       pgObj?.imageHighUrl ||
       pgObj?.imageNormalUrl ||
@@ -2293,7 +2334,7 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
                   <Text style={[styles.letsStartTagText, { color: colors.warning }]}>Let’s start!</Text>
                 </View>
                 <Text style={[styles.letsStartQuestion, { color: colors.textPrimary }]} numberOfLines={2}>
-                  {currentPageObj?.title || 'What can you see at an aquarium?'}
+                  {pgObj?.title || 'What can you see at an aquarium?'}
                 </Text>
               </View>
               <TouchableOpacity
@@ -2437,9 +2478,9 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
             </View>
 
             <View style={[styles.whiteExerciseCard, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadowColor }]}>
-              {currentPageObj?.textContent ? (
+              {pgObj?.textContent ? (
                 <Text style={[styles.exLineText, { fontSize: 14, color: colors.textPrimary }]}>
-                  {currentPageObj.textContent}
+                  {pgObj.textContent}
                 </Text>
               ) : (
                 [
@@ -2519,7 +2560,36 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         )}
       </View>
     );
-  };
+  }, [
+    pagesByNumberMap,
+    book.id,
+    resolveMediaOrImageUrl,
+    reloadTick,
+    pageDimensions,
+    canvasAreaSize,
+    pageImageRatios,
+    pdfAspectRatio,
+    hasPdf,
+    colors,
+    loadingBook,
+    offlineMissing,
+    handleExit,
+    isDark,
+    pdfRendering,
+    handleImageDimensionLoaded,
+    getHotspotsForPage,
+    handleHotspotPress,
+    activeDrawTool,
+    drawColor,
+    drawSize,
+    drawingsMap,
+    handleStrokesChangeForPage,
+    styles,
+    strings,
+    handleQuickAudioBar,
+    handleQuickVideoBar,
+    setAnswerModalVisible,
+  ]);
 
   return (
     <SafeAreaView edges={['left', 'right']} style={[styles.root, { backgroundColor: colors.readerBg }]}>
