@@ -334,18 +334,33 @@ export class ContentController {
     if (!file || !file.buffer) {
       throw new BadRequestException('Rasm fayli yuklanmadi');
     }
-    return this.contentService.saveHotspotImage(file);
+    return await this.contentService.saveHotspotImage(file);
   }
 
   @Get('hotspots/images/:id')
   @ApiOperation({ summary: 'Stream high-res hotspot answer/transcript image' })
-  async streamHotspotImage(@Param('id') id: string, @Res() res: Response) {
-    const imgData = this.contentService.getHotspotImage(id);
+  async streamHotspotImage(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const imgData = await this.contentService.getHotspotImage(id);
     if (!imgData) {
       throw new NotFoundException(`Hotspot image ${id} topilmadi`);
     }
+
+    const etag = `"${imgData.buffer.length}-${id}"`;
     res.setHeader('Content-Type', imgData.mimeType || 'image/jpeg');
+    res.setHeader('ETag', etag);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
+    if (req.headers['if-none-match'] === etag) {
+      res.status(304).end();
+      return;
+    }
+
+    res.setHeader('Content-Length', imgData.buffer.length);
     res.send(imgData.buffer);
   }
 

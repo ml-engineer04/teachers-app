@@ -1802,26 +1802,56 @@ export class ContentService implements OnModuleInit {
     return { success: true, remainingCount: updated.length };
   }
 
-  saveHotspotImage(file: { buffer: Buffer; mimetype: string }): { success: boolean; id: string; url: string } {
+  async saveHotspotImage(file: { buffer: Buffer; mimetype: string }): Promise<{ success: boolean; id: string; url: string }> {
     const id = `hsimg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    this.hotspotImagesStore.set(id, { buffer: file.buffer, mimeType: file.mimetype });
-    this.hotspotImgMimesStore.set(id, file.mimetype);
+    let finalBuffer = file.buffer;
+    let finalMime = 'image/jpeg';
+
+    try {
+      const sharp = require('sharp');
+      finalBuffer = await sharp(file.buffer)
+        .flatten({ background: '#FFFFFF' })
+        .jpeg({ quality: 82, mozjpeg: true })
+        .toBuffer();
+    } catch (err: any) {
+      this.logger.warn(`Could not convert hotspot image to JPEG with sharp: ${err.message}. Saving original.`);
+      finalMime = file.mimetype;
+    }
+
+    this.hotspotImagesStore.set(id, { buffer: finalBuffer, mimeType: finalMime });
+    this.hotspotImgMimesStore.set(id, finalMime);
     if (this.diskEnabled) {
-      writeBinaryDiskSync('hotspot-images', `${id}.bin`, file.buffer);
+      writeBinaryDiskSync('hotspot-images', `${id}.bin`, finalBuffer);
     }
     const url = `/api/v1/content/hotspots/images/${id}`;
-    this.logger.log(`🖼️ Saved Hotspot Asset Image [${id}] (${(file.buffer.length / 1024).toFixed(1)} KB)`);
+    this.logger.log(`🖼️ Saved Hotspot Asset Image [${id}] (${(finalBuffer.length / 1024).toFixed(1)} KB, ${finalMime})`);
     return { success: true, id, url };
   }
 
-  getHotspotImage(id: string): { buffer: Buffer; mimeType: string } | null {
+  async getHotspotImage(id: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
     const cached = this.hotspotImagesStore.get(id);
     if (cached) return cached;
     if (this.diskEnabled) {
       const buf = readBinaryDiskSync('hotspot-images', `${id}.bin`);
       if (buf) {
-        const mimeType = this.hotspotImgMimesStore.get(id) || 'image/jpeg';
-        const entry = { buffer: buf, mimeType };
+        let mimeType = this.hotspotImgMimesStore.get(id) || 'image/jpeg';
+        let finalBuf = buf;
+        const isPng = buf.length > 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+        if (isPng || mimeType.includes('png')) {
+          try {
+            const sharp = require('sharp');
+            finalBuf = await sharp(buf)
+              .flatten({ background: '#FFFFFF' })
+              .jpeg({ quality: 82, mozjpeg: true })
+              .toBuffer();
+            mimeType = 'image/jpeg';
+            writeBinaryDiskSync('hotspot-images', `${id}.bin`, finalBuf);
+            this.hotspotImgMimesStore.set(id, 'image/jpeg');
+          } catch {
+            // fallback to original buffer
+          }
+        }
+        const entry = { buffer: finalBuf, mimeType };
         this.hotspotImagesStore.set(id, entry);
         return entry;
       }

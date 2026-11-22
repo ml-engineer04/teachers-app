@@ -1906,11 +1906,21 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         resolveMediaOrImageUrl(audioItem.url) ||
         (await DownloadsManager.resolveOfflineAssetUri(book.id, audioItem.url)) ||
         mobileApi.resolveAssetUrl(audioItem.url);
+      const rawAudioTranscript =
+        (audioItem as any).transcriptImageUrl ||
+        (audioItem as any).transcriptImages?.[0];
+      const audioTranscriptUrl = rawAudioTranscript
+        ? resolveMediaOrImageUrl(rawAudioTranscript) || rawAudioTranscript
+        : undefined;
+      const audioTranscriptText = (audioItem as any).transcriptText;
+
       setAudioModal({
         visible: true,
         title: customTitle || audioItem.title,
         subtitle: audioItem.subtitle || strings.reader.audioPlayerTitle,
         url: resolvedUrl,
+        transcriptImageUrl: audioTranscriptUrl,
+        transcriptText: audioTranscriptText,
       });
     } else {
       setAudioModal({
@@ -1960,11 +1970,21 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         url: resolvedUrl,
       });
     } else {
+      const rawItemTranscript =
+        (item as any).transcriptImageUrl ||
+        (item as any).transcriptImages?.[0];
+      const itemTranscriptUrl = rawItemTranscript
+        ? resolveMediaOrImageUrl(rawItemTranscript) || rawItemTranscript
+        : undefined;
+      const itemTranscriptText = (item as any).transcriptText;
+
       setAudioModal({
         visible: true,
         title: item.title,
         subtitle: item.subtitle || book.title,
         url: resolvedUrl,
+        transcriptImageUrl: itemTranscriptUrl,
+        transcriptText: itemTranscriptText,
       });
     }
   };

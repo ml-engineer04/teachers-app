@@ -68,18 +68,29 @@ export const FloatingImagePopup: React.FC<FloatingImagePopupProps> = ({
     setIsImageLoaded(false);
     setHasError(false);
 
+    // Safety fallback: reveal image after 1.5s if onLoad is swallowed by web cache
+    const safetyTimer = setTimeout(() => {
+      setIsImageLoaded(true);
+      setLoading(false);
+    }, 1500);
+
     Image.getSize(
       imageUrl,
       (w, h) => {
+        clearTimeout(safetyTimer);
         if (w > 0 && h > 0) {
           setAspectRatio(w / h);
         }
+        setIsImageLoaded(true);
+        setLoading(false);
       },
       () => {
-        setHasError(true);
+        // Fallback: let <Image> attempt to load directly, don't mark as error immediately
         setLoading(false);
       },
     );
+
+    return () => clearTimeout(safetyTimer);
   }, [isOpen, imageUrl]);
 
   // PanResponder directly on the image card:
@@ -213,7 +224,7 @@ export const FloatingImagePopup: React.FC<FloatingImagePopupProps> = ({
         {...panResponder.panHandlers}
       >
         {/* Visible Loading State with spinner and label */}
-        {(!isImageLoaded || loading) && !hasError && (
+        {loading && !isImageLoaded && !hasError && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#0E7C70" />
             <Text style={[styles.loadingLabel, { color: isDark ? '#9AA3B0' : '#5B6672' }]}>
@@ -246,10 +257,7 @@ export const FloatingImagePopup: React.FC<FloatingImagePopupProps> = ({
               !isImageLoaded && styles.imageHidden,
             ]}
             resizeMode="contain"
-            fadeDuration={120}
-            onLoadStart={() => {
-              setIsImageLoaded(false);
-            }}
+            fadeDuration={0}
             onLoad={() => {
               setIsImageLoaded(true);
               setLoading(false);
@@ -339,11 +347,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   loadingContainer: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
     gap: 8,
+    zIndex: 2,
   },
   loadingLabel: {
     fontSize: 12,
