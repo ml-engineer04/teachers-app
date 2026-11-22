@@ -97,6 +97,7 @@ export interface Book {
   status: BookStatus;
   totalPages: number;
   contentStartPdfPage?: number;
+  pagesVersion?: string | number;
   manifestS3Key?: string | null;
   manifestSha256?: string | null;
   totalSizeBytes?: number;

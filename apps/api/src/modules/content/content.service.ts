@@ -791,6 +791,18 @@ export class ContentService implements OnModuleInit {
     this.ingestionReportsStore.set('book_grade11_english_sb', res);
   }
 
+  enrichBookWithPagesVersion(book: Book): Book {
+    if (book.pagesVersion) return book;
+    const diskPdf = path.join(resolveApiDataDir(), 'pdfs', `${book.id}.pdf`);
+    let v: string | number = book.version || 1;
+    try {
+      if (fs.existsSync(diskPdf)) {
+        v = Math.floor(fs.statSync(diskPdf).mtimeMs);
+      }
+    } catch {}
+    return { ...book, pagesVersion: v };
+  }
+
   async getAllBooks(): Promise<Book[]> {
     if (this.prisma.isConnected) {
       try {
@@ -798,20 +810,22 @@ export class ContentService implements OnModuleInit {
           include: { subject: true, grade: true },
         });
         if (books.length > 0) {
-          return books.map((b) => ({
-            ...b,
-            type: b.type as any,
-            status: b.status as any,
-            totalSizeBytes: b.totalSizeBytes ? Number(b.totalSizeBytes) : undefined,
-            createdAt: b.createdAt.toISOString(),
-            updatedAt: b.updatedAt.toISOString(),
-          }));
+          return books.map((b) =>
+            this.enrichBookWithPagesVersion({
+              ...b,
+              type: b.type as any,
+              status: b.status as any,
+              totalSizeBytes: b.totalSizeBytes ? Number(b.totalSizeBytes) : undefined,
+              createdAt: b.createdAt.toISOString(),
+              updatedAt: b.updatedAt.toISOString(),
+            }),
+          );
         }
       } catch (err) {
         // Fallback
       }
     }
-    return this.booksStore;
+    return this.booksStore.map((b) => this.enrichBookWithPagesVersion(b));
   }
 
   async findByGrade(gradeId: number): Promise<Book[]> {
@@ -821,19 +835,23 @@ export class ContentService implements OnModuleInit {
           where: { gradeId },
           include: { subject: true },
         });
-        return books.map((b) => ({
-          ...b,
-          type: b.type as any,
-          status: b.status as any,
-          totalSizeBytes: b.totalSizeBytes ? Number(b.totalSizeBytes) : undefined,
-          createdAt: b.createdAt.toISOString(),
-          updatedAt: b.updatedAt.toISOString(),
-        }));
+        return books.map((b) =>
+          this.enrichBookWithPagesVersion({
+            ...b,
+            type: b.type as any,
+            status: b.status as any,
+            totalSizeBytes: b.totalSizeBytes ? Number(b.totalSizeBytes) : undefined,
+            createdAt: b.createdAt.toISOString(),
+            updatedAt: b.updatedAt.toISOString(),
+          }),
+        );
       } catch (err) {
         // Fallback
       }
     }
-    return this.booksStore.filter((b) => b.gradeId === Number(gradeId));
+    return this.booksStore
+      .filter((b) => b.gradeId === Number(gradeId))
+      .map((b) => this.enrichBookWithPagesVersion(b));
   }
 
   async findById(bookId: string): Promise<Book | undefined> {
@@ -841,20 +859,21 @@ export class ContentService implements OnModuleInit {
       try {
         const b = await this.prisma.book.findUnique({ where: { id: bookId } });
         if (b) {
-          return {
+          return this.enrichBookWithPagesVersion({
             ...b,
             type: b.type as any,
             status: b.status as any,
             totalSizeBytes: b.totalSizeBytes ? Number(b.totalSizeBytes) : undefined,
             createdAt: b.createdAt.toISOString(),
             updatedAt: b.updatedAt.toISOString(),
-          };
+          });
         }
       } catch (err) {
         // Fallback
       }
     }
-    return this.booksStore.find((b) => b.id === bookId);
+    const found = this.booksStore.find((b) => b.id === bookId);
+    return found ? this.enrichBookWithPagesVersion(found) : undefined;
   }
 
   async createBook(data: {
@@ -1134,6 +1153,7 @@ export class ContentService implements OnModuleInit {
       totalPages,
       contentStartPdfPage,
       version: 1,
+      pagesVersion: Date.now(),
       status: BookStatus.DRAFT,
       totalSizeBytes: fileBuffer.length,
       createdAt: new Date().toISOString(),
@@ -1177,12 +1197,13 @@ export class ContentService implements OnModuleInit {
   private renderedPageLock = new Map<string, Promise<Buffer | null>>();
   private cachedPdfDocs = new Map<string, Promise<PDFDocument>>();
 
-  // Concurrency limiter for pdftoppm / sips (max 2 concurrent processes)
+  // Concurrency limiter for pdftoppm / sips (scales with CPU cores, max 4 concurrent)
   private renderQueueActive = 0;
   private renderQueueWaiters: Array<() => void> = [];
 
   private async acquireRenderSlot(): Promise<() => void> {
-    if (this.renderQueueActive < 2) {
+    const maxConcurrency = Math.max(2, Math.min(4, os.cpus().length || 2));
+    if (this.renderQueueActive < maxConcurrency) {
       this.renderQueueActive++;
       return () => this.releaseRenderSlot();
     }
@@ -1195,6 +1216,43 @@ export class ContentService implements OnModuleInit {
     this.renderQueueActive = Math.max(0, this.renderQueueActive - 1);
     const next = this.renderQueueWaiters.shift();
     if (next) next();
+  }
+
+  getDiskPdfPath(bookId: string): string | null {
+    const diskPath = path.join(resolveApiDataDir(), 'pdfs', `${bookId}.pdf`);
+    return fs.existsSync(diskPath) ? diskPath : null;
+  }
+
+  async getRenderedPdfPageImagePath(
+    bookId: string,
+    pageNumber: number,
+  ): Promise<{ filePath: string; mimeType: string } | null> {
+    if (!Number.isFinite(pageNumber) || pageNumber < 1) return null;
+    const safePage = Math.floor(pageNumber);
+    const renderedDir = path.join(resolveApiDataDir(), 'rendered-pages');
+    const diskJpgPath = path.join(renderedDir, `${bookId}_p${safePage}.jpg`);
+    const diskPngPath = path.join(renderedDir, `${bookId}_p${safePage}.png`);
+
+    if (this.diskEnabled) {
+      if (fs.existsSync(diskJpgPath)) {
+        return { filePath: diskJpgPath, mimeType: 'image/jpeg' };
+      }
+      if (fs.existsSync(diskPngPath)) {
+        return { filePath: diskPngPath, mimeType: 'image/png' };
+      }
+    }
+
+    // Trigger render (uses in-flight dedupe map and concurrency semaphore)
+    const buf = await this.getRenderedPdfPageImage(bookId, safePage);
+    if (!buf) return null;
+
+    if (fs.existsSync(diskJpgPath)) {
+      return { filePath: diskJpgPath, mimeType: 'image/jpeg' };
+    }
+    if (fs.existsSync(diskPngPath)) {
+      return { filePath: diskPngPath, mimeType: 'image/png' };
+    }
+    return null;
   }
 
   getPdfBuffer(bookId: string): Buffer | null {

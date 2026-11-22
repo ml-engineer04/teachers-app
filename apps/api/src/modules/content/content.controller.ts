@@ -8,6 +8,7 @@ import {
   Param,
   Body,
   Query,
+  Req,
   ParseIntPipe,
   UseInterceptors,
   UploadedFile,
@@ -20,7 +21,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger';
 import { ContentService, HotspotItem, MediaItem, AnswerKeyItem } from './content.service';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BookType } from '@smartteacherbook/shared';
@@ -92,26 +93,86 @@ export class ContentController {
   async getRenderedPageImage(
     @Param('bookId') bookId: string,
     @Param('pageNumber') pageNumber: string,
+    @Query('v') v: string | undefined,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
     const tStart = Date.now();
     const pageNum = parseInt(pageNumber, 10);
-    const imageBuffer = await this.contentService.getRenderedPdfPageImage(bookId, pageNum);
-    if (!imageBuffer) {
+    const result = await this.contentService.getRenderedPdfPageImagePath(bookId, pageNum);
+    if (!result || !fs.existsSync(result.filePath)) {
       throw new NotFoundException(`Page ${pageNumber} image for book ${bookId} not found`);
     }
-    const isJpeg = imageBuffer.length >= 2 && imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8;
-    res.setHeader('Content-Type', isJpeg ? 'image/jpeg' : 'image/png');
-    res.setHeader('Content-Length', imageBuffer.length);
+
+    const stat = fs.statSync(result.filePath);
+    const etag = `"${stat.size}-${Math.floor(stat.mtimeMs)}"`;
+
+    res.setHeader('Content-Type', result.mimeType);
+    res.setHeader('ETag', etag);
+    res.setHeader('Last-Modified', stat.mtime.toUTCString());
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+
+    if (req.headers['if-none-match'] === etag) {
+      res.status(304).end();
+      return;
+    }
+
+    res.setHeader('Content-Length', stat.size);
+    const stream = fs.createReadStream(result.filePath);
+    stream.on('error', (err) => {
+      this.logger.error(`Error streaming page image: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).end();
+      }
+    });
     const elapsed = Date.now() - tStart;
-    this.logger.log(`⏱️ [BASELINE_API_IMAGE] Book: ${bookId} Page: ${pageNumber} | Time: ${elapsed}ms | Size: ${imageBuffer.length}B`);
-    res.end(imageBuffer);
+    this.logger.log(
+      `⏱️ [BASELINE_API_IMAGE] Book: ${bookId} Page: ${pageNumber} | Time: ${elapsed}ms | Size: ${stat.size}B | Stream: true`,
+    );
+    stream.pipe(res);
   }
 
   @Get('books/:bookId/pdf')
-  @ApiOperation({ summary: 'Stream raw PDF file buffer for PDF.js viewer' })
-  async getPdfFile(@Param('bookId') bookId: string, @Res() res: Response) {
+  @ApiOperation({ summary: 'Stream raw PDF file buffer for PDF.js viewer with HTTP Range support' })
+  async getPdfFile(
+    @Param('bookId') bookId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const diskPath = this.contentService.getDiskPdfPath(bookId);
+    if (diskPath && fs.existsSync(diskPath)) {
+      const stat = fs.statSync(diskPath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${bookId}.pdf"`);
+
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+        if (start >= fileSize || end >= fileSize || start > end) {
+          res.status(416).setHeader('Content-Range', `bytes */${fileSize}`).end();
+          return;
+        }
+
+        const chunksize = end - start + 1;
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+        res.setHeader('Content-Length', chunksize);
+        const fileStream = fs.createReadStream(diskPath, { start, end });
+        fileStream.pipe(res);
+      } else {
+        res.setHeader('Content-Length', fileSize);
+        const fileStream = fs.createReadStream(diskPath);
+        fileStream.pipe(res);
+      }
+      return;
+    }
+
     const buffer = this.contentService.getPdfBuffer(bookId);
     if (!buffer) {
       throw new NotFoundException(`PDF buffer for book ${bookId} not found`);
