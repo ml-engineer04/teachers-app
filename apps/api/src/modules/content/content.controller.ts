@@ -169,7 +169,7 @@ export class ContentController {
 
     return this.contentService.uploadAndProcessPdf(file.buffer, file.originalname, {
       title: body.title,
-      gradeId: body.gradeId ? parseInt(body.gradeId, 10) : 7,
+      gradeId: body.gradeId !== undefined && body.gradeId !== '' ? parseInt(body.gradeId, 10) : 7,
       subjectId: body.subjectId,
       bookType: body.bookType,
       contentStartPdfPage: body.contentStartPdfPage ? parseInt(body.contentStartPdfPage, 10) : 1,

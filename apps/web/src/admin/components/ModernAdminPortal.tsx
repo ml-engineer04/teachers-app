@@ -231,6 +231,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [books, setBooks] = useState<any[]>([]);
   const [isLoadingBooks, setIsLoadingBooks] = useState(false);
   const [selectedBookFilter, setSelectedBookFilter] = useState<'All' | "Student's Book" | "Teacher's Book" | 'Workbook'>('All');
+  const [selectedBookGradeFilter, setSelectedBookGradeFilter] = useState<string>('ALL');
   const [selectedBookIdForEditor, setSelectedBookIdForEditor] = useState<string>('');
 
   // ==========================================
@@ -244,7 +245,6 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   const [newBookPages, setNewBookPages] = useState('120');
   const [newBookStartPdfPage, setNewBookStartPdfPage] = useState('1');
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
-  const [attachedAudioFile, setAttachedAudioFile] = useState<File | null>(null);
   const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
   const coverFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -551,7 +551,11 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
     try {
       const data = await api.getGrades(false);
       if (Array.isArray(data)) {
-        const sorted = [...data].sort((a, b) => a.gradeNumber - b.gradeNumber);
+        const sorted = [...data].sort((a, b) => {
+          if (a.gradeNumber === 0) return 1;
+          if (b.gradeNumber === 0) return -1;
+          return a.gradeNumber - b.gradeNumber;
+        });
         setGradesList(sorted);
         const active = sorted.filter((g) => g.isActive !== false);
         const firstNum = active[0]?.gradeNumber ?? sorted[0]?.gradeNumber;
@@ -640,8 +644,12 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
 
   // Update default book title when Grade, Subject, or Type changes
   useEffect(() => {
-    if (!newBookTitle || newBookTitle.includes('-sinf')) {
-      setNewBookTitle(`${newBookSubject} ${newBookGrade}-sinf (${newBookType})`);
+    if (!newBookTitle || newBookTitle.includes('-sinf') || newBookTitle.includes('Kurs')) {
+      if (newBookGrade === '0') {
+        setNewBookTitle(`${newBookSubject} Kurs (${newBookType})`);
+      } else {
+        setNewBookTitle(`${newBookSubject} ${newBookGrade}-sinf (${newBookType})`);
+      }
     }
   }, [newBookGrade, newBookSubject, newBookType]);
 
@@ -671,8 +679,13 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // HANDLERS: Direct Book Save (PDF or Draft)
   // ==========================================
   const handleDirectSaveBook = async () => {
-    const numGrade = parseInt(newBookGrade) || 7;
-    const titleToSave = newBookTitle.trim() || `${newBookSubject} ${numGrade}-sinf (${newBookType})`;
+    const parsedGrade = parseInt(newBookGrade, 10);
+    const numGrade = !isNaN(parsedGrade) ? parsedGrade : 7;
+    const titleToSave =
+      newBookTitle.trim() ||
+      (numGrade === 0
+        ? `${newBookSubject} Kurs (${newBookType})`
+        : `${newBookSubject} ${numGrade}-sinf (${newBookType})`);
 
     setIsUploadingPdf(true);
     try {
@@ -729,24 +742,10 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
         }
       }
 
-      // If user also attached an audio file right here, upload it automatically
-      if (attachedAudioFile && createdBookId) {
-        try {
-          await api.uploadMediaFile(attachedAudioFile, {
-            title: `${titleToSave} - Listening Track 01`,
-            type: 'AUDIO',
-            bookId: createdBookId,
-            unitLabel: 'Unit 1',
-          });
-          await loadMedia();
-        } catch {}
-      }
-
       await loadCatalogBooks();
       setSelectedPdfFile(null);
       setSelectedCoverFile(null);
       setCoverImagePreview(null);
-      setAttachedAudioFile(null);
       setNewBookStartPdfPage('1');
       setActiveNav('my_books');
     } catch (err: any) {
@@ -1275,12 +1274,14 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
   // Filtered books
   const filteredBooks = books.filter((b) => {
     if (selectedBookFilter !== 'All' && b.type !== selectedBookFilter) return false;
+    if (selectedBookGradeFilter !== 'ALL' && String(b.gradeId) !== selectedBookGradeFilter && String(b.grade) !== selectedBookGradeFilter) return false;
     if (globalSearch.trim()) {
       const q = globalSearch.trim().toLowerCase();
       const subj = subjectsList.find(
         (s: any) => s.id === b.subjectId || s.code?.toLowerCase() === (b.subjectId || '').toLowerCase(),
       );
-      const haystack = `${b.title || ''} ${b.gradeId || ''} ${b.gradeId}-sinf ${b.subjectId || ''} ${subj?.name || ''} ${b.type || ''}`.toLowerCase();
+      const isCourseOrOther = Number(b.gradeId) === 0 || Number(b.grade) === 0;
+      const haystack = `${b.title || ''} ${b.gradeId || ''} ${b.gradeId}-sinf ${isCourseOrOther ? 'kurs kurslar boshqa boshqalar boshqasi' : ''} ${b.subjectId || ''} ${subj?.name || ''} ${b.type || ''}`.toLowerCase();
       if (!q.split(/\s+/).every((tok) => haystack.includes(tok))) return false;
     }
     return true;
@@ -1960,7 +1961,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-extrabold text-slate-700">
-                        1. Sinfni tanlang (Grade) <span className="text-red-500">*</span>
+                        1. Sinf yoki toifani tanlang (Grade / Kurslar) <span className="text-red-500">*</span>
                       </label>
                       <button
                         type="button"
@@ -1971,29 +1972,39 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                         <span>+ Yangi sinf qo‘shish</span>
                       </button>
                     </div>
-                    <div className="grid grid-cols-6 sm:grid-cols-11 gap-1.5">
-                      {activeGradesList.map((gradeItem) => {
-                        const gradeNum = gradeItem.gradeNumber;
-                        return (
-                          <button
-                            key={gradeNum}
-                            type="button"
-                            onClick={() => setNewBookGrade(gradeNum.toString())}
-                            className={`py-2 text-xs font-bold rounded-xl transition-all ${
-                              newBookGrade === gradeNum.toString()
-                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-300'
-                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                            }`}
-                          >
-                            {gradeNum}
-                          </button>
-                        );
-                      })}
-                      {activeGradesList.length === 0 && (
-                        <p className="col-span-full text-xs text-slate-400 py-1">
-                          Hozircha faol sinflar yo‘q — avval sinf qo‘shing.
-                        </p>
-                      )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeGradesList
+                        .filter((g) => g.gradeNumber !== 0)
+                        .map((gradeItem) => {
+                          const gradeNum = gradeItem.gradeNumber;
+                          return (
+                            <button
+                              key={gradeNum}
+                              type="button"
+                              onClick={() => setNewBookGrade(gradeNum.toString())}
+                              className={`px-3 py-2 text-xs font-bold rounded-xl transition-all ${
+                                newBookGrade === gradeNum.toString()
+                                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-300'
+                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                              }`}
+                            >
+                              {gradeNum}-sinf
+                            </button>
+                          );
+                        })}
+                      {/* Boshqalar / Kurslar button */}
+                      <button
+                        type="button"
+                        onClick={() => setNewBookGrade('0')}
+                        className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all flex items-center space-x-1.5 ${
+                          newBookGrade === '0'
+                            ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 ring-2 ring-purple-300'
+                            : 'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100'
+                        }`}
+                      >
+                        <span>🎓</span>
+                        <span>Boshqalar / Kurslar</span>
+                      </button>
                     </div>
                   </div>
 
@@ -2199,30 +2210,6 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     )}
                   </div>
 
-                  {/* 6. Optional Audio Attachment directly during creation */}
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                    <label className="block text-xs font-extrabold text-slate-700">
-                      🎧 Ushbu kitob uçun audio fayl biriktirish (Ixtiyoriy)
-                    </label>
-                    <p className="text-[11px] text-slate-500">
-                      Kitob yaratish bilan birga uning birinchi audio trekini (MP3) ham yuklashingiz mumkin:
-                    </p>
-                    <input
-                      type="file"
-                      accept="audio/*,.mp3,.wav,.m4a"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) setAttachedAudioFile(file);
-                      }}
-                      className="block w-full text-xs text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                    {attachedAudioFile && (
-                      <p className="text-xs font-bold text-emerald-700">
-                        ✓ Tanlandi: {attachedAudioFile.name} ({(attachedAudioFile.size / 1024 / 1024).toFixed(2)} MB)
-                      </p>
-                    )}
-                  </div>
-
                   {/* Submit Button */}
                   <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                     <button
@@ -2278,15 +2265,15 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                         <div>
                           <div className="flex justify-between items-start">
                             <span className="text-xs font-mono tracking-widest uppercase opacity-75">
-                              {newBookGrade}-sinf
+                              {newBookGrade === '0' ? 'Kurslar' : `${newBookGrade}-sinf`}
                             </span>
-                            <span className="text-xl">📘</span>
+                            <span className="text-xl">{newBookGrade === '0' ? '🎓' : '📘'}</span>
                           </div>
                           <h3 className="text-2xl font-black mt-3 leading-tight tracking-tight">
                             {newBookSubject}
                           </h3>
                           <p className="text-3xl font-black text-amber-400 mt-1">
-                            {newBookGrade}
+                            {newBookGrade === '0' ? 'Kurs' : newBookGrade}
                           </p>
                         </div>
 
@@ -2330,6 +2317,49 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                     <span>+ Yangi Kitob Qo‘shish</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Grade / Course Category Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSelectedBookGradeFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+                    selectedBookGradeFilter === 'ALL'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  Barcha toifalar
+                </button>
+                {activeGradesList
+                  .filter((g) => g.gradeNumber !== 0)
+                  .map((g) => (
+                    <button
+                      key={g.gradeNumber}
+                      type="button"
+                      onClick={() => setSelectedBookGradeFilter(String(g.gradeNumber))}
+                      className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+                        selectedBookGradeFilter === String(g.gradeNumber)
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      {g.gradeNumber}-sinf
+                    </button>
+                  ))}
+                <button
+                  type="button"
+                  onClick={() => setSelectedBookGradeFilter('0')}
+                  className={`px-3.5 py-1.5 rounded-xl font-bold transition-all shrink-0 flex items-center gap-1 ${
+                    selectedBookGradeFilter === '0'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100'
+                  }`}
+                >
+                  <span>🎓</span>
+                  <span>Boshqalar / Kurslar</span>
+                </button>
               </div>
 
               {/* Filter Tabs */}
@@ -2389,7 +2419,9 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                             className={`w-12 h-14 rounded-xl bg-gradient-to-br ${book.coverColor} text-white flex flex-col items-center justify-center shrink-0 shadow-md`}
                           >
                             <span className="text-base">{book.iconEmoji}</span>
-                            <span className="text-[9px] font-black">{book.grade}-sinf</span>
+                            <span className="text-[9px] font-black">
+                              {Number(book.grade) === 0 ? 'Kurs' : `${book.grade}-sinf`}
+                            </span>
                           </div>
                         )}
 
@@ -2409,7 +2441,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                             </button>
                           </div>
                           <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                            {book.grade}-sinf • {book.subject} • {book.type}
+                            {Number(book.grade) === 0 ? 'Kurslar / Boshqalar' : `${book.grade}-sinf`} • {book.subject} • {book.type}
                           </p>
                         </div>
                       </div>
@@ -4482,7 +4514,7 @@ export function ModernAdminPortal({ onLogout }: ModernAdminPortalProps) {
                       autoFocus
                     />
                     <p className="text-[11px] text-slate-400 mt-1">
-                      {editingBook.grade}-sinf • {editingBook.subject} • {editingBook.type}
+                      {Number(editingBook.grade) === 0 ? 'Kurslar / Boshqalar' : `${editingBook.grade}-sinf`} • {editingBook.subject} • {editingBook.type}
                     </p>
                   </div>
                 </div>

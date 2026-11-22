@@ -164,9 +164,13 @@ function SearchableBookSelect({
   const availableGrades = useMemo(() => {
     const gradesSet = new Set<number>();
     books.forEach((b) => {
-      if (b.gradeId) gradesSet.add(Number(b.gradeId));
+      if (b.gradeId !== undefined && b.gradeId !== null) gradesSet.add(Number(b.gradeId));
     });
-    return Array.from(gradesSet).sort((a, b) => a - b);
+    return Array.from(gradesSet).sort((a, b) => {
+      if (a === 0) return 1;
+      if (b === 0) return -1;
+      return a - b;
+    });
   }, [books]);
 
   const filteredBooks = useMemo(() => {
@@ -216,7 +220,9 @@ function SearchableBookSelect({
         <span className="truncate text-left flex items-center gap-1.5">
           <Search className="w-3 h-3 text-indigo-500 shrink-0" />
           <span className="truncate">
-            {selectedBook ? `${selectedBook.gradeId}-sinf • ${selectedBook.title}` : 'Kitobni tanlang...'}
+            {selectedBook
+              ? `${Number(selectedBook.gradeId) === 0 ? 'Kurs' : `${selectedBook.gradeId}-sinf`} • ${selectedBook.title}`
+              : 'Kitobni tanlang...'}
           </span>
         </span>
         <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60 ml-1" />
@@ -277,7 +283,7 @@ function SearchableBookSelect({
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {g}-sinf
+                  {g === 0 ? 'Kurslar / Boshqalar' : `${g}-sinf`}
                 </button>
               ))}
             </div>
@@ -310,7 +316,7 @@ function SearchableBookSelect({
                 >
                   <div className="min-w-0 flex items-center gap-2">
                     <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-black">
-                      {b.gradeId}-sinf
+                      {Number(b.gradeId) === 0 ? 'Kurs' : `${b.gradeId}-sinf`}
                     </span>
                     <div className="min-w-0">
                       <p className="text-xs truncate font-bold leading-tight">{b.title}</p>
@@ -503,7 +509,7 @@ export function VisualPdfEditor({
   const [isJumpOpen, setIsJumpOpen] = useState<boolean>(false);
   const [jumpInput, setJumpInput] = useState<string>('1');
 
-  // PDF.js & Fast Page Image State
+  // PDF.js State
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [isLoadingPdf, setIsLoadingPdf] = useState<boolean>(false);
   const [isLoadingPageImage, setIsLoadingPageImage] = useState<boolean>(false);
@@ -1055,7 +1061,7 @@ export function VisualPdfEditor({
 
   const totalPagesCount = Math.max(1, pdfDoc?.numPages || pages.length || currentBook?.totalPages || 6);
 
-  // Render active page image or PDF page onto canvas
+  // Render active PDF page or real uploaded page image onto a clean white sheet (never synthetic fallback letters)
   const renderPageCanvas = useCallback(async () => {
     const canvas = pageCanvasRef.current;
     if (!canvas) return;
@@ -1181,6 +1187,7 @@ export function VisualPdfEditor({
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          // Solid white base prevents transparent PDF layers from leaking prior content
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1841,13 +1848,10 @@ export function VisualPdfEditor({
               <h2 className="text-sm font-black text-slate-900 leading-tight shrink-0 tracking-tight">
                 Hotspot Editor
               </h2>
-              {booksList.length > 0 ? (
-                <SearchableBookSelect
-                  books={booksList}
-                  selectedBookId={selectedBookId}
-                  onSelectBook={handleSwitchBook}
-                  variant="header"
-                />
+              {currentBook ? (
+                <span className="text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 rounded-lg px-2.5 py-0.5 max-w-[260px] truncate shrink-0">
+                  {Number(currentBook.gradeId) === 0 ? 'Kurs' : `${currentBook.gradeId}-sinf`} • {currentBook.title}
+                </span>
               ) : (
                 <button
                   onClick={() => pdfFileInputRef.current?.click()}
@@ -1858,7 +1862,7 @@ export function VisualPdfEditor({
               )}
             </div>
             <p className="text-[11px] font-medium text-slate-400 truncate mt-0.5">
-              {currentBook ? `${currentBook.gradeId}-sinf • ` : ''}
+              {currentBook ? (Number(currentBook.gradeId) === 0 ? 'Kurslar • ' : `${currentBook.gradeId}-sinf • `) : ''}
               {activeUnitName} •{' '}
               {(() => {
                 const info = pdfPageToBookDisplay(currentPage, Math.max(1, pages.length || currentBook?.totalPages || 1), activeContentStartPdfPage);

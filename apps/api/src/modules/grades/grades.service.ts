@@ -40,6 +40,17 @@ export class GradesService implements OnModuleInit {
       if (Array.isArray(saved.grades) && saved.grades.length > 0) {
         this.gradesStore = saved.grades;
       }
+      if (!this.gradesStore.some((g) => g.gradeNumber === 0)) {
+        this.gradesStore.push({
+          id: 0,
+          gradeNumber: 0,
+          title: 'Boshqalar / Kurslar',
+          priceMonthlyUzs: 99000,
+          priceQuarterlyUzs: 249000,
+          priceYearlyUzs: 750000,
+          isActive: true,
+        });
+      }
       if (Array.isArray(saved.generalPricing) && saved.generalPricing.length > 0) {
         this.generalPricing = saved.generalPricing;
       }
@@ -96,13 +107,18 @@ export class GradesService implements OnModuleInit {
     { id: 9, gradeNumber: 9, title: '9-sinf', priceMonthlyUzs: 99000, priceQuarterlyUzs: 249000, priceYearlyUzs: 750000, isActive: true },
     { id: 10, gradeNumber: 10, title: '10-sinf', priceMonthlyUzs: 109000, priceQuarterlyUzs: 279000, priceYearlyUzs: 820000, isActive: true },
     { id: 11, gradeNumber: 11, title: '11-sinf', priceMonthlyUzs: 119000, priceQuarterlyUzs: 299000, priceYearlyUzs: 890000, isActive: true },
+    { id: 0, gradeNumber: 0, title: 'Boshqalar / Kurslar', priceMonthlyUzs: 99000, priceQuarterlyUzs: 249000, priceYearlyUzs: 750000, isActive: true },
   ];
 
   // Granular pricing matrix keyed by `${gradeId}:${canonicalSubjectId}`
   private tariffMatrixStore = new Map<string, GradeSubjectPricingEntry>();
 
   private sortGrades() {
-    this.gradesStore.sort((a, b) => a.gradeNumber - b.gradeNumber);
+    this.gradesStore.sort((a, b) => {
+      if (a.gradeNumber === 0) return 1;
+      if (b.gradeNumber === 0) return -1;
+      return a.gradeNumber - b.gradeNumber;
+    });
   }
 
   async findAll(activeOnly = false): Promise<Grade[]> {
@@ -119,14 +135,16 @@ export class GradesService implements OnModuleInit {
 
   async create(dto: CreateGradeDto): Promise<Grade> {
     const gradeNum = Math.round(Number(dto.gradeNumber));
-    if (!gradeNum || gradeNum < 1 || gradeNum > 99) {
-      throw new BadRequestException('Sinf raqami 1 dan 99 gacha bo‘lishi kerak');
+    if (isNaN(gradeNum) || gradeNum < 0 || gradeNum > 99) {
+      throw new BadRequestException('Sinf raqami 0 dan 99 gacha bo‘lishi kerak');
     }
     const existing = this.gradesStore.find(
       (g) => g.gradeNumber === gradeNum || g.id === gradeNum,
     );
     if (existing) {
-      throw new BadRequestException(`${gradeNum}-sinf allaqachon mavjud`);
+      throw new BadRequestException(
+        gradeNum === 0 ? 'Kurslar toifasi allaqachon mavjud' : `${gradeNum}-sinf allaqachon mavjud`,
+      );
     }
 
     const monthly = Number(dto.priceMonthlyUzs) > 0 ? Number(dto.priceMonthlyUzs) : 79000;
@@ -138,7 +156,7 @@ export class GradesService implements OnModuleInit {
     const created: Grade = {
       id: gradeNum,
       gradeNumber: gradeNum,
-      title: dto.title?.trim() || `${gradeNum}-sinf`,
+      title: dto.title?.trim() || (gradeNum === 0 ? 'Boshqalar / Kurslar' : `${gradeNum}-sinf`),
       description: dto.description?.trim(),
       priceMonthlyUzs: monthly,
       priceQuarterlyUzs: quarterly,

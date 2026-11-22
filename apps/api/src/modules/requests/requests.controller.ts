@@ -28,9 +28,9 @@ export class RequestsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get current user submitted access requests' })
-  async getMyRequests(@CurrentUser() user?: { userId?: string; id?: string }) {
+  async getMyRequests(@CurrentUser() user?: { userId?: string; id?: string; email?: string }) {
     const userId = user?.userId || user?.id || 'user_1';
-    return this.requestsService.getMyRequests(userId);
+    return this.requestsService.getMyRequests(userId, user?.email);
   }
 
   // Admin Web Panel Endpoints

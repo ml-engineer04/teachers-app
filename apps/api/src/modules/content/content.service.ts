@@ -868,7 +868,7 @@ export class ContentService implements OnModuleInit {
   }): Promise<Book> {
     const bookId = `book_custom_${Date.now()}`;
     const totalPages = Number(data.totalPages) || 1;
-    const gradeId = Number(data.gradeId) || 7;
+    const gradeId = data.gradeId !== undefined && !isNaN(Number(data.gradeId)) ? Number(data.gradeId) : 7;
     const subjectId = data.subjectId || 'sub_eng_7';
     const bookType = data.type || BookType.STUDENT_BOOK;
     const title = data.title || 'Yangi darslik';
@@ -1097,7 +1097,7 @@ export class ContentService implements OnModuleInit {
     const totalPages = pdfDoc.getPageCount();
     this.logger.log(`📄 Validated PDF. Detected ${totalPages} total pages.`);
 
-    const gradeId = Number(metadata.gradeId) || 7;
+    const gradeId = metadata.gradeId !== undefined && !isNaN(Number(metadata.gradeId)) ? Number(metadata.gradeId) : 7;
     const subjectId = metadata.subjectId || 'sub_eng_7';
     const bookType = metadata.bookType || BookType.STUDENT_BOOK;
     const title = metadata.title || filename.replace(/\.[^/.]+$/, '');
@@ -1925,8 +1925,8 @@ export class ContentService implements OnModuleInit {
   // ==========================================
   getTeacherBooks(gradeId?: number): Book[] {
     let tbs = this.booksStore.filter((b) => b.type === BookType.TEACHER_BOOK);
-    if (gradeId) {
-      tbs = tbs.filter((b) => b.gradeId === gradeId);
+    if (gradeId !== undefined && !isNaN(Number(gradeId))) {
+      tbs = tbs.filter((b) => b.gradeId === Number(gradeId));
     }
     return tbs;
   }

@@ -199,6 +199,25 @@ export class RequestsService implements OnModuleInit {
 
     if (this.prisma.isConnected) {
       try {
+        // Ensure user exists in Prisma before creating accessRequest to prevent foreign key errors
+        const userExists = await this.prisma.user.findUnique({ where: { id: newRequest.userId } }).catch(() => null);
+        if (!userExists && cleanEmail) {
+          const userByEmail = await this.prisma.user.findUnique({ where: { email: cleanEmail } }).catch(() => null);
+          if (userByEmail) {
+            newRequest.userId = userByEmail.id;
+          } else {
+            await this.prisma.user.create({
+              data: {
+                id: newRequest.userId,
+                email: cleanEmail,
+                emailVerified: true,
+                role: 'TEACHER',
+                isActive: true,
+              },
+            }).catch(() => null);
+          }
+        }
+
         let dbSubjectId: string | null = null;
         if (newRequest.subjectId) {
           const sub = await this.prisma.subject.findFirst({
@@ -246,37 +265,62 @@ export class RequestsService implements OnModuleInit {
     return newRequest;
   }
 
-  async getMyRequests(userId: string): Promise<AccessRequest[]> {
+  async getMyRequests(userId: string, userEmail?: string): Promise<AccessRequest[]> {
+    const cleanEmail = (userEmail || '').trim().toLowerCase();
+    const map = new Map<string, AccessRequest>();
+
+    // 1. Load from in-memory / disk store first
+    for (const r of this.requestsStore) {
+      const matchId = r.userId && r.userId === userId;
+      const matchEmail = cleanEmail && (r.userEmail || '').trim().toLowerCase() === cleanEmail;
+      if (matchId || matchEmail) {
+        map.set(r.id, r);
+      }
+    }
+
+    // 2. Load from Postgres Prisma and merge
     if (this.prisma.isConnected) {
       try {
         const list = await this.prisma.accessRequest.findMany({
-          where: { userId },
+          where: {
+            OR: [
+              { userId },
+              ...(cleanEmail ? [{ user: { email: cleanEmail } }] : []),
+            ],
+          },
           include: { grade: true, subject: true, user: true },
           orderBy: { createdAt: 'desc' },
         });
-        return list.map((r) => ({
-          id: r.id,
-          userId: r.userId,
-          userEmail: r.user.email,
-          gradeId: r.gradeId,
-          gradeNumber: r.grade.gradeNumber,
-          subjectId: r.subjectId,
-          subjectName: r.subject?.name,
-          plan: r.plan as SubscriptionPlan,
-          phoneNumber: r.phoneNumber,
-          status: r.status as AccessRequestStatus,
-          priceUzs: r.priceUzs,
-          internalNote: r.internalNote,
-          callLoggedAt: r.callLoggedAt?.toISOString(),
-          resolvedAt: r.resolvedAt?.toISOString(),
-          createdAt: r.createdAt.toISOString(),
-          updatedAt: r.updatedAt.toISOString(),
-        }));
-      } catch (err) {
-        // Fallback
+
+        for (const r of list) {
+          const existing = map.get(r.id);
+          map.set(r.id, {
+            id: r.id,
+            userId: r.userId,
+            userEmail: r.user?.email || existing?.userEmail || cleanEmail,
+            gradeId: r.gradeId,
+            gradeNumber: r.grade?.gradeNumber || existing?.gradeNumber || r.gradeId,
+            subjectId: r.subjectId || existing?.subjectId,
+            subjectName: r.subject?.name || existing?.subjectName,
+            plan: (r.plan as SubscriptionPlan) || existing?.plan || SubscriptionPlan.MONTHLY,
+            phoneNumber: r.phoneNumber || existing?.phoneNumber,
+            status: (r.status as AccessRequestStatus) || existing?.status,
+            priceUzs: r.priceUzs ?? existing?.priceUzs,
+            internalNote: r.internalNote || existing?.internalNote,
+            callLoggedAt: r.callLoggedAt?.toISOString() || existing?.callLoggedAt,
+            resolvedAt: r.resolvedAt?.toISOString() || existing?.resolvedAt,
+            createdAt: r.createdAt ? r.createdAt.toISOString() : existing?.createdAt || new Date().toISOString(),
+            updatedAt: r.updatedAt ? r.updatedAt.toISOString() : existing?.updatedAt || new Date().toISOString(),
+          });
+        }
+      } catch (err: any) {
+        this.logger.warn(`Prisma error in getMyRequests fallback to memory: ${err.message}`);
       }
     }
-    return this.requestsStore.filter((r) => r.userId === userId);
+
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   }
 
   async findAll(query?: {
