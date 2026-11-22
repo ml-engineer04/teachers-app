@@ -274,6 +274,7 @@ model Book {
   readingProgress UserReadingProgress[]
 
   @@unique([gradeId, subjectId, type])
+  @@index([gradeId, subjectId])
   @@map("books")
 }
 
