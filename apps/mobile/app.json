@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.smartteacherbook.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#142452"
