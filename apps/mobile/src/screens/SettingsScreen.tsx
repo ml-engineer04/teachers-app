@@ -29,6 +29,7 @@ import { secureStorage } from '../services/storage/secureStorage';
 import { DownloadsManager, DownloadedItem } from '../services/storage/downloadsManager';
 import { readingProgressStore } from '../services/storage/readingProgressStore';
 import { SubscriptionManager } from '../services/subscription/subscriptionManager';
+import { catalogService } from '../services/catalog/catalogService';
 import { notify } from '../services/notifications/notificationService';
 
 interface SettingsScreenProps {
@@ -230,7 +231,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     try {
       const [subs, subList] = await Promise.all([
         mobileApi.getMySubscriptions(),
-        mobileApi.getSubjects(),
+        catalogService.getSubjects(),
       ]);
       setSubscriptions(subs || []);
       setSubjects(subList || []);

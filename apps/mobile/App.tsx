@@ -32,6 +32,7 @@ import { NotificationBanner } from './src/components/common/NotificationBanner';
 import { DownloadsManager } from './src/services/storage/downloadsManager';
 import { readingProgressStore } from './src/services/storage/readingProgressStore';
 import { offlineCatalogCache } from './src/services/storage/offlineCatalogCache';
+import { catalogService } from './src/services/catalog/catalogService';
 
 export type ScreenState =
   | 'SPLASH'
@@ -280,6 +281,13 @@ function AppShell() {
     let mounted = true;
 
     const bootstrapSession = async () => {
+      // Warm up catalog disk cache and fetch freshness in parallel during splash
+      offlineCatalogCache.preload().then(() => {
+        catalogService.getGrades().catch(() => {});
+        catalogService.getSubjects().catch(() => {});
+        catalogService.getBooks().catch(() => {});
+      }).catch(() => {});
+
       try {
         const [token, profile, hasPin, lastActiveAt] = await Promise.all([
           secureStorage.getAccessToken(),

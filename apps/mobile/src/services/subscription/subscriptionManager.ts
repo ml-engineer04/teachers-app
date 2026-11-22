@@ -78,6 +78,13 @@ export class SubscriptionManager {
     offlineStore.putJson(SUBS_CACHE_KEY, payload).catch(() => {});
   }
 
+  private static inFlightSync: Promise<GradeAccessInfo[]> | null = null;
+  private static lastSyncTime = 0;
+
+  static invalidateSyncCache() {
+    this.lastSyncTime = 0;
+  }
+
   /**
    * Re-evaluates cached entries against current time without dropping offline cache.
    */
@@ -92,60 +99,87 @@ export class SubscriptionManager {
    * Synchronizes granted subscriptions directly from NestJS (/api/v1/subscriptions/my),
    * and automatically re-evaluates expiration offline without false-offline timeouts.
    */
-  static async syncFromBackend(): Promise<GradeAccessInfo[]> {
-    await this.ensureAsyncCacheLoaded();
-    this.refreshCacheExpiries();
-    try {
-      const subs = await mobileApi.getMySubscriptionsStrict();
-      if (Array.isArray(subs)) {
-        this.allActiveSubscriptions = subs;
-        const nextMap = new Map<number, GradeAccessInfo>();
-        const now = Date.now();
-
-        for (const sub of subs) {
-          const expiresIso =
-            typeof sub.expiresAt === 'string'
-              ? sub.expiresAt
-              : sub.expiresAt
-              ? new Date(sub.expiresAt).toISOString()
-              : null;
-          const expiresMs = expiresIso ? new Date(expiresIso).getTime() : 0;
-          const diffDays = expiresMs > now ? Math.max(1, Math.ceil((expiresMs - now) / (86400 * 1000))) : 0;
-          const isValid = Boolean(sub.isActive) && expiresMs > now;
-          const status: AccessStatus = !isValid
-            ? 'EXPIRED'
-            : diffDays <= 5
-            ? 'EXPIRING_SOON'
-            : 'ACTIVE';
-
-          const planLabel =
-            sub.plan === 'YEARLY'
-              ? '1 Yillik Obuna'
-              : sub.plan === 'THREE_MONTHS'
-              ? '3 Oylik Obuna'
-              : '1 Oylik Obuna';
-
-          const existing = nextMap.get(sub.gradeId);
-          if (!existing || status === 'ACTIVE' || status === 'EXPIRING_SOON') {
-            nextMap.set(sub.gradeId, {
-              gradeId: sub.gradeId,
-              status,
-              daysRemaining: diffDays,
-              planName: planLabel,
-              subjectId: sub.subjectId,
-              expiresAt: expiresIso,
-              expiresAtFormatted: expiresIso ? new Date(expiresIso).toLocaleDateString('uz-UZ') : undefined,
-            });
-          }
-        }
-
-        this.gradeAccessCache = nextMap;
-        this.persistLocalCache();
-      }
-    } catch {
-      this.persistLocalCache();
+  static async syncFromBackend(force = false): Promise<GradeAccessInfo[]> {
+    const now = Date.now();
+    if (
+      !force &&
+      this.lastSyncTime > 0 &&
+      now - this.lastSyncTime < 60000 &&
+      this.gradeAccessCache.size > 0
+    ) {
+      this.refreshCacheExpiries();
+      return Array.from(this.gradeAccessCache.values());
     }
-    return Array.from(this.gradeAccessCache.values());
+
+    if (this.inFlightSync) {
+      return this.inFlightSync;
+    }
+
+    this.inFlightSync = (async () => {
+      await this.ensureAsyncCacheLoaded();
+      this.refreshCacheExpiries();
+      try {
+        const subs = await mobileApi.getMySubscriptionsStrict();
+        if (Array.isArray(subs)) {
+          this.allActiveSubscriptions = subs;
+          const nextMap = new Map<number, GradeAccessInfo>();
+          const currentNow = Date.now();
+
+          for (const sub of subs) {
+            const expiresIso =
+              typeof sub.expiresAt === 'string'
+                ? sub.expiresAt
+                : sub.expiresAt
+                ? new Date(sub.expiresAt).toISOString()
+                : null;
+            const expiresMs = expiresIso ? new Date(expiresIso).getTime() : 0;
+            const diffDays =
+              expiresMs > currentNow
+                ? Math.max(1, Math.ceil((expiresMs - currentNow) / (86400 * 1000)))
+                : 0;
+            const isValid = Boolean(sub.isActive) && expiresMs > currentNow;
+            const status: AccessStatus = !isValid
+              ? 'EXPIRED'
+              : diffDays <= 5
+              ? 'EXPIRING_SOON'
+              : 'ACTIVE';
+
+            const planLabel =
+              sub.plan === 'YEARLY'
+                ? '1 Yillik Obuna'
+                : sub.plan === 'THREE_MONTHS'
+                ? '3 Oylik Obuna'
+                : '1 Oylik Obuna';
+
+            const existing = nextMap.get(sub.gradeId);
+            if (!existing || status === 'ACTIVE' || status === 'EXPIRING_SOON') {
+              nextMap.set(sub.gradeId, {
+                gradeId: sub.gradeId,
+                status,
+                daysRemaining: diffDays,
+                planName: planLabel,
+                subjectId: sub.subjectId,
+                expiresAt: expiresIso,
+                expiresAtFormatted: expiresIso
+                  ? new Date(expiresIso).toLocaleDateString('uz-UZ')
+                  : undefined,
+              });
+            }
+          }
+
+          this.gradeAccessCache = nextMap;
+          this.persistLocalCache();
+          this.lastSyncTime = Date.now();
+        }
+      } catch {
+        this.persistLocalCache();
+      } finally {
+        this.inFlightSync = null;
+      }
+      return Array.from(this.gradeAccessCache.values());
+    })();
+
+    return this.inFlightSync;
   }
 
   static async getAllActiveAccess(): Promise<GradeAccessInfo[]> {
@@ -159,11 +193,11 @@ export class SubscriptionManager {
     return current ? evaluateGradeAccessExpiry(current) : undefined;
   }
 
-  static async getGradeAccess(gradeId: number, forceSync = true): Promise<GradeAccessInfo> {
+  static async getGradeAccess(gradeId: number, forceSync = false): Promise<GradeAccessInfo> {
     await this.ensureAsyncCacheLoaded();
     this.refreshCacheExpiries();
     if (forceSync) {
-      await this.syncFromBackend();
+      await this.syncFromBackend(true);
       this.refreshCacheExpiries();
     }
 

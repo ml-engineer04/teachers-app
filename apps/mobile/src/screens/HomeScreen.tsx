@@ -12,6 +12,7 @@ import {
   Image,
   RefreshControl,
   Keyboard,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
@@ -24,6 +25,7 @@ import {
 import { SubscriptionManager, GradeAccessInfo } from '../services/subscription/subscriptionManager';
 import { ExpiredAccessModal } from '../components/ExpiredAccessModal';
 import { mobileApi } from '../services/api/mobileApi';
+import { catalogService } from '../services/catalog/catalogService';
 import { DownloadsManager } from '../services/storage/downloadsManager';
 import { offlineCatalogCache } from '../services/storage/offlineCatalogCache';
 import { readingProgressStore } from '../services/storage/readingProgressStore';
@@ -160,9 +162,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       try {
         const [accessData, gradesData, subjData, booksData, progData] = await Promise.all([
           SubscriptionManager.syncFromBackend().catch(() => SubscriptionManager.getAllActiveAccess()),
-          mobileApi.getGrades(),
-          mobileApi.getSubjects(),
-          mobileApi.getAllBooks(),
+          catalogService.getGrades(),
+          catalogService.getSubjects(),
+          catalogService.getBooks(),
           mobileApi.getReadingProgress(),
         ]);
         setIsOfflineMode(false);
@@ -438,16 +440,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         }
       : null;
 
-  // Instant Pre-fetch: pre-fetches the active reading page in the background while user browses Home
+  // Instant Pre-fetch: pre-fetches the active reading page in the background after UI renders
   useEffect(() => {
-    if (continueItem?.id && continueItem?.lastPage) {
-      const pageNum = continueItem.lastPage;
-      const url = `${mobileApi.API_BASE}/content/books/${continueItem.id}/pages/${pageNum}/image`;
-      Image.prefetch(url).catch(() => {});
-      if (pageNum < (continueItem.totalPages || 96)) {
-        Image.prefetch(`${mobileApi.API_BASE}/content/books/${continueItem.id}/pages/${pageNum + 1}/image`).catch(() => {});
-      }
-    }
+    if (!continueItem?.id || !continueItem?.lastPage) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      const timer = setTimeout(() => {
+        const pageNum = continueItem.lastPage;
+        const url = `${mobileApi.API_BASE}/content/books/${continueItem.id}/pages/${pageNum}/image`;
+        Image.prefetch(url).catch(() => {});
+        if (pageNum < (continueItem.totalPages || 96)) {
+          Image.prefetch(`${mobileApi.API_BASE}/content/books/${continueItem.id}/pages/${pageNum + 1}/image`).catch(() => {});
+        }
+      }, 700);
+      return () => clearTimeout(timer);
+    });
+    return () => task.cancel();
   }, [continueItem?.id, continueItem?.lastPage, continueItem?.totalPages]);
 
   const trimmedSearch = debouncedSearch.trim();

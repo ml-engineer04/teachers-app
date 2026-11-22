@@ -24,6 +24,7 @@ import { readerBenchmark } from '../utils/readerBenchmark';
 import { SubscriptionManager, GradeAccessInfo } from '../services/subscription/subscriptionManager';
 import { ExpiredAccessModal } from '../components/ExpiredAccessModal';
 import { mobileApi } from '../services/api/mobileApi';
+import { catalogService } from '../services/catalog/catalogService';
 import { notify } from '../services/notifications/notificationService';
 import { DS } from '../theme/designSystem';
 import { useTheme } from '../theme/ThemeContext';
@@ -178,7 +179,8 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
           offlineCatalogCache.getGrades(),
           offlineCatalogCache.getSubjects(),
           offlineCatalogCache.getBooks(),
-          SubscriptionManager.getGradeAccess(selectedGrade),
+          SubscriptionManager.getCachedGradeAccess(selectedGrade) ||
+            SubscriptionManager.getGradeAccess(selectedGrade, false),
         ]);
         const downloaded = DownloadsManager.listDownloadedBundles();
         const booksList = offlineCatalogCache.mergeBooksWithDownloads(cachedBooks, downloaded);
@@ -195,13 +197,17 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
 
         // 2. Parallel network refresh with zero blocking ping
         try {
-          const [gradesData, subjs, books, access] = await Promise.all([
-            mobileApi.getGrades(),
-            mobileApi.getSubjects(),
-            mobileApi.getAllBooks(),
-            SubscriptionManager.getGradeAccess(selectedGrade),
+          const [gradesData, subjs, books, access, plans] = await Promise.all([
+            catalogService.getGrades(),
+            catalogService.getSubjects(),
+            catalogService.getBooks(),
+            SubscriptionManager.getGradeAccess(selectedGrade, false),
+            catalogService.getPricingPlans(selectedGrade, pricingSubjectId),
           ]);
           setIsOfflineMode(false);
+          if (Array.isArray(plans) && plans.length > 0) {
+            setPricingPlans(plans);
+          }
           if (Array.isArray(gradesData)) {
             const sortedGrades = [...gradesData].sort((a, b) => a.gradeNumber - b.gradeNumber);
             setAvailableGrades(sortedGrades);
@@ -267,7 +273,7 @@ export const GradeDetailScreen: React.FC<GradeDetailScreenProps> = ({
   }, [loadCatalogData]);
 
   useEffect(() => {
-    mobileApi
+    catalogService
       .getPricingPlans(selectedGrade, pricingSubjectId)
       .then((plans) => {
         if (Array.isArray(plans) && plans.length > 0) setPricingPlans(plans);

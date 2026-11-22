@@ -154,10 +154,12 @@ async function executeRequest<T>(endpoint: string, options?: RequestInit, isRetr
     ...(options?.headers as any),
   };
 
-  const timeoutMs = endpoint.includes('/image') || endpoint.includes('/pdf') ? 20000 : 12000;
+  const timeoutMs = endpoint.includes('/image') || endpoint.includes('/pdf') ? 20000 : 9000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  const method = (options?.method || 'GET').toUpperCase();
+  const isIdempotent = method === 'GET' || method === 'HEAD';
   const tStart = typeof __DEV__ !== 'undefined' && __DEV__ ? Date.now() : 0;
   let res: Response;
   try {
@@ -168,13 +170,18 @@ async function executeRequest<T>(endpoint: string, options?: RequestInit, isRetr
     });
     if (tStart > 0) {
       console.log(
-        `⏱️ [MOBILE_API] ${options?.method || 'GET'} ${endpoint} | ${res.status} | ${Date.now() - tStart}ms`,
+        `⏱️ [MOBILE_API] ${method} ${endpoint} | ${res.status} | ${Date.now() - tStart}ms`,
       );
     }
   } catch (netErr: any) {
+    clearTimeout(timer);
+    if (!isRetry && isIdempotent && (netErr?.name === 'AbortError' || netErr instanceof TypeError)) {
+      await new Promise((r) => setTimeout(r, 400));
+      return executeRequest<T>(endpoint, options, true);
+    }
     if (tStart > 0) {
       console.warn(
-        `⏱️ [MOBILE_API_ERR] ${options?.method || 'GET'} ${endpoint} | ${Date.now() - tStart}ms | ${netErr?.message}`,
+        `⏱️ [MOBILE_API_ERR] ${method} ${endpoint} | ${Date.now() - tStart}ms | ${netErr?.message}`,
       );
     }
     const isTimeout = netErr?.name === 'AbortError';

@@ -27,6 +27,8 @@ import { SubscriptionManager } from '../services/subscription/subscriptionManage
 import { OfflineScreen } from '../components/common/OfflineScreen';
 import { notify } from '../services/notifications/notificationService';
 import { offlineCatalogCache } from '../services/storage/offlineCatalogCache';
+import { offlineStore } from '../services/storage/offlineStore';
+import { catalogService } from '../services/catalog/catalogService';
 import {
   formatUzPhone,
   isValidUzPhone,
@@ -110,36 +112,57 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
   const loadData = useCallback(
     async (silent = false) => {
       const t0 = typeof __DEV__ !== 'undefined' && __DEV__ ? Date.now() : 0;
-      if (!silent) setLoading(true);
-      try {
-        const online = await mobileApi.checkConnectivity();
-        if (!online) {
-          setIsOffline(true);
-          if (!silent) setLoading(false);
-          return;
-        }
-        setIsOffline(false);
+      // 1. Instant Cache Hydration (stale-while-revalidate)
+      const [cachedGrades, cachedSubjects, cachedRequests, cachedSubs] = await Promise.all([
+        offlineCatalogCache.getGrades(),
+        offlineCatalogCache.getSubjects(),
+        offlineStore.getJson<AccessRequest[]>('catalog:requests_v1').catch(() => null),
+        SubscriptionManager.getAllActiveAccess(),
+      ]);
 
-        const [gradesData, subList, myReqs] = await Promise.all([
-          mobileApi.getGrades(),
-          mobileApi.getSubjects(),
-          mobileApi.getMyRequests(),
+      if (Array.isArray(cachedGrades) && cachedGrades.length > 0) {
+        const sortedGrades = [...cachedGrades].sort((a, b) => a.gradeNumber - b.gradeNumber);
+        setAvailableGrades(sortedGrades);
+      }
+      if (Array.isArray(cachedSubjects) && cachedSubjects.length > 0) {
+        setSubjects(cachedSubjects);
+      }
+      if (Array.isArray(cachedRequests)) {
+        setRequests(cachedRequests);
+      }
+      if (Array.isArray(cachedSubs)) {
+        setActiveSubs(cachedSubs.filter((a) => SubscriptionManager.isAccessValid(a)));
+      }
+
+      // If we have cached grades or subjects, don't show full-screen spinner
+      if (cachedGrades?.length || cachedSubjects?.length) {
+        if (!silent) setLoading(false);
+      } else if (!silent) {
+        setLoading(true);
+      }
+
+      // 2. Parallel network refresh (all endpoints in a single Promise.all)
+      try {
+        const [gradesData, subList, myReqs, syncedSubs, planList] = await Promise.all([
+          catalogService.getGrades(),
+          catalogService.getSubjects(),
+          mobileApi.getMyRequests().catch(() => null),
+          SubscriptionManager.syncFromBackend(false).catch(() => SubscriptionManager.getAllActiveAccess()),
+          catalogService.getPricingPlans(grade, selectedSubjectId || undefined).catch(() => []),
         ]);
 
-        if (Array.isArray(gradesData)) {
+        setIsOffline(false);
+
+        if (Array.isArray(gradesData) && gradesData.length > 0) {
           const sortedGrades = [...gradesData].sort((a, b) => a.gradeNumber - b.gradeNumber);
           setAvailableGrades(sortedGrades);
-          offlineCatalogCache.saveGrades(sortedGrades);
-          if (sortedGrades.length > 0 && !sortedGrades.some((g) => g.gradeNumber === grade)) {
+          if (!sortedGrades.some((g) => g.gradeNumber === grade)) {
             setGrade(sortedGrades[0].gradeNumber);
           }
         }
 
-        setSubjects(subList);
-        offlineCatalogCache.saveSubjects(subList);
-        setRequests(myReqs || []);
-
-        if (subList.length > 0) {
+        if (Array.isArray(subList) && subList.length > 0) {
+          setSubjects(subList);
           if (selectedSubjectCode) {
             const match = subList.find(
               (s) =>
@@ -158,10 +181,20 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
           }
         }
 
-        const syncedSubs = await SubscriptionManager.syncFromBackend();
-        setActiveSubs(syncedSubs.filter((a) => SubscriptionManager.isAccessValid(a)));
-        if (myReqs?.some((r) => r.status === AccessRequestStatus.PAID_APPROVED)) {
-          onRequestSubmittedAndApproved?.();
+        if (Array.isArray(myReqs)) {
+          setRequests(myReqs);
+          offlineStore.putJson('catalog:requests_v1', myReqs).catch(() => {});
+          if (myReqs.some((r) => r.status === AccessRequestStatus.PAID_APPROVED)) {
+            onRequestSubmittedAndApproved?.();
+          }
+        }
+
+        if (Array.isArray(syncedSubs)) {
+          setActiveSubs(syncedSubs.filter((a) => SubscriptionManager.isAccessValid(a)));
+        }
+
+        if (Array.isArray(planList) && planList.length > 0) {
+          setPlans(planList);
         }
       } catch (err: any) {
         if (err?.isNetworkError) {
@@ -191,8 +224,8 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData(true);
-    mobileApi
-      .getPricingPlans(grade, selectedSubjectId || undefined)
+    catalogService
+      .getPricingPlans(grade, selectedSubjectId || undefined, true)
       .then((planList) => {
         if (Array.isArray(planList) && planList.length > 0) {
           setPlans(planList);
@@ -207,7 +240,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
   }, [loadData]);
 
   useEffect(() => {
-    mobileApi
+    catalogService
       .getPricingPlans(grade, selectedSubjectId || undefined)
       .then((planList) => {
         if (Array.isArray(planList) && planList.length > 0) {
