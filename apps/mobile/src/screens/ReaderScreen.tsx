@@ -907,14 +907,21 @@ export const ReaderScreen: React.FC<ReaderScreenProps> = ({
         let bookHotspots: any[] = [];
 
         try {
-          const [pi, bp, bh] = await Promise.all([
-            mobileApi.getBookPdfInfo(book.id),
-            mobileApi.getBookPages(book.id),
-            mobileApi.getBookHotspots(book.id),
-          ]);
-          pdfInfo = pi;
-          bookPages = bp;
-          bookHotspots = bh;
+          const bundle = await mobileApi.getReaderBundle(book.id);
+          if (bundle) {
+            pdfInfo = bundle.pdfInfo;
+            bookPages = bundle.pages;
+            bookHotspots = bundle.hotspots;
+          } else {
+            const [pi, bp, bh] = await Promise.all([
+              mobileApi.getBookPdfInfo(book.id),
+              mobileApi.getBookPages(book.id),
+              mobileApi.getBookHotspots(book.id),
+            ]);
+            pdfInfo = pi;
+            bookPages = bp;
+            bookHotspots = bh;
+          }
         } catch {
           // If network failed and book is not downloaded
           setOfflineMissing(true);

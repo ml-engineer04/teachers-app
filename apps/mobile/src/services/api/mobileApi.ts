@@ -602,6 +602,22 @@ export const mobileApi = {
     }
   },
 
+  async getReaderBundle(bookId: string): Promise<{
+    pdfInfo: { hasPdf: boolean; totalPages: number; contentStartPdfPage?: number };
+    pages: any[];
+    hotspots: any[];
+  } | null> {
+    try {
+      return await request<{
+        pdfInfo: { hasPdf: boolean; totalPages: number; contentStartPdfPage?: number };
+        pages: any[];
+        hotspots: any[];
+      }>(`/content/books/${bookId}/reader-bundle`);
+    } catch {
+      return null;
+    }
+  },
+
   async getBookPdfInfo(bookId: string): Promise<{ hasPdf: boolean; totalPages: number; contentStartPdfPage?: number }> {
     try {
       return await request<{ hasPdf: boolean; totalPages: number; contentStartPdfPage?: number }>(

@@ -574,6 +574,26 @@ export class ContentController {
     };
   }
 
+  @Get('books/:bookId/reader-bundle')
+  @ApiOperation({ summary: 'Consolidated Reader initialization bundle: pdfInfo, pages, and hotspots in 1 round-trip' })
+  async getReaderBundle(@Param('bookId') bookId: string) {
+    const [pages, hotspots, book, buf] = await Promise.all([
+      this.contentService.getBookPages(bookId),
+      this.contentService.getBookHotspots(bookId),
+      this.contentService.findById(bookId),
+      this.contentService.getPdfBuffer(bookId),
+    ]);
+    return {
+      pdfInfo: {
+        hasPdf: Boolean(buf && buf.length > 0),
+        totalPages: book?.totalPages || (pages?.length ? pages.length : 6),
+        contentStartPdfPage: book?.contentStartPdfPage || 1,
+      },
+      pages: pages || [],
+      hotspots: hotspots || [],
+    };
+  }
+
   @Get('vendor/pdfjs/:filename')
   @ApiOperation({ summary: 'Serve PDF.js runtime scripts for mobile web reader' })
   async servePdfJsAsset(@Param('filename') filename: string, @Res() res: Response) {
