@@ -5,6 +5,7 @@ import { AccessRequestStatus, Subscription, SubscriptionPlan, SignedLicense } fr
 import {
   isApiTestEnvironment,
   readJsonDiskSync,
+  writeJsonDiskDebounced,
   writeJsonDiskSync,
 } from '../../common/persistence/local-disk.store';
 
@@ -63,9 +64,15 @@ export class SubscriptionsService implements OnModuleInit {
     }
   }
 
+  private readonly userSubsCache = new Map<
+    string,
+    { data: Subscription[]; expiresAt: number }
+  >();
+
   private persistDisk() {
+    this.userSubsCache.clear();
     if (!this.diskEnabled) return;
-    writeJsonDiskSync('subscriptions-state.json', this.subscriptionsStore);
+    writeJsonDiskDebounced('subscriptions-state.json', this.subscriptionsStore, 600);
   }
 
   clearAll() {
@@ -353,18 +360,46 @@ export class SubscriptionsService implements OnModuleInit {
 
   async findByUserIdOrEmail(userId: string, email?: string): Promise<Subscription[]> {
     const cleanEmail = (email || '').trim().toLowerCase();
-    const subsById = await this.findByUserId(userId);
-    if (!cleanEmail) return subsById;
+    const cacheKey = `${userId}:${cleanEmail}`;
+    const now = Date.now();
+    const cached = this.userSubsCache.get(cacheKey);
 
-    const subsByEmail = await this.findByUserEmail(cleanEmail);
-    const combinedMap = new Map<string, Subscription>();
-    for (const s of [...subsById, ...subsByEmail]) {
-      const key = s.id || `${s.gradeId}:${s.subjectId || 'ALL'}`;
-      if (!combinedMap.has(key)) {
-        combinedMap.set(key, { ...s, userId });
-      }
+    if (cached && cached.expiresAt > now) {
+      return cached.data.map((s) => {
+        const isExpired = new Date(s.expiresAt).getTime() <= now;
+        return {
+          ...s,
+          isActive: isExpired ? false : s.isActive,
+        };
+      });
     }
-    return Array.from(combinedMap.values());
+
+    const subsById = await this.findByUserId(userId);
+    let rawSubs = subsById;
+    if (cleanEmail) {
+      const subsByEmail = await this.findByUserEmail(cleanEmail);
+      const combinedMap = new Map<string, Subscription>();
+      for (const s of [...subsById, ...subsByEmail]) {
+        const key = s.id || `${s.gradeId}:${s.subjectId || 'ALL'}`;
+        if (!combinedMap.has(key)) {
+          combinedMap.set(key, { ...s, userId });
+        }
+      }
+      rawSubs = Array.from(combinedMap.values());
+    }
+
+    this.userSubsCache.set(cacheKey, {
+      data: rawSubs,
+      expiresAt: now + 20000,
+    });
+
+    return rawSubs.map((s) => {
+      const isExpired = new Date(s.expiresAt).getTime() <= now;
+      return {
+        ...s,
+        isActive: isExpired ? false : s.isActive,
+      };
+    });
   }
 
   async findByUserEmail(email: string): Promise<Subscription[]> {

@@ -21,6 +21,7 @@ import {
 import {
   isApiTestEnvironment,
   readJsonDiskSync,
+  writeJsonDiskDebounced,
   writeJsonDiskSync,
 } from '../../common/persistence/local-disk.store';
 
@@ -64,9 +65,15 @@ export class RequestsService implements OnModuleInit {
     }
   }
 
+  private userRequestsCache = new Map<
+    string,
+    { data: AccessRequest[]; expiresAt: number }
+  >();
+
   private persistDisk() {
+    this.userRequestsCache.clear();
     if (!this.diskEnabled) return;
-    writeJsonDiskSync('requests-state.json', this.requestsStore);
+    writeJsonDiskDebounced('requests-state.json', this.requestsStore, 600);
   }
 
   clearAll() {
@@ -267,6 +274,13 @@ export class RequestsService implements OnModuleInit {
 
   async getMyRequests(userId: string, userEmail?: string): Promise<AccessRequest[]> {
     const cleanEmail = (userEmail || '').trim().toLowerCase();
+    const cacheKey = `${userId}:${cleanEmail}`;
+    const now = Date.now();
+    const cached = this.userRequestsCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+
     const map = new Map<string, AccessRequest>();
 
     // 1. Load from in-memory / disk store first
@@ -288,7 +302,8 @@ export class RequestsService implements OnModuleInit {
               ...(cleanEmail ? [{ user: { email: cleanEmail } }] : []),
             ],
           },
-          include: { grade: true, subject: true, user: true },
+          include: { grade: true, subject: true },
+          take: 50,
           orderBy: { createdAt: 'desc' },
         });
 
@@ -297,7 +312,7 @@ export class RequestsService implements OnModuleInit {
           map.set(r.id, {
             id: r.id,
             userId: r.userId,
-            userEmail: r.user?.email || existing?.userEmail || cleanEmail,
+            userEmail: existing?.userEmail || cleanEmail,
             gradeId: r.gradeId,
             gradeNumber: r.grade?.gradeNumber || existing?.gradeNumber || r.gradeId,
             subjectId: r.subjectId || existing?.subjectId,
@@ -318,9 +333,16 @@ export class RequestsService implements OnModuleInit {
       }
     }
 
-    return Array.from(map.values()).sort(
+    const sorted = Array.from(map.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
+
+    this.userRequestsCache.set(cacheKey, {
+      data: sorted,
+      expiresAt: now + 15000,
+    });
+
+    return sorted;
   }
 
   async findAll(query?: {

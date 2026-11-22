@@ -19,11 +19,13 @@ import { PDFDocument } from 'pdf-lib';
 const execFileAsync = promisify(execFile);
 import {
   deleteBinaryDiskSync,
+  flushPendingDiskWrites,
   isApiTestEnvironment,
   readBinaryDiskSync,
   readJsonDiskSync,
   resolveApiDataDir,
   writeBinaryDiskSync,
+  writeJsonDiskDebounced,
   writeJsonDiskSync,
 } from '../../common/persistence/local-disk.store';
 
@@ -193,6 +195,11 @@ export class ContentService implements OnModuleInit {
     this.loadContentFromDisk();
   }
 
+  onModuleDestroy() {
+    flushPendingDiskWrites('content-state.json');
+    flushPendingDiskWrites('reading-progress.json');
+  }
+
   private loadContentFromDisk() {
     interface PersistedContentState {
       books?: Book[];
@@ -306,7 +313,7 @@ export class ContentService implements OnModuleInit {
       return out;
     };
 
-    writeJsonDiskSync('content-state.json', {
+    writeJsonDiskDebounced('content-state.json', {
       books: this.booksStore,
       pages: mapToRecord(this.pagesStore),
       hotspots: mapToRecord(this.hotspotsStore),
@@ -319,7 +326,7 @@ export class ContentService implements OnModuleInit {
       bookmarks: mapToRecord(this.userBookmarksStore),
       notes: mapToRecord(this.userNotesStore),
       drawings: mapToRecord(this.userDrawingsStore),
-    });
+    }, 600);
   }
 
   private loadPersistedProgress() {
@@ -346,7 +353,17 @@ export class ContentService implements OnModuleInit {
       this.userProgressStore.forEach((list, uid) => {
         payload[uid] = list;
       });
-      fs.writeFileSync(this.progressPersistencePath, JSON.stringify(payload, null, 2), 'utf-8');
+      if (isApiTestEnvironment()) {
+        fs.writeFileSync(this.progressPersistencePath, JSON.stringify(payload, null, 2), 'utf-8');
+      } else {
+        const tempPath = `${this.progressPersistencePath}.tmp.${Date.now()}`;
+        void fs.promises
+          .writeFile(tempPath, JSON.stringify(payload, null, 2), 'utf-8')
+          .then(() => {
+            return fs.promises.rename(tempPath, this.progressPersistencePath);
+          })
+          .catch(() => {});
+      }
     } catch (err: any) {
       this.logger.warn(`Could not persist reading progress cache: ${err?.message || err}`);
     }
@@ -803,14 +820,31 @@ export class ContentService implements OnModuleInit {
     return { ...book, pagesVersion: v };
   }
 
-  async getAllBooks(): Promise<Book[]> {
+  private allBooksCache: { data: Book[]; expiresAt: number } | null = null;
+
+  invalidateBooksCache() {
+    this.allBooksCache = null;
+  }
+
+  async getAllBooks(pagination?: { take?: number; skip?: number }): Promise<Book[]> {
+    const isUnpaginated = !pagination || (!pagination.take && !pagination.skip);
+    if (isUnpaginated && this.allBooksCache && this.allBooksCache.expiresAt > Date.now()) {
+      return this.allBooksCache.data;
+    }
+
+    let result: Book[] = [];
     if (this.prisma.isConnected) {
       try {
-        const books = await this.prisma.book.findMany({
+        const queryArgs: any = {
           include: { subject: true, grade: true },
-        });
+          orderBy: [{ gradeId: 'asc' }, { createdAt: 'desc' }],
+        };
+        if (pagination?.take) queryArgs.take = Number(pagination.take);
+        if (pagination?.skip) queryArgs.skip = Number(pagination.skip);
+
+        const books = await this.prisma.book.findMany(queryArgs);
         if (books.length > 0) {
-          return books.map((b) =>
+          result = books.map((b) =>
             this.enrichBookWithPagesVersion({
               ...b,
               type: b.type as any,
@@ -825,7 +859,22 @@ export class ContentService implements OnModuleInit {
         // Fallback
       }
     }
-    return this.booksStore.map((b) => this.enrichBookWithPagesVersion(b));
+
+    if (result.length === 0) {
+      let storeList = this.booksStore;
+      if (pagination?.skip) storeList = storeList.slice(Number(pagination.skip));
+      if (pagination?.take) storeList = storeList.slice(0, Number(pagination.take));
+      result = storeList.map((b) => this.enrichBookWithPagesVersion(b));
+    }
+
+    if (isUnpaginated && result.length > 0) {
+      this.allBooksCache = {
+        data: result,
+        expiresAt: Date.now() + 45000,
+      };
+    }
+
+    return result;
   }
 
   async findByGrade(gradeId: number): Promise<Book[]> {
@@ -945,6 +994,7 @@ export class ContentService implements OnModuleInit {
     }
 
     this.logger.log(`📚 Created new textbook: ${title} (${bookId})`);
+    this.invalidateBooksCache();
     this.persistContentToDisk();
     return newBook;
   }
@@ -992,6 +1042,7 @@ export class ContentService implements OnModuleInit {
       deleteBinaryDiskSync('covers', `${bookId}.bin`);
     }
     this.persistContentToDisk();
+    this.invalidateBooksCache();
     this.logger.log(`🗑️ Successfully deleted book and all assets: ${bookId}`);
     return true;
   }
@@ -1331,27 +1382,37 @@ export class ContentService implements OnModuleInit {
 
         // Method 1: pdftoppm (poppler-utils) - standard on Linux VPS, renders crisp, optimized JPEG (82 quality, 130 DPI, ~100KB)
         const renderStart = Date.now();
+        const pdftoppmArgs = [
+          '-jpeg',
+          '-r',
+          '130',
+          '-jpegopt',
+          'quality=82',
+          '-f',
+          String(safePage),
+          '-l',
+          String(safePage),
+          '-singlefile',
+          pdfPathToUse,
+          outPrefix,
+        ];
         try {
-          await execFileAsync('pdftoppm', [
-            '-jpeg',
-            '-r',
-            '130',
-            '-jpegopt',
-            'quality=82',
-            '-f',
-            String(safePage),
-            '-l',
-            String(safePage),
-            '-singlefile',
-            pdfPathToUse,
-            outPrefix,
-          ]);
+          // Low process priority (nice -n 10) on Linux to keep CPU free for API requests
+          await execFileAsync('nice', ['-n', '10', 'pdftoppm', ...pdftoppmArgs]);
           if (fs.existsSync(targetJpgPath)) {
             rendered = true;
-            this.logger.log(`⏱️ [BASELINE_PDFTOPPM] Book: ${bookId} Page: ${safePage} | RenderTime: ${Date.now() - renderStart}ms`);
+            this.logger.log(`⏱️ [BASELINE_PDFTOPPM] Book: ${bookId} Page: ${safePage} | RenderTime: ${Date.now() - renderStart}ms (nice)`);
           }
         } catch {
-          // pdftoppm not found or failed; fallback below
+          try {
+            await execFileAsync('pdftoppm', pdftoppmArgs);
+            if (fs.existsSync(targetJpgPath)) {
+              rendered = true;
+              this.logger.log(`⏱️ [BASELINE_PDFTOPPM] Book: ${bookId} Page: ${safePage} | RenderTime: ${Date.now() - renderStart}ms`);
+            }
+          } catch {
+            // pdftoppm not found or failed; fallback below
+          }
         }
 
         // Method 2: macOS sips fallback if pdftoppm was unavailable
@@ -2006,6 +2067,7 @@ export class ContentService implements OnModuleInit {
       ...(nextStartPage !== undefined ? { contentStartPdfPage: nextStartPage } : {}),
       updatedAt: new Date().toISOString(),
     };
+    this.invalidateBooksCache();
     this.persistContentToDisk();
     return this.booksStore[idx];
   }
